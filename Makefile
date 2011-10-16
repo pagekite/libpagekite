@@ -6,11 +6,13 @@ CLINK ?= -lm
 
 OBJ = pkproto.o utils.o
 
-tests: tests.o $(OBJ)
-	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ)
+runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
 
-pkite: pagekite.o $(OBJ)
+tests: tests.o $(OBJ)
+	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ)
+
+pagekite: pagekite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
 
 all: tests pagekite

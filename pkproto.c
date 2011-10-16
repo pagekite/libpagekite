@@ -109,6 +109,10 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
       chunk->sid = frame->data + pos + 5;
     else if (0 == strncasecmp(frame->data + pos, "EOF: ", 5))
       chunk->eof = frame->data + pos + 5;
+    else if (0 == strncasecmp(frame->data + pos, "NOOP: ", 6))
+      chunk->noop = frame->data + pos + 6;
+    else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
+      chunk->throttle_spd = frame->data + pos + 5;
     else if (0 == strncasecmp(frame->data + pos, "Host: ", 6))
       chunk->request_host = frame->data + pos + 6;
     else if (0 == strncasecmp(frame->data + pos, "Proto: ", 7))
@@ -177,7 +181,7 @@ int parser_parse(struct pk_parser *parser, int length, char *data)
 
 int pkproto_test_parser(struct pk_parser* p)
 {
-  char* testchunk = "SID: 1\r\nEOF: r\r\n\r\n54321";
+  char* testchunk = "SID: 1\r\neOf: r\r\n\r\n54321";
   char buffer[100];
   int length;
   int bytes_left = p->buffer_bytes_left;

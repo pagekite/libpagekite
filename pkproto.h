@@ -33,6 +33,8 @@ struct pk_frame {
 struct pk_chunk {
   char*           sid;             /* SID:   Stream ID                       */
   char*           eof;             /* EOF:   End of stream (r, w or both)    */
+  char*           noop;            /* NOOP:  Signal to ignore chunk data     */
+  char*           throttle_spd;    /* SPD:   Flow control                    */
   char*           request_host;    /* Host:  Requested host/domain-name      */
   char*           request_proto;   /* Proto: Requested protocol              */
   char*           request_port;    /* Port:  Requested port number (string)  */
