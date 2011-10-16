@@ -16,7 +16,7 @@ pkite: pkite.o $(OBJ)
 all: tests pkite
 
 clean:
-	rm -f pkite *.o
+	rm -f tests pkite *.o
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
