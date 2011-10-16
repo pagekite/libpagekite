@@ -10,13 +10,13 @@ tests: tests.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ)
 	@./tests && echo Tests passed || echo Tests FAILED.
 
-pkite: pkite.o $(OBJ)
-	$(CC) $(CFLAGS) $(CLINK) -o pkite pkite.o $(OBJ)
+pkite: pagekite.o $(OBJ)
+	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
 
-all: tests pkite
+all: tests pagekite
 
 clean:
-	rm -f tests pkite *.o
+	rm -f tests pagekite *.o
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
