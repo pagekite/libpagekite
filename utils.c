@@ -5,19 +5,15 @@
 
 int zero_first_crlf(int length, char* data)
 {
-  int found = 0;
-  while ((length > 0) && !found)
+  for (int i = 0; i < length-1; i++)
   {
-    while (((*data == '\r') || (*data == '\n')) && (length > 0))
+    if ((data[i] == '\r') && (data[i+1] == '\n'))
     {
-      *data++ = '\0';
-      length--;
-      found++;
+      data[i] = data[i+1] = '\0';
+      return i+2;
     }
-    length--;
-    data++;
   }
-  return found;
+  return 0;
 }
 
 
@@ -26,19 +22,17 @@ int zero_first_crlf(int length, char* data)
 
 int utils_test(void)
 {
-  char buffer1[60], buffer2[60];
+  char buffer1[60];
+
+  strcpy(buffer1, "\r\n\r\n");
+  assert(2 == zero_first_crlf(4, buffer1));
+
   strcpy(buffer1, "abcd\r\n\r\ndefghijklmnop");
-  strcpy(buffer2, "abcd\r\n\r\ndefghijklmnop");
+  int length = zero_first_crlf(strlen(buffer1), buffer1);
 
-  int zeros1 = zero_first_crlf(strlen(buffer1), buffer1);
-  int zeros2 = zero_first_crlf(6, buffer2);
-
-  assert(zeros1 == 4);
-  assert(zeros2 == 2);
-  assert((buffer1[4] == '\0') && (buffer1[7] == '\0'));
-  assert((buffer2[4] == '\0') && (buffer2[6] == '\r'));
+  assert(length == 6);
+  assert((buffer1[4] == '\0') && (buffer1[5] == '\0') && (buffer1[6] == '\r'));
   assert(strcmp(buffer1, "abcd") == 0);
-  assert(strcmp(buffer2, "abcd") == 0);
 
   return 1;
 }

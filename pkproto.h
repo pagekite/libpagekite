@@ -1,7 +1,11 @@
+#define PARSE_BAD_FRAME -10000
+#define PARSE_BAD_CHUNK -10001
+
 /* Data structure describing a frame */
 struct pk_frame {
   int   length;                /* Length of data                    */
   char* data;                  /* Pointer to beginning of data      */
+  int   hdr_length;            /* Length of header (including nuls) */
   int   raw_length;            /* Length of raw data                */
   char* raw_frame;             /* Raw data (including frame header  */
 };
@@ -9,6 +13,7 @@ struct pk_frame {
 /* Data structure describing a parsed chunk */
 struct pk_chunk {
   char*           sid;             /* SID:   Stream ID                       */
+  char*           eof;             /* EOF:   End of stream (r, w or both)    */
   char*           request_host;    /* Host:  Requested host/domain-name      */
   char*           request_proto;   /* Proto: Requested protocol              */
   char*           request_port;    /* Port:  Requested port number (string)  */

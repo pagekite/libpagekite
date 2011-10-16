@@ -2,14 +2,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "pkproto.h"
 #include "utils.h"
 
 void frame_reset_values(struct pk_frame* frame)
 {
-  frame->length = -1;
   frame->data = NULL;
+  frame->length = -1;
+  frame->hdr_length = -1;
   frame->raw_length = 0;
 }
 
@@ -64,33 +66,126 @@ void parser_reset(struct pk_parser *parser)
   chunk_reset_values(parser->chunk);
 }
 
-int parser_parse(struct pk_parser *parser, int length, char *data)
+int parse_frame_header(struct pk_frame* frame)
+{
+  int hdr_len;
+  /* FIXME: Handle ZChunks */
+  /* Try to convert first CRLF to \0, to mark the end of the frame header */
+  if (0 < (hdr_len = zero_first_crlf(frame->raw_length, frame->raw_frame)))
+  {
+    frame->hdr_length = hdr_len;
+    frame->data = frame->raw_frame + hdr_len;
+    if (1 != sscanf(frame->raw_frame, "%x", (unsigned int*) &(frame->length)))
+      return PARSE_BAD_FRAME;
+  }
+  return 0;
+}
+
+int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
+{
+  int len, pos = 0;
+  while (2 < (len = zero_first_crlf(frame->length - pos, frame->data + pos)))
+  {
+    if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
+      chunk->sid = frame->data + pos + 5;
+    else if (0 == strncasecmp(frame->data + pos, "EOF: ", 5))
+      chunk->eof = frame->data + pos + 5;
+    else if (0 == strncasecmp(frame->data + pos, "Host: ", 6))
+      chunk->request_host = frame->data + pos + 6;
+    else if (0 == strncasecmp(frame->data + pos, "Proto: ", 7))
+      chunk->request_proto = frame->data + pos + 7;
+    else if (0 == strncasecmp(frame->data + pos, "Port: ", 6))
+      chunk->request_port = frame->data + pos + 6;
+    else if (0 == strncasecmp(frame->data + pos, "RIP: ", 5))
+      chunk->remote_ip = frame->data + pos + 5;
+    else if (0 == strncasecmp(frame->data + pos, "RPort: ", 7))
+      chunk->remote_port = frame->data + pos + 7;
+
+    pos += len;
+  }
+  if (2 == len) {
+    pos += len;
+    chunk->length = frame->length - pos;
+    chunk->data = frame->data + pos;
+    return pos;
+  }
+  else return PARSE_BAD_CHUNK;
+}
+
+int parser_parse_new_data(struct pk_parser *parser, int length)
 {
   struct pk_chunk *chunk = parser->chunk;
   struct pk_frame *frame = &(parser->chunk->frame);
-  int zeros;
 
-  if (length > parser->buffer_bytes_left) length = parser->buffer_bytes_left;
+  /* No data, nothing to do. */
+  if (length <= 0) return length;
 
-  /* Append to buffer */
-  memcpy(frame->raw_frame + frame->raw_length, data, length);
+  /* Update counters. */
   frame->raw_length += length;
   parser->buffer_bytes_left -= length;
 
-  /* Do we have a length? */
-  if ((frame->length < 0) && (frame->raw_length > 2))
+  /* If we don't have enough data for useful work, finish here. */
+  if (frame->raw_length < 3) return length;
+
+  /* Do we have still need to parse the frame header? */
+  if (frame->length < 0) {
+    if (PARSE_BAD_FRAME == parse_frame_header(frame)) return PARSE_BAD_FRAME;
+  }
+  if (frame->length < 0) return length;
+
+  /* If we have a length, do we have all the data? */
+  if (frame->length + frame->hdr_length <= frame->raw_length)
   {
-    /* Convert first CR/LF sequence to \0, to mark the end of the string */
-    if (zeros = zero_first_crlf(frame->raw_length, frame->raw_frame))
-    {
-    }
+    if (PARSE_BAD_CHUNK == parse_chunk_header(frame, chunk))
+      return PARSE_BAD_CHUNK;
+
+    printf("Chunk is complete, we should call the callback\n");
   }
 
   return length;
 }
 
+int parser_parse(struct pk_parser *parser, int length, char *data)
+{
+  struct pk_frame *frame = &(parser->chunk->frame);
+  if (length > parser->buffer_bytes_left) length = parser->buffer_bytes_left;
+  memcpy(frame->raw_frame + frame->raw_length, data, length);
+  return parser_parse_new_data(parser, length);
+}
+
 
 /**[ TESTS ]******************************************************************/
+
+int pkproto_test_parser(struct pk_parser* p)
+{
+  char* testchunk = "SID: 1\r\nEOF: r\r\n\r\n54321";
+  char buffer[100];
+  int length;
+  int bytes_left = p->buffer_bytes_left;
+
+  assert(parser_parse(p, 8, "z\r\n12345") == PARSE_BAD_FRAME); parser_reset(p);
+  assert(parser_parse(p, 8, "5\r\n54321") == PARSE_BAD_CHUNK); parser_reset(p);
+
+  length = strlen(testchunk);
+  length += sprintf(buffer, "%x\r\n", length);
+  strcat(buffer, testchunk);
+
+  assert(parser_parse(p, length, buffer) == length);
+
+  assert(p->buffer_bytes_left == bytes_left - length);
+  assert(p->chunk->frame.raw_length == length);
+  assert(p->chunk->frame.length == (int) strlen(testchunk));
+  assert(p->chunk->frame.data != NULL);
+  assert(p->chunk->length == 5);
+  assert(p->chunk->data != NULL);
+
+  assert(strncmp(p->chunk->frame.data, "SID", 3) == 0);
+  assert(strncmp(p->chunk->sid, "1", 1) == 0);
+  assert(strncmp(p->chunk->eof, "r", 1) == 0);
+  assert(strncmp(p->chunk->data, "54321", 5) == 0);
+
+  return 1;
+}
 
 int pkproto_test_alloc(unsigned int buf_len, char *buffer, struct pk_parser* p)
 {
@@ -112,21 +207,6 @@ int pkproto_test_alloc(unsigned int buf_len, char *buffer, struct pk_parser* p)
     printf(" Space left %2d/%d\n", p->buffer_bytes_left, buf_len);
     return 0;
   }
-  return 1;
-}
-
-int pkproto_test_parser(struct pk_parser* p)
-{
-  int bytes_left = p->buffer_bytes_left;
-
-  parser_parse(p, 5, "12345");
-  parser_reset(p);
-  parser_parse(p, 5, "54321");
-
-  assert(strncmp(p->chunk->frame.raw_frame, "54321", 5) == 0);
-  assert(p->buffer_bytes_left == bytes_left-5);
-  assert(p->chunk->frame.raw_length == 5);
-
   return 1;
 }
 
