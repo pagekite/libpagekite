@@ -4,10 +4,16 @@ OPT ?= -O3
 CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
 CLINK ?= -lm
 
-OBJ = pkite.o pkproto.o
+OBJ = pkproto.o utils.o
 
-pkite: $(OBJ)
-	$(CC) $(CFLAGS) $(CLINK) -o pkite $(OBJ)
+tests: tests.o $(OBJ)
+	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ)
+	@./tests && echo Tests passed || echo Tests FAILED.
+
+pkite: pkite.o $(OBJ)
+	$(CC) $(CFLAGS) $(CLINK) -o pkite pkite.o $(OBJ)
+
+all: tests pkite
 
 clean:
 	rm -f pkite *.o
@@ -15,3 +21,5 @@ clean:
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
+pkproto.o: pkproto.h
+utils.o: utils.h
