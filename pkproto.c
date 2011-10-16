@@ -1,6 +1,8 @@
-#include <stdlib.h>
+#include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
 #include "pkproto.h"
 #include "utils.h"
 
@@ -120,15 +122,10 @@ int pkproto_test_parser(struct pk_parser* p)
   parser_parse(p, 5, "12345");
   parser_reset(p);
   parser_parse(p, 5, "54321");
-  if (strncmp(p->chunk->frame.raw_frame, "54321", 5) ||
-      (p->buffer_bytes_left != bytes_left-5) ||
-      (p->chunk->frame.raw_length != 5))
-  {
-    printf("Invalid data in frame.");
-    return 0;
-  }
 
-
+  assert(strncmp(p->chunk->frame.raw_frame, "54321", 5) == 0);
+  assert(p->buffer_bytes_left == bytes_left-5);
+  assert(p->chunk->frame.raw_length == 5);
 
   return 1;
 }
