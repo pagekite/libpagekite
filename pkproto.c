@@ -43,11 +43,15 @@ void frame_reset(struct pk_frame* frame)
 void chunk_reset_values(struct pk_chunk* chunk)
 {
   chunk->sid = NULL;
+  chunk->eof = NULL;
+  chunk->noop = NULL;
+  chunk->ping = NULL;
   chunk->request_host = NULL;
   chunk->request_proto = NULL;
-  chunk->request_port = NULL;
+  chunk->request_port = -1;
   chunk->remote_ip = NULL;
-  chunk->remote_port = NULL;
+  chunk->remote_port = -1;
+  chunk->throttle_spd = -1;
   chunk->length = -1;
   chunk->data = NULL;
 }
@@ -107,22 +111,24 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
   {
     if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
       chunk->sid = frame->data + pos + 5;
-    else if (0 == strncasecmp(frame->data + pos, "EOF: ", 5))
-      chunk->eof = frame->data + pos + 5;
     else if (0 == strncasecmp(frame->data + pos, "NOOP: ", 6))
       chunk->noop = frame->data + pos + 6;
-    else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
-      chunk->throttle_spd = frame->data + pos + 5;
     else if (0 == strncasecmp(frame->data + pos, "Host: ", 6))
       chunk->request_host = frame->data + pos + 6;
     else if (0 == strncasecmp(frame->data + pos, "Proto: ", 7))
       chunk->request_proto = frame->data + pos + 7;
     else if (0 == strncasecmp(frame->data + pos, "Port: ", 6))
-      chunk->request_port = frame->data + pos + 6;
+      sscanf(frame->data + pos + 6, "%d", &(chunk->request_port));
     else if (0 == strncasecmp(frame->data + pos, "RIP: ", 5))
       chunk->remote_ip = frame->data + pos + 5;
     else if (0 == strncasecmp(frame->data + pos, "RPort: ", 7))
-      chunk->remote_port = frame->data + pos + 7;
+      sscanf(frame->data + pos + 7, "%d", &(chunk->remote_port));
+    else if (0 == strncasecmp(frame->data + pos, "EOF: ", 5))
+      chunk->eof = frame->data + pos + 5;
+    else if (0 == strncasecmp(frame->data + pos, "PING: ", 6))
+      chunk->ping = frame->data + pos + 6;
+    else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
+      sscanf(frame->data + pos + 5, "%d", &(chunk->throttle_spd));
 
     pos += len;
   }
