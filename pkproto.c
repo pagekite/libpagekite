@@ -62,7 +62,8 @@ void chunk_reset(struct pk_chunk* chunk)
   frame_reset(&(chunk->frame));
 }
 
-struct pk_parser* parser_create(int buf_length, char* buf, void* chunk_cb)
+struct pk_parser* parser_create(int buf_length, char* buf,
+                                pkChunkCallback* chunk_cb, void* chunk_cb_data)
 {
   int parser_size;
   struct pk_parser* parser;
@@ -77,6 +78,7 @@ struct pk_parser* parser_create(int buf_length, char* buf, void* chunk_cb)
   parser->chunk->frame.raw_frame = (char *) (buf + parser_size);
 
   parser->chunk_callback = chunk_cb;
+  parser->chunk_callback_data = chunk_cb_data;
   parser->buffer_bytes_left = buf_length - parser_size;
 
   return(parser);
@@ -168,7 +170,8 @@ int parser_parse_new_data(struct pk_parser *parser, int length)
     if (PARSE_BAD_CHUNK == parse_chunk_header(frame, chunk))
       return PARSE_BAD_CHUNK;
 
-    printf("Chunk is complete, we should call the callback\n");
+    if (parser->chunk_callback != (pkChunkCallback *) NULL)   
+      parser->chunk_callback(parser->chunk_callback_data, parser->chunk);
   }
 
   return length;
@@ -242,7 +245,7 @@ int pkproto_test_alloc(unsigned int buf_len, char *buffer, struct pk_parser* p)
 int pkproto_test(void)
 {
   char buffer[64000];
-  struct pk_parser* p = parser_create(64000, buffer, NULL);
+  struct pk_parser* p = parser_create(64000, buffer, (pkChunkCallback*) NULL, NULL);
   return (pkproto_test_alloc(64000, buffer, p) &&
           pkproto_test_parser(p));
 }

@@ -46,14 +46,19 @@ struct pk_chunk {
   struct pk_frame frame;           /* The raw data.                          */
 };
 
+/* Callback for when a chunk is ready. */
+typedef void(pkChunkCallback)(void *, struct pk_chunk *);
+
 /* Parser object. */
 struct pk_parser {
   int              buffer_bytes_left;
   struct pk_chunk* chunk;
-  void*            chunk_callback; /* FIXME: This should be a function type. */
+  pkChunkCallback* chunk_callback;
+  void*            chunk_callback_data;
 };
 
-struct pk_parser* parser_create (int, char*, void*);
+struct pk_parser* parser_create (int, char*,
+                                 pkChunkCallback*, void *);
 int               parser_parse  (struct pk_parser*, int, char*);
 
 int               pkproto_test  (void);
