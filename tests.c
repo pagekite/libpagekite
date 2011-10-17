@@ -1,5 +1,5 @@
 /******************************************************************************
-pkproto.c - Unit tests for pagekite.
+tests.c - Unit tests for pagekite.
 
 This file is Copyright 2011, The Beanstalks Project ehf.
 
