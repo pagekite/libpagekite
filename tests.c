@@ -18,13 +18,16 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
 #include <assert.h>
+#include <time.h>
 
-#include "pkproto.h"
 #include "utils.h"
+#include "pkproto.h"
+#include "pkmanager.h"
 
 int main(void) {
   assert(utils_test() &&
-         pkproto_test());
+         pkproto_test() &&
+         pkmanager_test());
   return 0;
 }
 

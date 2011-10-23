@@ -17,6 +17,14 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
+
+/* This magic number is a high estimate of how much overhead we expect the
+ * PageKite frame and chunk headers to add to each sent packet.
+ *
+ * 12345Z1234\r\nSID: 123456789\r\n\r\n = 30 bytes, so double that.
+ */
+#define PROTO_OVERHEAD_PER_KB  64
+
 #define PARSE_BAD_FRAME -10000
 #define PARSE_BAD_CHUNK -10001
 
@@ -57,9 +65,9 @@ struct pk_parser {
   void*            chunk_callback_data;
 };
 
-struct pk_parser* parser_create (int, char*,
-                                 pkChunkCallback*, void *);
-int               parser_parse  (struct pk_parser*, int, char*);
+struct pk_parser* pk_parser_init (int, char*,
+                                  pkChunkCallback*, void *);
+int               pk_parser_parse(struct pk_parser*, int, char*);
 
 int               pkproto_test  (void);
 

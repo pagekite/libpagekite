@@ -4,7 +4,7 @@ OPT ?= -O3
 CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
 CLINK ?= -lm
 
-OBJ = pkproto.o utils.o
+OBJ = pkproto.o pkmanager.o utils.o
 
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
@@ -23,5 +23,6 @@ clean:
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
-pkproto.o: pkproto.h
+pkmanager.o: pkmanager.h pkproto.h utils.h
+pkproto.o: pkproto.h utils.h
 utils.o: utils.h

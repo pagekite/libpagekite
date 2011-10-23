@@ -1,6 +1,10 @@
 /******************************************************************************
 pagekite.c - A high-performance PageKite implementation in C.
 
+Usage: pagekite PORT PROTO NAME.pagekite.me SECRET
+
+*******************************************************************************
+
 This file is Copyright 2011, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
@@ -19,15 +23,27 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 ******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
+#include <ev.h>
+
 #include "pkproto.h"
+#include "pkmanager.h"
+
+void usage(void) {
+  printf("Usage: pagekite PORT PROTO NAME.pagekite.me SECRET");
+  exit(1);
+}
 
 int main(int argc, char **argv) {
-  struct s_parser *p;
-  char buffer[64*1024];
+  struct ev_loop *loop = EV_DEFAULT;
+  int port;
 
-  p = parser_create(sizeof(buffer), buffer, NULL);
+  if ((argc != 4) || (1 != sscanf(argv[1], "%d", &port))) usage();
 
-  printf("Hello world: %d\n", (int) p);
-  return(1);
+  m = pk_manager_init(loop, 128*1024);
+  pk_manage_kite(m, port, argv[2], argv[3], argv[4]);
+
+  ev_run(loop, 0);
+
+  return 0;
 }
 

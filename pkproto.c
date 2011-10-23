@@ -62,8 +62,8 @@ void chunk_reset(struct pk_chunk* chunk)
   frame_reset(&(chunk->frame));
 }
 
-struct pk_parser* parser_create(int buf_length, char* buf,
-                                pkChunkCallback* chunk_cb, void* chunk_cb_data)
+struct pk_parser* pk_parser_init(int buf_length, char* buf,
+                                 pkChunkCallback* chunk_cb, void* chunk_cb_data)
 {
   int parser_size;
   struct pk_parser* parser;
@@ -84,7 +84,7 @@ struct pk_parser* parser_create(int buf_length, char* buf,
   return(parser);
 }
 
-void parser_reset(struct pk_parser *parser)
+void pk_parser_reset(struct pk_parser *parser)
 {
   parser->buffer_bytes_left += parser->chunk->frame.raw_length;
   frame_reset_values(&(parser->chunk->frame));
@@ -143,7 +143,7 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
   else return PARSE_BAD_CHUNK;
 }
 
-int parser_parse_new_data(struct pk_parser *parser, int length)
+int pk_parser_parse_new_data(struct pk_parser *parser, int length)
 {
   struct pk_chunk *chunk = parser->chunk;
   struct pk_frame *frame = &(parser->chunk->frame);
@@ -177,12 +177,12 @@ int parser_parse_new_data(struct pk_parser *parser, int length)
   return length;
 }
 
-int parser_parse(struct pk_parser *parser, int length, char *data)
+int pk_parser_parse(struct pk_parser *parser, int length, char *data)
 {
   struct pk_frame *frame = &(parser->chunk->frame);
   if (length > parser->buffer_bytes_left) length = parser->buffer_bytes_left;
   memcpy(frame->raw_frame + frame->raw_length, data, length);
-  return parser_parse_new_data(parser, length);
+  return pk_parser_parse_new_data(parser, length);
 }
 
 
@@ -195,14 +195,17 @@ int pkproto_test_parser(struct pk_parser* p)
   int length;
   int bytes_left = p->buffer_bytes_left;
 
-  assert(parser_parse(p, 8, "z\r\n12345") == PARSE_BAD_FRAME); parser_reset(p);
-  assert(parser_parse(p, 8, "5\r\n54321") == PARSE_BAD_CHUNK); parser_reset(p);
+  assert(pk_parser_parse(p, 8, "z\r\n12345") == PARSE_BAD_FRAME);
+  pk_parser_reset(p);
+
+  assert(pk_parser_parse(p, 8, "5\r\n54321") == PARSE_BAD_CHUNK);
+  pk_parser_reset(p);
 
   length = strlen(testchunk);
   length += sprintf(buffer, "%x\r\n", length);
   strcat(buffer, testchunk);
 
-  assert(parser_parse(p, length, buffer) == length);
+  assert(pk_parser_parse(p, length, buffer) == length);
 
   assert(p->buffer_bytes_left == bytes_left - length);
   assert(p->chunk->frame.raw_length == length);
@@ -245,7 +248,8 @@ int pkproto_test_alloc(unsigned int buf_len, char *buffer, struct pk_parser* p)
 int pkproto_test(void)
 {
   char buffer[64000];
-  struct pk_parser* p = parser_create(64000, buffer, (pkChunkCallback*) NULL, NULL);
+  struct pk_parser* p = pk_parser_init(64000, buffer,
+                                       (pkChunkCallback*) NULL, NULL);
   return (pkproto_test_alloc(64000, buffer, p) &&
           pkproto_test_parser(p));
 }
