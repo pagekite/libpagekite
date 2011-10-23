@@ -9,13 +9,13 @@ OBJ = pkproto.o pkmanager.o utils.o
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
 
+all: runtests pagekite
+
 tests: tests.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ)
 
 pagekite: pagekite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
-
-all: tests pagekite
 
 clean:
 	rm -f tests pagekite *.o
