@@ -14,6 +14,9 @@ all: runtests pagekite
 tests: tests.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ)
 
+httpkite: httpkite.o $(OBJ)
+	$(CC) $(CFLAGS) $(CLINK) -o httpkite httpkite.o $(OBJ)
+
 pagekite: pagekite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
 
