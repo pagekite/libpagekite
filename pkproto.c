@@ -170,7 +170,7 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
     if (PARSE_BAD_CHUNK == parse_chunk_header(frame, chunk))
       return PARSE_BAD_CHUNK;
 
-    if (parser->chunk_callback != (pkChunkCallback *) NULL)   
+    if (parser->chunk_callback != (pkChunkCallback *) NULL)
       parser->chunk_callback(parser->chunk_callback_data, parser->chunk);
   }
 
@@ -185,8 +185,92 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
   return pk_parser_parse_new_data(parser, length);
 }
 
+int pk_format_frame(char* buf, struct pk_chunk* chunk, char *headers, int bytes)
+{
+  int hlen;
+  char *sid = chunk->sid;
+
+  if (!sid) sid = "";
+  hlen = strlen(sid) + strlen(headers) - 2;
+  hlen = sprintf(buf, "%x\r\n", hlen + bytes);
+  return hlen + sprintf(buf + hlen, headers, sid);
+}
+
+int pk_format_reply(char* buf, struct pk_chunk* chunk, int bytes, char* input)
+{
+  int hlen = pk_format_frame(buf, chunk, "SID: %s\r\n\r\n", bytes);
+  memcpy(buf + hlen, input, bytes);
+  return hlen + bytes;
+}
+
+int pk_format_eof(char* buf, struct pk_chunk* chunk)
+{
+  return pk_format_frame(buf, chunk, "SID: %s\r\nEOF: RW\r\nNOOP: 1\r\n\r\n", 0);
+}
+
+int pk_format_pong(char* buf, struct pk_chunk* chunk)
+{
+  return pk_format_frame(buf, chunk, "NOOP: 1%s\r\n\r\n", 0);
+}
+
 
 /**[ TESTS ]******************************************************************/
+
+int pkproto_test_format_frame(void)
+{
+  char dest[1024];
+  char* expect = "e\r\nSID: 12345\r\n\r\n";
+  int bytes;
+  struct pk_chunk chunk;
+
+  chunk.sid = "12345";
+  bytes = strlen(expect);
+  assert(bytes == pk_format_frame(dest, &chunk, "SID: %s\r\n\r\n", 0));
+  assert(0 == strncmp(expect, dest, bytes));
+  return 1;
+}
+
+int pkproto_test_format_reply(void)
+{
+  char dest[1024];
+  char* expect = "19\r\nSID: 12345\r\n\r\nHello World";
+  int bytes;
+  struct pk_chunk chunk;
+
+  chunk.sid = "12345";
+  bytes = strlen(expect);
+  assert(bytes == pk_format_reply(dest, &chunk, 11, "Hello World"));
+  assert(0 == strncmp(expect, dest, bytes));
+  return 1;
+}
+
+int pkproto_test_format_eof(void)
+{
+  char dest[1024];
+  char* expect = "20\r\nSID: 12345\r\nEOF: RW\r\nNOOP: 1\r\n\r\n";
+  int bytes;
+  struct pk_chunk chunk;
+
+  chunk.sid = "12345";
+  bytes = strlen(expect);
+  assert(bytes == pk_format_eof(dest, &chunk));
+  assert(0 == strncmp(expect, dest, bytes));
+  return 1;
+}
+
+int pkproto_test_format_pong(void)
+{
+  char dest[1024];
+  char* expect = "b\r\nNOOP: 1\r\n\r\n";
+  int bytes;
+  struct pk_chunk chunk;
+
+  chunk.sid = NULL;
+  bytes = strlen(expect);
+  assert(bytes == pk_format_pong(dest, &chunk));
+  assert(0 == strncmp(expect, dest, bytes));
+  return 1;
+}
 
 int pkproto_test_parser(struct pk_parser* p)
 {
@@ -250,7 +334,11 @@ int pkproto_test(void)
   char buffer[64000];
   struct pk_parser* p = pk_parser_init(64000, buffer,
                                        (pkChunkCallback*) NULL, NULL);
-  return (pkproto_test_alloc(64000, buffer, p) &&
+  return (pkproto_test_format_frame() &&
+          pkproto_test_format_reply() &&
+          pkproto_test_format_eof() &&
+          pkproto_test_format_pong() &&
+          pkproto_test_alloc(64000, buffer, p) &&
           pkproto_test_parser(p));
 }
 
