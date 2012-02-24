@@ -140,6 +140,47 @@ int pkproto_test_alloc(unsigned int buf_len, char *buffer, struct pk_parser* p)
   return 1;
 }
 
+int pkproto_test_make_bsalt(void) {
+  struct pk_kite_request kite;
+  kite.bsalt = NULL;
+  pk_make_bsalt(&kite);
+  assert(strlen(kite.bsalt) == 36);
+  return 1;
+}
+
+int pkproto_test_sign_kite_request(void) {
+  struct pk_kite_request kite;
+  int bytes;
+  char* expected = "X-PageKite: http-99:testkite.com:123456789012345678901234567890123456::0000000166483a7e7d92338f838f6e166509\r\n";
+  char buffer[120];
+
+  kite.kitename = "testkite.com";
+  kite.secret = "wigglybop";
+  kite.port = 99;
+  kite.proto = "http";
+  kite.bsalt = "123456789012345678901234567890123456";
+  kite.fsalt = NULL;
+
+  bytes = pk_sign_kite_request(buffer, &kite, 1);
+  assert(bytes == strlen(expected));
+  assert(0 == strcmp(buffer, expected));
+
+  return 1;
+}
+
+int pkproto_test_parse_kite_request(void) {
+  struct pk_kite_request kite;
+
+  pk_parse_kite_request(&kite, "foo: http-99:b.com:abacab:");
+  assert(99 == kite.port);
+  assert(0 == strcmp(kite.kitename, "b.com"));
+  assert(0 == strcmp(kite.proto, "http"));
+  assert(0 == strcmp(kite.bsalt, "abacab"));
+  assert(0 == strcmp(kite.fsalt, ""));
+
+  return 1;
+}
+
 int pkproto_test(void)
 {
   char buffer[64000];
@@ -150,6 +191,9 @@ int pkproto_test(void)
           pkproto_test_format_eof() &&
           pkproto_test_format_pong() &&
           pkproto_test_alloc(64000, buffer, p) &&
-          pkproto_test_parser(p));
+          pkproto_test_parser(p) &&
+          pkproto_test_make_bsalt() &&
+          pkproto_test_sign_kite_request() &&
+          pkproto_test_parse_kite_request());
 }
 

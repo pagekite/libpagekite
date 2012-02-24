@@ -1,6 +1,7 @@
 #!/usr/bin/colormake
 
-OPT ?= -O3
+#OPT ?= -O3
+OPT ?= -g
 CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
 CLINK ?= -lm
 

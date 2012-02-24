@@ -58,18 +58,22 @@ int main(int argc, char **argv) {
   int fd;
   char pbuffer[64000], rbuffer[8192];
   struct pk_parser* pkp;
-  struct pk_kite_request kites[1];
+  struct pk_kite_request kite;
+  struct pk_kite_request* kitep;
 
-  if (argc < 3) usage();
+  if (argc < 4) usage();
 
-  kites[0].kitename = argv[2];
-  kites[0].secret = argv[3];
-  kites[0].port = 0;
-  kites[0].proto = "http";
-  kites[0].bsalt = NULL;
-  kites[0].fsalt = NULL;
+  kite.kitename = argv[2];
+  kite.secret = argv[3];
+  kite.proto = "http";
+  kite.port = 0;
 
-  fd = pk_connect(argv[1], 443, 1, (struct pk_kite_request **) &kites);
+  kite.bsalt = NULL;
+  kite.fsalt = NULL;
+  kitep = &kite;
+
+  srand(time(0) ^ getpid());
+  fd = pk_connect(argv[1], 443, 1, &kitep);
   if (fd < 0) {
     perror(argv[1]);
     return 1;

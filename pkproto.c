@@ -26,10 +26,13 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <strings.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
-#include "pkproto.h"
+#include "types.h"
+#include "sha1.h"
 #include "utils.h"
+#include "pkproto.h"
 
 void frame_reset_values(struct pk_frame* frame)
 {
@@ -224,14 +227,112 @@ int pk_format_pong(char* buf, struct pk_chunk* chunk)
 
 /**[ Connecting ]**************************************************************/
 
-int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite) {
-  return sprintf(buffer, PK_HANDSHAKE_KITE, "FIXME");
+int pk_make_bsalt(struct pk_kite_request* kite) {
+  uint8_t buffer[1024];
+  SHA1_CTX context;
+
+  if (kite->bsalt == NULL) kite->bsalt = malloc(41);
+  if (kite->bsalt == NULL) {
+    fprintf(stderr, "WARNING: Failed to malloc() for bsalt");
+    return -1;
+  }
+
+  /* FIXME: This is not very random. */
+  sprintf((char*) buffer, "%x %x %x %x",
+                          rand(), getpid(), getppid(), (int) time(0));
+
+  SHA1_Init(&context);
+  SHA1_Update(&context, buffer, strlen((const char*) buffer));
+  SHA1_Final(&context, buffer);
+  digest_to_hex(buffer, kite->bsalt);
+  kite->bsalt[36] = '\0';
+
+  return 1;
+}
+
+int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite, int salt) {
+  char request[1024];
+  char request_s[1024];
+  char request_salted_s[1024];
+  char proto[64];
+  char* fsalt;
+  SHA1_CTX context;
+  uint8_t signature[64];
+
+  if (kite->bsalt == NULL)
+    if (pk_make_bsalt(kite) < 0)
+      return 0;
+
+  if (kite->port > 0)
+    sprintf(proto, "%s-%d", kite->proto, kite->port);
+  else
+    strcpy(proto, kite->proto);
+
+  if (kite->fsalt != NULL)
+    fsalt = kite->fsalt;
+  else
+    fsalt = "";
+
+  sprintf(request, "%s:%s:%s:%s", proto, kite->kitename, kite->bsalt, fsalt);
+  sprintf(request_salted_s, "%8.8x", salt);
+  sprintf(request_s, "%s%s%s", kite->secret, request, request_salted_s);
+
+  SHA1_Init(&context);
+  SHA1_Update(&context, (uint8_t*) request_s, strlen(request_s));
+  SHA1_Final(&context, signature);
+  digest_to_hex(signature, request_salted_s+8);
+  request_salted_s[36] = '\0';
+
+  strcat(request, ":");
+  strcat(request, request_salted_s);
+
+  return sprintf(buffer, PK_HANDSHAKE_KITE, request);
+}
+
+int dbg_write(int sockfd, char *buffer, int bytes)
+{
+  printf(">> %s", buffer);
+  return write(sockfd, buffer, bytes);
+}
+
+char *pk_parse_kite_request(struct pk_kite_request* kite, const char *line)
+{
+  char* copy;
+  char* p;
+
+  copy = malloc(strlen(line)+1);
+  strcpy(copy, line);
+
+  kite->proto = strchr(copy, ' ');
+  if (kite->proto == NULL)
+    kite->proto = copy;
+  else
+    kite->proto++;
+
+  if (NULL == (kite->kitename = strchr(kite->proto, ':'))) return NULL;
+  if (NULL == (kite->bsalt = strchr(kite->kitename+1, ':'))) return NULL;
+  if (NULL == (kite->fsalt = strchr(kite->bsalt+1, ':'))) return NULL;
+
+  *(kite->kitename++) = '\0';
+  *(kite->bsalt++) = '\0';
+  *(kite->fsalt++) = '\0';
+
+  if (NULL != (p = strchr(kite->proto, '-'))) {
+    *p++ = '\0';
+    sscanf(p, "%d", &(kite->port));
+  }
+  else
+    kite->port = 0;
+
+  return copy;
 }
 
 int pk_connect(char *frontend, int port, int n, struct pk_kite_request** kites)
 {
-  int sockfd, i;
-  char sending[1024]; /* FIXME */
+  int sockfd, i, bytes;
+  char buffer[16*1024];
+  char* p;
+  struct pk_kite_request tkite;
   struct sockaddr_in serv_addr;
   struct hostent *server;
 
@@ -253,24 +354,46 @@ int pk_connect(char *frontend, int port, int n, struct pk_kite_request** kites)
     return -1;
   }
 
-  if (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) {
+  if (0 > dbg_write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) {
     close(sockfd);
     return -1;
   }
 
   for (i = 0; i < n; i++) {
-    if (0 > write(sockfd, sending, pk_sign_kite_request(sending, kites[i]))) {
+    bytes = pk_sign_kite_request(buffer, kites[i], rand());
+    if ((0 >= bytes) || (0 > dbg_write(sockfd, buffer, bytes))) {
       close(sockfd);
       return -1;
     }
   }
 
-  if (0 > write(sockfd, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END))) {
+  if (0 > dbg_write(sockfd, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END))) {
     close(sockfd);
     return -1;
   }
 
-  /* FIXME: Parse response */
+  /* Gather response from server */
+  for (i = 0; i < sizeof(buffer)-1; i++) {
+    bytes = read(sockfd, buffer+i, 1);
+    if (bytes < 1) break;
+    if (i > 4)
+      if (0 == strcmp(buffer+i-4, "\r\n\r\n")) break;
+  }
+  buffer[bytes = i] = '\0';
+
+  /* First, if we're rejected, parse out why and bail. */
+
+  /* Second, if we need to reconnect with a signature, gather up all the fsalt
+   * values and then retry. */
+  p = buffer;
+  while ((p = strcasestr(p, "x-pagekite-signthis")) != NULL) {
+    bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
+    pk_parse_kite_request(&tkite, p);
+    printf("Sign request for: %s (fsalt=%s)\n", tkite.kitename, tkite.fsalt);
+    p += bytes;
+  }
+
+  /* If we get this far, then check if the connection is valid... */
 
   return sockfd;
 }
