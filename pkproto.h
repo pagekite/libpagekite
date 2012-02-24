@@ -72,6 +72,5 @@ int               pk_parser_parse(struct pk_parser*, int, char*);
 int               pk_format_frame(char*, struct pk_chunk*, char *, int);
 int               pk_format_reply(char*, struct pk_chunk*, int, char*);
 int               pk_format_eof(char*, struct pk_chunk*);
-
-int               pkproto_test  (void);
+int               pk_format_pong(char*, struct pk_chunk*);
 

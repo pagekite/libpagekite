@@ -4,6 +4,7 @@ OPT ?= -O3
 CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
 CLINK ?= -lm
 
+TOBJ = pkproto_test.o
 OBJ = pkproto.o pkmanager.o utils.o
 
 runtests: tests
@@ -11,8 +12,8 @@ runtests: tests
 
 all: runtests pagekite
 
-tests: tests.o $(OBJ)
-	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ)
+tests: tests.o $(OBJ) $(TOBJ)
+	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ) $(TOBJ)
 
 httpkite: httpkite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o httpkite httpkite.o $(OBJ)

@@ -24,6 +24,8 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pkproto.h"
 #include "pkmanager.h"
 
+#include "pkproto_test.h"
+
 int main(void) {
   assert(utils_test() &&
          pkproto_test() &&
