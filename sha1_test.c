@@ -90,9 +90,9 @@ static char *test_data[] = {
     "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
     "A million repetitions of 'a'"};
 static char *test_results[] = {
-    "A9993E36 4706816A BA3E2571 7850C26C 9CD0D89D",
-    "84983E44 1C3BD26E BAAE4AA1 F95129E5 E54670F1",
-    "34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F"};
+    "a9993e364706816aba3e25717850c26c9cd0d89d",
+    "84983e441c3bd26ebaae4aa1f95129e5e54670f1",
+    "34aa973cd4c4daa4f61eeb2bdbad27316534016f"};
 
 
 int sha1_test()

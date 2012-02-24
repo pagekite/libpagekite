@@ -310,13 +310,11 @@ void digest_to_hex(const uint8_t digest[SHA1_DIGEST_SIZE], char *output)
 
     for (i = 0; i < SHA1_DIGEST_SIZE/4; i++) {
         for (j = 0; j < 4; j++) {
-            sprintf(c,"%02X", digest[i*4+j]);
+            sprintf(c,"%02x", digest[i*4+j]);
             c += 2;
         }
-        sprintf(c, " ");
-        c += 1;
     }
-    *(c - 1) = '\0';
+    *c = '\0';
 }
 
 
