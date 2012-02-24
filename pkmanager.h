@@ -75,8 +75,8 @@ struct pk_manager {
 };
 
 struct pk_manager* pk_manager_init(int, char*, int, int, int);
-int              pk_add_kite(struct pk_manager*, char*, char*, char*, int, int);
-int              pk_add_frontend(struct pk_manager*, char*, int, int);
+int                pk_add_kite(struct pk_manager*, char*, char*, char*, int, int);
+int                pk_add_frontend(struct pk_manager*, char*, int, int);
 
 int                pkmanager_test  (void);
 

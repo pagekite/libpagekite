@@ -18,10 +18,15 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
 #include <assert.h>
+#include <netinet/in.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "pkproto.h"
 #include "utils.h"
@@ -185,6 +190,9 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
   return pk_parser_parse_new_data(parser, length);
 }
 
+
+/**[ Serialization ]**********************************************************/
+
 int pk_format_frame(char* buf, struct pk_chunk* chunk, char *headers, int bytes)
 {
   int hlen;
@@ -214,3 +222,55 @@ int pk_format_pong(char* buf, struct pk_chunk* chunk)
 }
 
 
+/**[ Connecting ]**************************************************************/
+
+int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite) {
+  return sprintf(buffer, PK_HANDSHAKE_KITE, "FIXME");
+}
+
+int pk_connect(char *frontend, int port, int n, struct pk_kite_request** kites)
+{
+  int sockfd, i;
+  char sending[1024]; /* FIXME */
+  struct sockaddr_in serv_addr;
+  struct hostent *server;
+
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sockfd < 0) return -1;
+
+  server = gethostbyname(frontend);
+  if (server == NULL) return -1;
+
+  bzero((char *) &serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  bcopy((char *)server->h_addr_list[0],
+        (char *)&serv_addr.sin_addr.s_addr,
+        server->h_length);
+  serv_addr.sin_port = htons(port);
+
+  if (connect(sockfd, (struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
+    close(sockfd);
+    return -1;
+  }
+
+  if (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) {
+    close(sockfd);
+    return -1;
+  }
+
+  for (i = 0; i < n; i++) {
+    if (0 > write(sockfd, sending, pk_sign_kite_request(sending, kites[i]))) {
+      close(sockfd);
+      return -1;
+    }
+  }
+
+  if (0 > write(sockfd, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END))) {
+    close(sockfd);
+    return -1;
+  }
+
+  /* FIXME: Parse response */
+
+  return sockfd;
+}

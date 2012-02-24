@@ -1,5 +1,5 @@
 /******************************************************************************
-httpkite.c - A high-performance PageKite implementation in C.
+httpkite.c - A trivial (example) PageKite HTTP server.
 
 Usage: httpkite NAME.pagekite.me SECRET
 
@@ -23,6 +23,8 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 ******************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <time.h>
 
@@ -30,13 +32,14 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pkproto.h"
 
 void usage(void) {
-  printf("Usage: httpkite NAME.pagekite.me SECRET");
+  printf("Usage: httpkite NAME.pagekite.me SECRET\n");
   exit(1);
 }
 
-int handle_request(int* fd, struct pk_chunk *chunk) {
-  unsigned char buffer[4096];
+void handle_request(void* data, struct pk_chunk *chunk) {
+  char buffer[4096];
   char *reply = "This is my reply";
+  int *fd = data;
   int bytes;
 
   if (chunk->sid && !chunk->noop) {
@@ -53,13 +56,28 @@ int handle_request(int* fd, struct pk_chunk *chunk) {
 
 int main(int argc, char **argv) {
   int fd;
+  char pbuffer[64000], rbuffer[8192];
+  struct pk_parser* pkp;
+  struct pk_kite_request kites[1];
 
   if (argc < 3) usage();
 
-  fd = pk_connect(argv[1], 443, argv[1], argv[2]);
+  kites[0].kitename = argv[2];
+  kites[0].secret = argv[3];
+  kites[0].port = 0;
+  kites[0].proto = "http";
+  kites[0].bsalt = NULL;
+  kites[0].fsalt = NULL;
+
+  fd = pk_connect(argv[1], 443, 1, (struct pk_kite_request **) &kites);
+  if (fd < 0) {
+    perror(argv[1]);
+    return 1;
+  }
+
+  pkp = pk_parser_init(sizeof(pbuffer), pbuffer, &handle_request, &fd);
 
   close(fd);
-
   return 0;
 }
 

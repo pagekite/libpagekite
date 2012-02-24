@@ -28,6 +28,20 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #define PARSE_BAD_FRAME -10000
 #define PARSE_BAD_CHUNK -10001
 
+#define PK_HANDSHAKE_CONNECT "CONNECT PageKite:1 HTTP/1.0\r\n"
+#define PK_HANDSHAKE_KITE "X-PageKite: %s\r\n"
+#define PK_HANDSHAKE_END "\r\n"
+
+/* Data structure describing a kite request */
+struct pk_kite_request {
+  char* kitename;
+  char* proto;
+  int   port;
+  char* secret;
+  char* bsalt;
+  char* fsalt;
+};
+
 /* Data structure describing a frame */
 struct pk_frame {
   int   length;                /* Length of data                    */
@@ -68,9 +82,12 @@ struct pk_parser {
 struct pk_parser* pk_parser_init (int, char*,
                                   pkChunkCallback*, void *);
 int               pk_parser_parse(struct pk_parser*, int, char*);
+void              pk_parser_reset(struct pk_parser*);
 
 int               pk_format_frame(char*, struct pk_chunk*, char *, int);
 int               pk_format_reply(char*, struct pk_chunk*, int, char*);
 int               pk_format_eof(char*, struct pk_chunk*);
 int               pk_format_pong(char*, struct pk_chunk*);
+
+int               pk_connect(char *, int, int, struct pk_kite_request**);
 
