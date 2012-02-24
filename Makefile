@@ -1,11 +1,11 @@
-# Makefile!
+#!/usr/bin/colormake
 
 OPT ?= -O3
 CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
 CLINK ?= -lm
 
-TOBJ = pkproto_test.o
-OBJ = pkproto.o pkmanager.o utils.o
+TOBJ = pkproto_test.o sha1_test.o
+OBJ = pkproto.o pkmanager.o utils.o sha1.o
 
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
@@ -30,3 +30,4 @@ clean:
 pkmanager.o: pkmanager.h pkproto.h utils.h
 pkproto.o: pkproto.h utils.h
 utils.o: utils.h
+sha1.o: sha1.h types.h

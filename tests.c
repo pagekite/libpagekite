@@ -20,14 +20,14 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <assert.h>
 #include <time.h>
 
-#include "utils.h"
-#include "pkproto.h"
-#include "pkmanager.h"
-
-#include "pkproto_test.h"
+int sha1_test();
+int utils_test();
+int pkproto_test();
+int pkmanager_test();
 
 int main(void) {
-  assert(utils_test() &&
+  assert(sha1_test() &&
+         utils_test() &&
          pkproto_test() &&
          pkmanager_test());
   return 0;
