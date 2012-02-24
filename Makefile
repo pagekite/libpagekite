@@ -22,7 +22,7 @@ pagekite: pagekite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
 
 clean:
-	rm -f tests pagekite *.o
+	rm -f tests pagekite httpkite *.o
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
