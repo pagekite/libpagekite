@@ -153,6 +153,7 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
 
 int pk_parser_parse_new_data(struct pk_parser *parser, int length)
 {
+  int leftovers = 0;
   struct pk_chunk *chunk = parser->chunk;
   struct pk_frame *frame = &(parser->chunk->frame);
 
@@ -180,6 +181,18 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
 
     if (parser->chunk_callback != (pkChunkCallback *) NULL)
       parser->chunk_callback(parser->chunk_callback_data, parser->chunk);
+
+    leftovers = frame->raw_length - (frame->length + frame->hdr_length);
+    if (leftovers > 0) {
+      memmove(frame->raw_frame,
+              frame->raw_frame + (frame->length + frame->hdr_length),
+              leftovers);
+      pk_parser_reset(parser);
+      pk_parser_parse_new_data(parser, leftovers);
+    }
+    else {
+      pk_parser_reset(parser);
+    }
   }
 
   return length;
@@ -188,9 +201,27 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
 int pk_parser_parse(struct pk_parser *parser, int length, char *data)
 {
   struct pk_frame *frame = &(parser->chunk->frame);
-  if (length > parser->buffer_bytes_left) length = parser->buffer_bytes_left;
-  memcpy(frame->raw_frame + frame->raw_length, data, length);
-  return pk_parser_parse_new_data(parser, length);
+  int parsed = 0;
+  int status = 0;
+  int copy = 0;
+  do {
+    if (length > parser->buffer_bytes_left)
+      copy = parser->buffer_bytes_left;
+    else
+      copy = length;
+
+    memcpy(frame->raw_frame + frame->raw_length, data, copy);
+    status = pk_parser_parse_new_data(parser, copy);
+    if (status < 0) {
+      pk_parser_reset(parser);
+      return status;
+    }
+
+    parsed += status;
+    length -= status;
+    data += status;
+  } while ((parser->buffer_bytes_left > 0) && (length > 0));
+  return parsed;
 }
 
 
@@ -216,7 +247,7 @@ int pk_format_reply(char* buf, struct pk_chunk* chunk, int bytes, char* input)
 
 int pk_format_eof(char* buf, struct pk_chunk* chunk)
 {
-  return pk_format_frame(buf, chunk, "SID: %s\r\nEOF: RW\r\nNOOP: 1\r\n\r\n", 0);
+  return pk_format_frame(buf, chunk, "SID: %s\r\nEOF: rw\r\n\r\n", 0);
 }
 
 int pk_format_pong(char* buf, struct pk_chunk* chunk)
@@ -350,30 +381,27 @@ int pk_connect(char *frontend, int port,
     return -1;
   }
 
-  if (0 > dbg_write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) {
+  if (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) {
     close(sockfd);
     return -1;
   }
 
   for (i = 0; i < n; i++) {
     bytes = pk_sign_kite_request(buffer, kites[i], rand());
-    if ((0 >= bytes) || (0 > dbg_write(sockfd, buffer, bytes))) {
+    if ((0 >= bytes) || (0 > write(sockfd, buffer, bytes))) {
       close(sockfd);
       return -1;
     }
   }
 
-  if (0 > dbg_write(sockfd, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END))) {
+  if (0 > write(sockfd, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END))) {
     close(sockfd);
     return -1;
   }
 
   /* Gather response from server */
-  fprintf(stderr, "<< ");
   for (i = 0; i < sizeof(buffer)-1; i++) {
     if (1 > read(sockfd, buffer+i, 1)) break;
-
-    fprintf(stderr, "%c", *(buffer+i));
     if (i > 4) {
       if (0 == strcmp(buffer+i-2, "\n\r\n")) break;
       if (0 == strcmp(buffer+i-1, "\n\n")) break;
@@ -414,7 +442,6 @@ int pk_connect(char *frontend, int port,
   while ((p = strstr(p, "X-PageKite-SignThis")) != NULL) {
     bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
     pk_parse_kite_request(&tkite, p);
-    fprintf(stderr, "Sign request for: %s (fsalt=%s)\n", tkite.kitename, tkite.fsalt);
     for (i = 0; i < n; i++) {
       if ((kites[i]->port == tkite.port) &&
           (0 == strcmp(kites[i]->kitename, tkite.kitename)) &&
@@ -432,7 +459,7 @@ int pk_connect(char *frontend, int port,
   }
 
   /* If we get this far, then check if the connection is valid... */
-  fprintf(stderr, "Connected?\n");
+  fprintf(stderr, "*** Connected! ***\n");
 
   return sockfd;
 }

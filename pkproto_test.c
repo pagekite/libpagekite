@@ -58,7 +58,7 @@ int pkproto_test_format_reply(void)
 int pkproto_test_format_eof(void)
 {
   char dest[1024];
-  char* expect = "20\r\nSID: 12345\r\nEOF: RW\r\nNOOP: 1\r\n\r\n";
+  char* expect = "17\r\nSID: 12345\r\nEOF: rw\r\n\r\n";
   int bytes;
   struct pk_chunk chunk;
 
@@ -93,7 +93,7 @@ void pkproto_test_callback(int *data, struct pk_chunk *chunk) {
   assert(0 == strcmp(chunk->sid, "1"));
   assert(0 == strcmp(chunk->eof, "r"));
   assert(0 == strcmp(chunk->noop, "!"));
-  assert(0 == strcmp(chunk->data, "54321"));
+  assert(0 == strncmp(chunk->data, "54321", chunk->length));
   *data += 1;
 }
 
@@ -118,7 +118,8 @@ int pkproto_test_parser(struct pk_parser* p, int *callback_called)
   strcat(buffer, testchunk);
 
   assert(2*length == (int) strlen(buffer));
-  assert(pk_parser_parse(p, length, buffer) == length);
+  assert(pk_parser_parse(p, 2*length-10, buffer) == 2*length-10);
+  assert(pk_parser_parse(p, 10, buffer+2*length-10) == 10);
 
   /* After parsing, the callback should have been called twice, all
    * buffer space released for use and the chunk been reset. */
