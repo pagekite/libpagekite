@@ -38,13 +38,13 @@ void usage(void) {
 
 void handle_request(void* data, struct pk_chunk *chunk) {
   char buffer[4096];
-  char *reply = "HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\nThis is my reply\r\n";
+  char *reply = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nThis is my reply\r\n";
   int *fd = data;
   int bytes;
 
   if (chunk->ping) {
     bytes = pk_format_pong(buffer, chunk);
-    fprintf(stderr, "\n>> %s\n<<", buffer);
+    fprintf(stderr, "\n>> %s\n<< ", buffer);
     write(*fd, buffer, bytes);
   }
   else if (chunk->sid) {
