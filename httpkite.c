@@ -21,10 +21,12 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <time.h>
 
@@ -86,7 +88,7 @@ int main(int argc, char **argv) {
   kitep = &kite;
 
   srand(time(0) ^ getpid());
-  fd = pk_connect(argv[1], 443, 1, &kitep);
+  fd = pk_connect(argv[1], 443, NULL, 1, &kitep);
   if (fd < 0) {
     perror(argv[1]);
     return 1;

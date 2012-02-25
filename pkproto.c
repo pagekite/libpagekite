@@ -350,7 +350,7 @@ char *pk_parse_kite_request(struct pk_kite_request* kite, const char *line)
   return copy;
 }
 
-int pk_connect(char *frontend, int port,
+int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
                unsigned int n, struct pk_kite_request** kites)
 {
   unsigned int i;
@@ -358,28 +358,26 @@ int pk_connect(char *frontend, int port,
   char buffer[16*1024];
   char* p;
   struct pk_kite_request tkite;
-  struct sockaddr_in serv_addr;
+  struct sockaddr_in serv_addr_buf;
   struct hostent *server;
 
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd < 0) return -1;
+  if (serv_addr == NULL)
+  {
+    if (NULL == (server = gethostbyname(frontend))) return -1;
 
-  server = gethostbyname(frontend);
-  if (server == NULL) return -1;
-
-  bzero((char *) &serv_addr, sizeof(serv_addr));
-  serv_addr.sin_family = AF_INET;
-  bcopy((char *)server->h_addr_list[0],
-        (char *)&serv_addr.sin_addr.s_addr,
-        server->h_length);
-  serv_addr.sin_port = htons(port);
-
-  if (connect(sockfd, (struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
-    close(sockfd);
-    return -1;
+    serv_addr = &serv_addr_buf;
+    bzero((char *) serv_addr, sizeof(serv_addr));
+    serv_addr->sin_family = AF_INET;
+    bcopy((char*) server->h_addr_list[0],
+          (char*) &(serv_addr->sin_addr.s_addr),
+          server->h_length);
+    serv_addr->sin_port = htons(port);
   }
 
-  if (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) {
+  if ((0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
+      (0 > connect(sockfd, (struct sockaddr*) serv_addr, sizeof(*serv_addr))) ||
+      (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))))
+  {
     close(sockfd);
     return -1;
   }
@@ -453,7 +451,7 @@ int pk_connect(char *frontend, int port,
   }
   if (i) {
     close(sockfd);
-    return pk_connect(frontend, port, n, kites);
+    return pk_connect(frontend, port, serv_addr, n, kites);
   }
 
   /* If we get this far, then check if the connection is valid... */

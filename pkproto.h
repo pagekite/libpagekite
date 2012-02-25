@@ -92,5 +92,6 @@ int               pk_format_pong(char*);
 int               pk_make_bsalt(struct pk_kite_request*);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);
 char*             pk_parse_kite_request(struct pk_kite_request*, const char*);
-int               pk_connect(char *, int, unsigned int, struct pk_kite_request**);
+int               pk_connect(char *, int, struct sockaddr_in*,
+                             unsigned int, struct pk_kite_request**);
 
