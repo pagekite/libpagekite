@@ -83,10 +83,24 @@ int pkproto_test_format_pong(void)
   return 1;
 }
 
-int pkproto_test_parser(struct pk_parser* p)
+void pkproto_test_callback(int *data, struct pk_chunk *chunk) {
+  assert(chunk->sid != NULL);
+  assert(chunk->eof != NULL);
+  assert(chunk->noop != NULL);
+  assert(chunk->data != NULL);
+  assert(chunk->length == 5);
+  assert(chunk->frame.data != NULL);
+  assert(0 == strcmp(chunk->sid, "1"));
+  assert(0 == strcmp(chunk->eof, "r"));
+  assert(0 == strcmp(chunk->noop, "!"));
+  assert(0 == strcmp(chunk->data, "54321"));
+  *data += 1;
+}
+
+int pkproto_test_parser(struct pk_parser* p, int *callback_called)
 {
-  char* testchunk = "SID: 1\r\neOf: r\r\n\r\n54321";
-  char buffer[100];
+  char* testchunk = "SID: 1\r\neOf: r\r\nNOOP: !\r\n\r\n54321";
+  char buffer[100], framehead[10];
   int length;
   int bytes_left = p->buffer_bytes_left;
 
@@ -98,21 +112,19 @@ int pkproto_test_parser(struct pk_parser* p)
 
   length = strlen(testchunk);
   length += sprintf(buffer, "%x\r\n", length);
+  strcpy(framehead, buffer);
+  strcat(buffer, testchunk);
+  strcat(buffer, framehead);
   strcat(buffer, testchunk);
 
+  assert(2*length == (int) strlen(buffer));
   assert(pk_parser_parse(p, length, buffer) == length);
 
-  assert(p->buffer_bytes_left == bytes_left - length);
-  assert(p->chunk->frame.raw_length == length);
-  assert(p->chunk->frame.length == (int) strlen(testchunk));
-  assert(p->chunk->frame.data != NULL);
-  assert(p->chunk->length == 5);
-  assert(p->chunk->data != NULL);
-
-  assert(strncmp(p->chunk->frame.data, "SID", 3) == 0);
-  assert(strncmp(p->chunk->sid, "1", 1) == 0);
-  assert(strncmp(p->chunk->eof, "r", 1) == 0);
-  assert(strncmp(p->chunk->data, "54321", 5) == 0);
+  /* After parsing, the callback should have been called twice, all
+   * buffer space released for use and the chunk been reset. */
+  assert(*callback_called == 2);
+  assert(p->buffer_bytes_left == bytes_left);
+  assert(p->chunk->data == NULL);
 
   return 1;
 }
@@ -150,7 +162,7 @@ int pkproto_test_make_bsalt(void) {
 
 int pkproto_test_sign_kite_request(void) {
   struct pk_kite_request kite;
-  int bytes;
+  unsigned int bytes;
   char* expected = "X-PageKite: http-99:testkite.com:123456789012345678901234567890123456::0000000166483a7e7d92338f838f6e166509\r\n";
   char buffer[120];
 
@@ -184,14 +196,16 @@ int pkproto_test_parse_kite_request(void) {
 int pkproto_test(void)
 {
   char buffer[64000];
+  int callback_called = 0;
   struct pk_parser* p = pk_parser_init(64000, buffer,
-                                       (pkChunkCallback*) NULL, NULL);
+                                       (pkChunkCallback*) &pkproto_test_callback,
+                                       &callback_called);
   return (pkproto_test_format_frame() &&
           pkproto_test_format_reply() &&
           pkproto_test_format_eof() &&
           pkproto_test_format_pong() &&
           pkproto_test_alloc(64000, buffer, p) &&
-          pkproto_test_parser(p) &&
+          pkproto_test_parser(p, &callback_called) &&
           pkproto_test_make_bsalt() &&
           pkproto_test_sign_kite_request() &&
           pkproto_test_parse_kite_request());
