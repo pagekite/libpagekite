@@ -11,7 +11,7 @@ OBJ = pkproto.o pkmanager.o utils.o sha1.o
 Makefile: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
 
-all: runtests pagekite httpkite
+all: Makefile pagekite httpkite
 
 tests: tests.o $(OBJ) $(TOBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ) $(TOBJ)
