@@ -16,10 +16,10 @@ all: runtests pagekite httpkite
 tests: tests.o $(OBJ) $(TOBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ) $(TOBJ)
 
-httpkite: httpkite.o $(OBJ)
+httpkite: runtests httpkite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o httpkite httpkite.o $(OBJ)
 
-pagekite: pagekite.o $(OBJ)
+pagekite: runtests pagekite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
 
 clean:
