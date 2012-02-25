@@ -30,3 +30,15 @@ Works in progress:
 
 Everything else is either support code or documentation.
 
+
+## Getting started ##
+
+Playing with `httpkite.c` is probably the easiest way to get started.  You
+can build it like so:
+
+    $ make httpkite
+
+Running the program will give some hints on how to use it.  It does not do
+anything useful on its own, the idea is to give hackers a basic implementation
+which they can extend and build upon.
+

@@ -43,7 +43,7 @@ void usage(void) {
 
 void handle_request(void* data, struct pk_chunk *chunk) {
   char buffer[4096];
-  char *reply = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nThis is my reply\r\n";
+  char *hi = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello World\n";
   int *fd = data;
   int bytes;
 
@@ -62,7 +62,7 @@ void handle_request(void* data, struct pk_chunk *chunk) {
               chunk->remote_tls ? " (encrypted)" : "");
 
       /* Send a reply, and close this channel right away */
-      bytes = pk_format_reply(buffer, chunk->sid, strlen(reply), reply);
+      bytes = pk_format_reply(buffer, chunk->sid, strlen(hi), hi);
       write(*fd, buffer, bytes);
 
       bytes = pk_format_eof(buffer, chunk->sid);
