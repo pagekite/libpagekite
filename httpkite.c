@@ -34,8 +34,11 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pkproto.h"
 
 void usage(void) {
-  printf("Usage: httpkite NAME.pagekite.me SECRET\n");
-  exit(1);
+  printf("Usage: httpkite your.kitename.com SECRET\n\n");
+  printf("Note: DNS needs to already be configured for the kite name, and\n");
+  printf("      a running front-end on the IP address it points to. This\n");
+  printf("      is easiest to do by using the pagekite.net service and\n");
+  printf("      creating the kite first using pagekite.py.\n");
 }
 
 void handle_request(void* data, struct pk_chunk *chunk) {
@@ -78,10 +81,13 @@ int main(int argc, char **argv) {
   struct pk_kite_request kite;
   struct pk_kite_request* kitep;
 
-  if (argc < 4) usage();
+  if (argc < 3) {
+    usage();
+    exit(1);
+  }
 
-  kite.kitename = argv[2];
-  kite.secret = argv[3];
+  kite.kitename = argv[1];
+  kite.secret = argv[2];
   kite.proto = "http";
   kite.port = 0;
 
@@ -93,6 +99,8 @@ int main(int argc, char **argv) {
   fd = pk_connect(argv[1], 443, NULL, 1, &kitep);
   if (fd < 0) {
     if (fd == -1) perror(argv[1]);
+    fprintf(stderr, "\n");
+    usage();
     return 1;
   }
 
