@@ -38,19 +38,32 @@ void usage(void) {
 
 void handle_request(void* data, struct pk_chunk *chunk) {
   char buffer[4096];
-  char *reply = "This is my reply";
+  char *reply = "HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\nThis is my reply\r\n";
   int *fd = data;
   int bytes;
 
-  if (chunk->sid && !chunk->noop) {
-    /* Send a reply, and close this channel right away */
-    bytes = pk_format_reply(buffer, chunk, strlen(reply), reply);
-    bytes += pk_format_eof(buffer+bytes, chunk);
-    send(*fd, buffer, bytes, 0);
-  }
   if (chunk->ping) {
     bytes = pk_format_pong(buffer, chunk);
-    send(*fd, buffer, bytes, 0);
+    fprintf(stderr, "\n>> %s\n<<", buffer);
+    write(*fd, buffer, bytes);
+  }
+  else if (chunk->sid) {
+    if (chunk->eof) {
+      fprintf(stderr, "\n[EOF:%s]\n<< ", chunk->sid);
+    }
+    else if (!chunk->noop) {
+      /* Send a reply, and close this channel right away */
+      bytes = pk_format_reply(buffer, chunk, strlen(reply), reply);
+      fprintf(stderr, "\n>> %s\n<< ", buffer);
+      write(*fd, buffer, bytes);
+
+      bytes = pk_format_eof(buffer, chunk);
+      fprintf(stderr, "\n>> %s\n<< ", buffer);
+      write(*fd, buffer, bytes);
+    }
+  }
+  else {
+    fprintf(stderr, "\n[BOGON]\n<< ");
   }
 }
 
@@ -80,8 +93,13 @@ int main(int argc, char **argv) {
   }
 
   pkp = pk_parser_init(sizeof(pbuffer), pbuffer, &handle_request, &fd);
-
+  fprintf(stderr, "<< ");
+  while (read(fd, rbuffer, 1) == 1) {
+    fprintf(stderr, "%c", rbuffer[0]);
+    pk_parser_parse(pkp, 1, rbuffer);
+  }
   close(fd);
+
   return 0;
 }
 
