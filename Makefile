@@ -8,10 +8,10 @@ CLINK ?= -lm
 TOBJ = pkproto_test.o sha1_test.o
 OBJ = pkproto.o pkmanager.o utils.o sha1.o
 
-Makefile: tests
+runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
 
-all: Makefile pagekite httpkite
+all: runtests pagekite httpkite
 
 tests: tests.o $(OBJ) $(TOBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ) $(TOBJ)
