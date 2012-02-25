@@ -457,8 +457,5 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     return pk_connect(frontend, port, serv_addr, n, kites);
   }
 
-  /* If we get this far, then check if the connection is valid... */
-  fprintf(stderr, "*** Connected! ***\n");
-
   return sockfd;
 }

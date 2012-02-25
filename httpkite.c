@@ -46,21 +46,23 @@ void handle_request(void* data, struct pk_chunk *chunk) {
 
   if (chunk->ping) {
     bytes = pk_format_pong(buffer);
-    fprintf(stderr, "\n>> %s\n<< ", buffer);
     write(*fd, buffer, bytes);
   }
   else if (chunk->sid) {
     if (chunk->eof) {
-      fprintf(stderr, "\n[EOF:%s]\n<< ", chunk->sid);
+      /* Ignored, for now */
     }
     else if (!chunk->noop) {
+      fprintf(stderr, "%s:%d requested %s://%s:%d%s\n",
+              chunk->remote_ip, chunk->remote_port,
+              chunk->request_proto, chunk->request_host, chunk->request_port,
+              chunk->remote_tls ? " (encrypted)" : "");
+
       /* Send a reply, and close this channel right away */
       bytes = pk_format_reply(buffer, chunk->sid, strlen(reply), reply);
-      fprintf(stderr, "\n>> %s\n<< ", buffer);
       write(*fd, buffer, bytes);
 
       bytes = pk_format_eof(buffer, chunk->sid);
-      fprintf(stderr, "\n>> %s\n<< ", buffer);
       write(*fd, buffer, bytes);
     }
   }
@@ -90,14 +92,13 @@ int main(int argc, char **argv) {
   srand(time(0) ^ getpid());
   fd = pk_connect(argv[1], 443, NULL, 1, &kitep);
   if (fd < 0) {
-    perror(argv[1]);
+    if (fd == -1) perror(argv[1]);
     return 1;
   }
 
   pkp = pk_parser_init(sizeof(pbuffer), pbuffer, &handle_request, &fd);
-  fprintf(stderr, "<< ");
+  fprintf(stderr, "*** Connected! ***\n");
   while (read(fd, rbuffer, 1) == 1) {
-    fprintf(stderr, "%c", rbuffer[0]);
     pk_parser_parse(pkp, 1, rbuffer);
   }
   close(fd);
