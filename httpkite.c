@@ -43,7 +43,7 @@ void handle_request(void* data, struct pk_chunk *chunk) {
   int bytes;
 
   if (chunk->ping) {
-    bytes = pk_format_pong(buffer, chunk);
+    bytes = pk_format_pong(buffer);
     fprintf(stderr, "\n>> %s\n<< ", buffer);
     write(*fd, buffer, bytes);
   }
@@ -53,11 +53,11 @@ void handle_request(void* data, struct pk_chunk *chunk) {
     }
     else if (!chunk->noop) {
       /* Send a reply, and close this channel right away */
-      bytes = pk_format_reply(buffer, chunk, strlen(reply), reply);
+      bytes = pk_format_reply(buffer, chunk->sid, strlen(reply), reply);
       fprintf(stderr, "\n>> %s\n<< ", buffer);
       write(*fd, buffer, bytes);
 
-      bytes = pk_format_eof(buffer, chunk);
+      bytes = pk_format_eof(buffer, chunk->sid);
       fprintf(stderr, "\n>> %s\n<< ", buffer);
       write(*fd, buffer, bytes);
     }

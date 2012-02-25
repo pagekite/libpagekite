@@ -84,10 +84,10 @@ struct pk_parser* pk_parser_init (int, char*,
 int               pk_parser_parse(struct pk_parser*, int, char*);
 void              pk_parser_reset(struct pk_parser*);
 
-int               pk_format_frame(char*, struct pk_chunk*, char *, int);
-int               pk_format_reply(char*, struct pk_chunk*, int, char*);
-int               pk_format_eof(char*, struct pk_chunk*);
-int               pk_format_pong(char*, struct pk_chunk*);
+int               pk_format_frame(char*, const char*, const char *, int);
+int               pk_format_reply(char*, const char*, int, const char*);
+int               pk_format_eof(char*, const char*);
+int               pk_format_pong(char*);
 
 int               pk_make_bsalt(struct pk_kite_request*);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);

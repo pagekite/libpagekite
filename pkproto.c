@@ -227,32 +227,30 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
 
 /**[ Serialization ]**********************************************************/
 
-int pk_format_frame(char* buf, struct pk_chunk* chunk, char *headers, int bytes)
+int pk_format_frame(char* buf, const char* sid, const char *headers, int bytes)
 {
   int hlen;
-  char *sid = chunk->sid;
-
   if (!sid) sid = "";
   hlen = strlen(sid) + strlen(headers) - 2;
   hlen = sprintf(buf, "%x\r\n", hlen + bytes);
   return hlen + sprintf(buf + hlen, headers, sid);
 }
 
-int pk_format_reply(char* buf, struct pk_chunk* chunk, int bytes, char* input)
+int pk_format_reply(char* buf, const char* sid, int bytes, const char* input)
 {
-  int hlen = pk_format_frame(buf, chunk, "SID: %s\r\n\r\n", bytes);
+  int hlen = pk_format_frame(buf, sid, "SID: %s\r\n\r\n", bytes);
   memcpy(buf + hlen, input, bytes);
   return hlen + bytes;
 }
 
-int pk_format_eof(char* buf, struct pk_chunk* chunk)
+int pk_format_eof(char* buf, const char *sid)
 {
-  return pk_format_frame(buf, chunk, "SID: %s\r\nEOF: rw\r\n\r\n", 0);
+  return pk_format_frame(buf, sid, "SID: %s\r\nEOF: rw\r\n\r\n", 0);
 }
 
-int pk_format_pong(char* buf, struct pk_chunk* chunk)
+int pk_format_pong(char* buf)
 {
-  return pk_format_frame(buf, chunk, "NOOP: 1%s\r\n\r\n", 0);
+  return pk_format_frame(buf, "", "NOOP: 1%s\r\n\r\n", 0);
 }
 
 

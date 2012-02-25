@@ -31,12 +31,8 @@ int pkproto_test_format_frame(void)
 {
   char dest[1024];
   char* expect = "e\r\nSID: 12345\r\n\r\n";
-  int bytes;
-  struct pk_chunk chunk;
-
-  chunk.sid = "12345";
-  bytes = strlen(expect);
-  assert(bytes == pk_format_frame(dest, &chunk, "SID: %s\r\n\r\n", 0));
+  int bytes = strlen(expect);
+  assert(bytes == pk_format_frame(dest, "12345", "SID: %s\r\n\r\n", 0));
   assert(0 == strncmp(expect, dest, bytes));
   return 1;
 }
@@ -45,12 +41,8 @@ int pkproto_test_format_reply(void)
 {
   char dest[1024];
   char* expect = "19\r\nSID: 12345\r\n\r\nHello World";
-  int bytes;
-  struct pk_chunk chunk;
-
-  chunk.sid = "12345";
-  bytes = strlen(expect);
-  assert(bytes == pk_format_reply(dest, &chunk, 11, "Hello World"));
+  int bytes = strlen(expect);
+  assert(bytes == pk_format_reply(dest, "12345", 11, "Hello World"));
   assert(0 == strncmp(expect, dest, bytes));
   return 1;
 }
@@ -59,12 +51,8 @@ int pkproto_test_format_eof(void)
 {
   char dest[1024];
   char* expect = "17\r\nSID: 12345\r\nEOF: rw\r\n\r\n";
-  int bytes;
-  struct pk_chunk chunk;
-
-  chunk.sid = "12345";
-  bytes = strlen(expect);
-  assert(bytes == pk_format_eof(dest, &chunk));
+  int bytes = strlen(expect);
+  assert(bytes == pk_format_eof(dest, "12345"));
   assert(0 == strncmp(expect, dest, bytes));
   return 1;
 }
@@ -73,12 +61,8 @@ int pkproto_test_format_pong(void)
 {
   char dest[1024];
   char* expect = "b\r\nNOOP: 1\r\n\r\n";
-  int bytes;
-  struct pk_chunk chunk;
-
-  chunk.sid = NULL;
-  bytes = strlen(expect);
-  assert(bytes == pk_format_pong(dest, &chunk));
+  int bytes = strlen(expect);
+  assert(bytes == pk_format_pong(dest));
   assert(0 == strncmp(expect, dest, bytes));
   return 1;
 }
