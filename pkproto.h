@@ -59,9 +59,10 @@ struct pk_chunk {
   char*           ping;            /* PING:  Request for traffic (keepalive) */
   char*           request_host;    /* Host:  Requested host/domain-name      */
   char*           request_proto;   /* Proto: Requested protocol              */
-  int             request_port;    /* Port:  Requested port number (string)  */
+  int             request_port;    /* Port:  Requested port number           */
   char*           remote_ip;       /* RIP:   Remote IP address (string)      */
-  int             remote_port;     /* RPort: Remote port number (string)     */
+  int             remote_port;     /* RPort: Remote port number              */
+  char*           remote_tls;      /* RTLS:  Remote TLS encryption (string)  */
   int             throttle_spd;    /* SPD:   Flow control                    */
   int             length;          /* Length of chunk data.                  */
   char*           data;            /* Pointer to chunk data.                 */

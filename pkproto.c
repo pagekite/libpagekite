@@ -59,6 +59,7 @@ void chunk_reset_values(struct pk_chunk* chunk)
   chunk->request_port = -1;
   chunk->remote_ip = NULL;
   chunk->remote_port = -1;
+  chunk->remote_tls = NULL;
   chunk->throttle_spd = -1;
   chunk->length = -1;
   chunk->data = NULL;
@@ -133,6 +134,8 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
       chunk->remote_ip = frame->data + pos + 5;
     else if (0 == strncasecmp(frame->data + pos, "RPort: ", 7))
       sscanf(frame->data + pos + 7, "%d", &(chunk->remote_port));
+    else if (0 == strncasecmp(frame->data + pos, "RTLS: ", 6))
+      chunk->remote_tls = frame->data + pos + 6;
     else if (0 == strncasecmp(frame->data + pos, "EOF: ", 5))
       chunk->eof = frame->data + pos + 5;
     else if (0 == strncasecmp(frame->data + pos, "PING: ", 6))
