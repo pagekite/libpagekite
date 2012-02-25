@@ -70,7 +70,7 @@ void handle_request(void* data, struct pk_chunk *chunk) {
     }
   }
   else {
-    fprintf(stderr, "\n[BOGON]\n<< ");
+    fprintf(stderr, "(Weirdness: received non-ping chunk with no SID)\n");
   }
 }
 
