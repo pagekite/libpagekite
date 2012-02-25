@@ -21,6 +21,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 int zero_first_crlf(int length, char* data)
 {
@@ -33,6 +34,12 @@ int zero_first_crlf(int length, char* data)
     }
   }
   return 0;
+}
+
+int dbg_write(int sockfd, char *buffer, int bytes)
+{
+  printf(">> %s", buffer);
+  return write(sockfd, buffer, bytes);
 }
 
 

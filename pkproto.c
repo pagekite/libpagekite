@@ -289,12 +289,6 @@ int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite, int salt) {
   return sprintf(buffer, PK_HANDSHAKE_KITE, request);
 }
 
-int dbg_write(int sockfd, char *buffer, int bytes)
-{
-  printf(">> %s", buffer);
-  return write(sockfd, buffer, bytes);
-}
-
 char *pk_parse_kite_request(struct pk_kite_request* kite, const char *line)
 {
   char* copy;
@@ -327,9 +321,11 @@ char *pk_parse_kite_request(struct pk_kite_request* kite, const char *line)
   return copy;
 }
 
-int pk_connect(char *frontend, int port, int n, struct pk_kite_request** kites)
+int pk_connect(char *frontend, int port,
+               unsigned int n, struct pk_kite_request** kites)
 {
-  int sockfd, i, bytes;
+  unsigned int i;
+  int sockfd, bytes;
   char buffer[16*1024];
   char* p;
   struct pk_kite_request tkite;
@@ -373,27 +369,70 @@ int pk_connect(char *frontend, int port, int n, struct pk_kite_request** kites)
   }
 
   /* Gather response from server */
+  fprintf(stderr, "<< ");
   for (i = 0; i < sizeof(buffer)-1; i++) {
-    bytes = read(sockfd, buffer+i, 1);
-    if (bytes < 1) break;
-    if (i > 4)
-      if (0 == strcmp(buffer+i-4, "\r\n\r\n")) break;
+    if (1 > read(sockfd, buffer+i, 1)) break;
+
+    fprintf(stderr, "%c", *(buffer+i));
+    if (i > 4) {
+      if (0 == strcmp(buffer+i-2, "\n\r\n")) break;
+      if (0 == strcmp(buffer+i-1, "\n\n")) break;
+    }
   }
-  buffer[bytes = i] = '\0';
+  buffer[i] = '\0';
 
   /* First, if we're rejected, parse out why and bail. */
+  p = buffer;
+  i = 0;
+  while ((p = strstr(p, "X-PageKite-Duplicate")) != NULL) {
+    bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
+    fprintf(stderr, "Duplicate: %s\n", p);
+    p += bytes;
+    i++;
+  }
+  if (i) {
+    close(sockfd);
+    return -2;
+  }
+  p = buffer;
+  i = 0;
+  while ((p = strstr(p, "X-PageKite-Invalid")) != NULL) {
+    bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
+    fprintf(stderr, "Rejected: %s\n", p);
+    p += bytes;
+    i++;
+  }
+  if (i) {
+    close(sockfd);
+    return -3;
+  }
 
   /* Second, if we need to reconnect with a signature, gather up all the fsalt
    * values and then retry. */
   p = buffer;
-  while ((p = strcasestr(p, "x-pagekite-signthis")) != NULL) {
+  i = 0;
+  while ((p = strstr(p, "X-PageKite-SignThis")) != NULL) {
     bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
     pk_parse_kite_request(&tkite, p);
-    printf("Sign request for: %s (fsalt=%s)\n", tkite.kitename, tkite.fsalt);
+    fprintf(stderr, "Sign request for: %s (fsalt=%s)\n", tkite.kitename, tkite.fsalt);
+    for (i = 0; i < n; i++) {
+      if ((kites[i]->port == tkite.port) &&
+          (0 == strcmp(kites[i]->kitename, tkite.kitename)) &&
+          (0 == strcmp(kites[i]->proto, tkite.proto)))
+      {
+        kites[i]->fsalt = tkite.fsalt;
+        i++;
+      }
+    }
     p += bytes;
+  }
+  if (i) {
+    close(sockfd);
+    return pk_connect(frontend, port, n, kites);
   }
 
   /* If we get this far, then check if the connection is valid... */
+  fprintf(stderr, "Connected?\n");
 
   return sockfd;
 }
