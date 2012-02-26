@@ -42,6 +42,8 @@ Running the program will give some hints on how to use it.  It does not do
 anything useful on its own, the idea is to give hackers a basic implementation
 which they can extend and build upon.
 
+This project has a Wiki page: <https://pagekite.net/wiki/Floss/LibPageKite/>
+
 
 ## License and Copyright ##
 
