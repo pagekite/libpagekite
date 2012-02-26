@@ -1,5 +1,10 @@
 # PageKite in C #
 
+Tasks:
+
+ 1. pkproto.c: Fix parser to fragment chunks that are too big to fit in the
+               available buffer space.
+
 Milestones:
 
  1. pkproto.c: parse pagekite proto, emitting a callback for each chunk
