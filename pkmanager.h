@@ -18,7 +18,14 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
 
-#define IO_BUFFER_KB 8
+#define PARSER_BYTES_MIN   1 * 1024
+#define PARSER_BYTES_MAX   8 * 1024  /* <= CONN_IO_BUFFER_SIZE */
+
+struct pk_pagekite;
+struct pk_conn;
+struct pk_frontend;
+struct pk_backend_conn;
+struct pk_manager;
 
 struct pk_pagekite {
   char* protocol;
@@ -28,34 +35,38 @@ struct pk_pagekite {
   int   local_port;
 };
 
-#define FE_STATUS_DOWN 0x0000
-#define FE_STATUS_UP   0x0001
-struct pk_frontend {
-  char*             fe_hostname;
-  int               fe_port;
-  int               priority;
+#define CONN_IO_BUFFER_SIZE   8 * 1024
+#define CONN_STATUS_READABLE  0x0001
+#define CONN_STATUS_WRITEABLE 0x0002
+struct pk_conn {
   int               status;
   int               sockfd;
   time_t            activity;
-  int               buffer_bytes_free;
-  char              buffer[IO_BUFFER_KB * (1024 + PROTO_OVERHEAD_PER_KB)];
-  struct pk_parser* parser;
+  int               in_buffer_bytes_free;
+  unsigned char     in_buffer[CONN_IO_BUFFER_SIZE];
+  int               out_buffer_bytes_free;
+  unsigned char     out_buffer[CONN_IO_BUFFER_SIZE];
 };
 
-#define BE_STATUS_EOF_READ      0x0001
-#define BE_STATUS_EOF_WRITE     0x0002
-#define BE_STATUS_EOF_THROTTLED 0x0004
+#define FE_STATUS_DOWN 0x0010
+#define FE_STATUS_UP   0x0020
+struct pk_frontend {
+  struct pk_conn*   conn;
+  char*             fe_hostname;
+  int               fe_port;
+  int               priority;
+  struct pk_parser* parser;
+  struct pk_manager* manager;
+};
+
+#define BE_STATUS_EOF_READ      0x0100
+#define BE_STATUS_EOF_WRITE     0x0200
+#define BE_STATUS_EOF_THROTTLED 0x0400
 struct pk_backend_conn {
   char                sid[8];
-  int                 sockfd;
-  int                 status;
-  time_t              activity;
-  int                 in_buffer_bytes_free;
-  char                in_buffer[IO_BUFFER_KB * 1024];
-  int                 out_buffer_bytes_free;
-  char                out_buffer[IO_BUFFER_KB * 1024];
   struct pk_frontend* frontend;
   struct pk_pagekite* kite;
+  struct pk_conn*     conn;
 };
 
 #define MIN_KITE_ALLOC 5
@@ -69,8 +80,8 @@ struct pk_manager {
   int                      be_conn_count;
   struct pk_backend_conn*  be_conns;   
   int                      buffer_bytes_free;
-  char*                    buffer;
-  char*                    buffer_base;
+  unsigned char*           buffer;
+  unsigned char*           buffer_base;
   struct ev_loop*          loop;
 };
 

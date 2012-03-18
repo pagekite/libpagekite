@@ -38,7 +38,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #define PK_BUFFER_SIZE  128 * 1024
 
 void usage(void) {
-  printf("Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET");
+  printf("Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET\n");
 }
 
 int main(int argc, char **argv) {
@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
   int pport;
   int lport;
 
-  if ((argc != 5) ||
+  if ((argc != 6) ||
       (1 != sscanf(argv[1], "%d", &lport)) ||
       (1 != sscanf(argv[4], "%d", &pport))) {
     usage();
