@@ -31,7 +31,9 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <time.h>
 
 #include "utils.h"
+#include "pkerror.h"
 #include "pkproto.h"
+
 
 void usage(void) {
   printf("Usage: httpkite your.kitename.com SECRET\n\n");
@@ -98,13 +100,18 @@ int main(int argc, char **argv) {
   srand(time(0) ^ getpid());
   fd = pk_connect(argv[1], 443, NULL, 1, &kitep);
   if (fd < 0) {
-    if (fd == -1) perror(argv[1]);
-    fprintf(stderr, "\n");
+    pk_perror(argv[1]);
     usage();
     return 1;
   }
 
   pkp = pk_parser_init(sizeof(pbuffer), pbuffer, &handle_request, &fd);
+  if (NULL == pkp) {
+    pk_perror(argv[1]);
+    usage();
+    return 1;
+  }
+
   fprintf(stderr, "*** Connected! ***\n");
   while (read(fd, rbuffer, 1) == 1) {
     pk_parser_parse(pkp, 1, rbuffer);

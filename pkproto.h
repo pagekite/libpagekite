@@ -25,9 +25,6 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
  */
 #define PROTO_OVERHEAD_PER_KB  64
 
-#define PARSE_BAD_FRAME -10000
-#define PARSE_BAD_CHUNK -10001
-
 #define PK_HANDSHAKE_CONNECT "CONNECT PageKite:1 HTTP/1.0\r\n"
 #define PK_HANDSHAKE_KITE "X-PageKite: %s\r\n"
 #define PK_HANDSHAKE_END "\r\n"

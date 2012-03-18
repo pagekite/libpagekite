@@ -6,7 +6,7 @@ CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
 CLINK ?= -lm -lev
 
 TOBJ = pkproto_test.o sha1_test.o
-OBJ = pkproto.o pkmanager.o utils.o sha1.o
+OBJ = pkerror.o pkproto.o pkmanager.o utils.o sha1.o
 
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.

@@ -32,7 +32,9 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "types.h"
 #include "sha1.h"
 #include "utils.h"
+#include "pkerror.h"
 #include "pkproto.h"
+
 
 void frame_reset_values(struct pk_frame* frame)
 {
@@ -110,7 +112,7 @@ int parse_frame_header(struct pk_frame* frame)
     frame->hdr_length = hdr_len;
     frame->data = frame->raw_frame + hdr_len;
     if (1 != sscanf(frame->raw_frame, "%x", (unsigned int*) &(frame->length)))
-      return PARSE_BAD_FRAME;
+      return (pk_error = ERR_PARSE_BAD_FRAME);
   }
   return 0;
 }
@@ -151,7 +153,7 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
     chunk->data = frame->data + pos;
     return pos;
   }
-  else return PARSE_BAD_CHUNK;
+  else return (pk_error = ERR_PARSE_BAD_CHUNK);
 }
 
 int pk_parser_parse_new_data(struct pk_parser *parser, int length)
@@ -172,15 +174,16 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
 
   /* Do we have still need to parse the frame header? */
   if (frame->length < 0) {
-    if (PARSE_BAD_FRAME == parse_frame_header(frame)) return PARSE_BAD_FRAME;
+    if (ERR_PARSE_BAD_FRAME == parse_frame_header(frame))
+      return ERR_PARSE_BAD_FRAME;
   }
   if (frame->length < 0) return length;
 
   /* If we have a length, do we have all the data? */
   if (frame->length + frame->hdr_length <= frame->raw_length)
   {
-    if (PARSE_BAD_CHUNK == parse_chunk_header(frame, chunk))
-      return PARSE_BAD_CHUNK;
+    if (ERR_PARSE_BAD_CHUNK == parse_chunk_header(frame, chunk))
+      return (pk_error = ERR_PARSE_BAD_CHUNK);
 
     if (parser->chunk_callback != (pkChunkCallback *) NULL)
       parser->chunk_callback(parser->chunk_callback_data, parser->chunk);
@@ -335,9 +338,12 @@ char *pk_parse_kite_request(struct pk_kite_request* kite, const char *line)
   else
     kite->proto++;
 
-  if (NULL == (kite->kitename = strchr(kite->proto, ':'))) return NULL;
-  if (NULL == (kite->bsalt = strchr(kite->kitename+1, ':'))) return NULL;
-  if (NULL == (kite->fsalt = strchr(kite->bsalt+1, ':'))) return NULL;
+  if (NULL == (kite->kitename = strchr(kite->proto, ':')))
+    return pk_err_null(ERR_PARSE_NO_KITENAME);
+  if (NULL == (kite->bsalt = strchr(kite->kitename+1, ':')))
+    return pk_err_null(ERR_PARSE_NO_BSALT);
+  if (NULL == (kite->fsalt = strchr(kite->bsalt+1, ':')))
+    return pk_err_null(ERR_PARSE_NO_FSALT);
 
   *(kite->kitename++) = '\0';
   *(kite->bsalt++) = '\0';
@@ -382,20 +388,20 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
       (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))))
   {
     close(sockfd);
-    return -1;
+    return (pk_error = ERR_CONNECT_CONNECT);
   }
 
   for (i = 0; i < n; i++) {
     bytes = pk_sign_kite_request(buffer, kites[i], rand());
     if ((0 >= bytes) || (0 > write(sockfd, buffer, bytes))) {
       close(sockfd);
-      return -1;
+      return (pk_error = ERR_CONNECT_REQUEST);
     }
   }
 
   if (0 > write(sockfd, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END))) {
     close(sockfd);
-    return -1;
+    return (pk_error = ERR_CONNECT_REQ_END);
   }
 
   /* Gather response from server */
@@ -419,7 +425,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   }
   if (i) {
     close(sockfd);
-    return -2;
+    return (pk_error = ERR_CONNECT_DUPLICATE);
   }
   p = buffer;
   i = 0;
@@ -431,7 +437,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   }
   if (i) {
     close(sockfd);
-    return -3;
+    return (pk_error = ERR_CONNECT_REJECTED);
   }
 
   /* Second, if we need to reconnect with a signature, gather up all the fsalt
