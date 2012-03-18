@@ -3,7 +3,7 @@
 #OPT ?= -O3
 OPT ?= -g
 CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
-CLINK ?= -lm
+CLINK ?= -lm -lev
 
 TOBJ = pkproto_test.o sha1_test.o
 OBJ = pkproto.o pkmanager.o utils.o sha1.o

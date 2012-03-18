@@ -18,6 +18,9 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
 
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <ev.h>
 
@@ -25,7 +28,8 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pkproto.h"
 #include "pkmanager.h"
 
-struct pk_manager* pk_manager_init(int buffer_size, char* buffer,
+struct pk_manager* pk_manager_init(struct ev_loop* loop,
+                                   int buffer_size, unsigned char* buffer,
                                    int kites, int frontends, int conns)
 {
   struct pk_manager* pkm;
@@ -62,8 +66,8 @@ int pk_add_frontend(struct pk_manager* pkm,
 
 int pkmanager_test(void)
 {
-  char buffer[64000];
-  struct pk_manager* m = pk_manager_init(64000, buffer, -1, -1, -1);
+  unsigned char buffer[64000];
+  struct pk_manager* m = pk_manager_init(NULL, 64000, buffer, -1, -1, -1);
   return 1;
 }
 

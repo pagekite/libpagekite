@@ -74,7 +74,8 @@ struct pk_manager {
   struct ev_loop*          loop;
 };
 
-struct pk_manager* pk_manager_init(int, char*, int, int, int);
+struct pk_manager* pk_manager_init(struct ev_loop*,
+                                   int, unsigned char*, int, int, int);
 int                pk_add_kite(struct pk_manager*, char*, char*, char*, int, int);
 int                pk_add_frontend(struct pk_manager*, char*, int, int);
 

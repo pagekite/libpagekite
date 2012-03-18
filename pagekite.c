@@ -1,7 +1,7 @@
 /******************************************************************************
 pagekite.c - A high-performance PageKite implementation in C.
 
-Usage: pagekite PORT PROTO NAME.pagekite.me SECRET
+Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET
 
 *******************************************************************************
 
@@ -21,30 +21,51 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
-#include <ev.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <time.h>
+#include <ev.h>
 
 #include "utils.h"
 #include "pkproto.h"
 #include "pkmanager.h"
 
+#define PK_BUFFER_SIZE  128 * 1024
+
 void usage(void) {
-  printf("Usage: pagekite PORT PROTO NAME.pagekite.me SECRET");
-  exit(1);
+  printf("Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET");
 }
 
 int main(int argc, char **argv) {
   struct ev_loop *loop = EV_DEFAULT;
-  int port;
+  struct pk_manager *m;
+  unsigned char buffer[PK_BUFFER_SIZE];
+  char* proto;
+  char* kitename;
+  char* secret;
+  int pport;
+  int lport;
 
-  if ((argc != 4) || (1 != sscanf(argv[1], "%d", &port))) usage();
+  if ((argc != 5) ||
+      (1 != sscanf(argv[1], "%d", &lport)) ||
+      (1 != sscanf(argv[4], "%d", &pport))) {
+    usage();
+    exit(1);
+  }
+  proto = argv[2];
+  kitename = argv[3];
+  secret = argv[5];
 
-  m = pk_manager_init(loop, 128*1024);
-  pk_manage_kite(m, port, argv[2], argv[3], argv[4]);
+  m = pk_manager_init(loop, PK_BUFFER_SIZE, buffer, -1, -1, -1);
+  pk_add_kite(m, proto, secret, kitename, pport, lport);
+  pk_add_frontend(m, kitename, pport, 1);
 
-  ev_run(loop, 0);
+  ev_loop(loop, 0);
 
   return 0;
 }
