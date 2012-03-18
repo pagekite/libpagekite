@@ -24,6 +24,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <string.h>
 #include <strings.h>
 
+#include "pkerror.h"
 #include "pkproto.h"
 #include "utils.h"
 
@@ -89,10 +90,10 @@ int pkproto_test_parser(struct pk_parser* p, int *callback_called)
   int length;
   int bytes_left = p->buffer_bytes_left;
 
-  assert(pk_parser_parse(p, 8, "z\r\n12345") == PARSE_BAD_FRAME);
+  assert(pk_parser_parse(p, 8, "z\r\n12345") == ERR_PARSE_BAD_FRAME);
   pk_parser_reset(p);
 
-  assert(pk_parser_parse(p, 8, "5\r\n54321") == PARSE_BAD_CHUNK);
+  assert(pk_parser_parse(p, 8, "5\r\n54321") == ERR_PARSE_BAD_CHUNK);
   pk_parser_reset(p);
 
   length = strlen(testchunk);
