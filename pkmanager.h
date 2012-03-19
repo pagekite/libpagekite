@@ -69,9 +69,9 @@ struct pk_backend_conn {
   struct pk_conn*     conn;
 };
 
-#define MIN_KITE_ALLOC 5
+#define MIN_KITE_ALLOC 1
 #define MIN_FE_ALLOC   4
-#define MIN_CONN_ALLOC 25
+#define MIN_CONN_ALLOC 24
 struct pk_manager {
   int                      kite_count;
   struct pk_pagekite*      kites; 
