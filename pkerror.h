@@ -19,18 +19,25 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 ******************************************************************************/
 
 #define ERR_ALL_IS_WELL            0
+
 #define ERR_PARSE_BAD_FRAME   -10000
 #define ERR_PARSE_BAD_CHUNK   -10001
+
 #define ERR_PARSE_NO_KITENAME -20000
 #define ERR_PARSE_NO_BSALT    -20001
 #define ERR_PARSE_NO_FSALT    -20002
+
 #define ERR_CONNECT_CONNECT   -30000
 #define ERR_CONNECT_REQUEST   -30001
 #define ERR_CONNECT_REQ_END   -30002
+
 #define ERR_CONNECT_DUPLICATE -40000
 #define ERR_CONNECT_REJECTED  -40001
+
+#define ERR_NO_MORE_KITES     -50000
+#define ERR_NO_MORE_FRONTENDS -50001
+
 
 int    pk_error;
 void*  pk_err_null(int);
 void   pk_perror(const char*);       
-

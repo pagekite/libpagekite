@@ -85,10 +85,13 @@ struct pk_manager {
   struct ev_loop*          loop;
 };
 
-struct pk_manager* pk_manager_init(struct ev_loop*,
-                                   int, unsigned char*, int, int, int);
-int                pk_add_kite(struct pk_manager*, char*, char*, char*, int, int);
-int                pk_add_frontend(struct pk_manager*, char*, int, int);
+struct pk_manager*  pk_manager_init(struct ev_loop*,
+                                    int, unsigned char*, int, int, int);
+struct pk_pagekite* pk_add_kite(struct pk_manager*,
+                                const char*, const char*, const char*,
+                                int, int);
+struct pk_frontend* pk_add_frontend(struct pk_manager*,
+                                    const char*, int, int);
 
-int                pkmanager_test  (void);
+int                 pkmanager_test(void);
 

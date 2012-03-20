@@ -18,6 +18,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
 
+#define _GNU_SOURCE 1
 #include <assert.h>
 #include <netinet/in.h>
 #include <string.h>
@@ -27,6 +28,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <ev.h>
 
 #include "utils.h"
+#include "pkerror.h"
 #include "pkproto.h"
 #include "pkmanager.h"
 
@@ -39,7 +41,8 @@ struct pk_manager* pk_manager_init(struct ev_loop* loop,
                                    int kites, int frontends, int conns)
 {
   struct pk_manager* pkm;
-  unsigned int i, parse_buffer_bytes;
+  int i;
+  unsigned int parse_buffer_bytes;
 
   memset(buffer, 0, buffer_size);
 
@@ -99,18 +102,50 @@ struct pk_manager* pk_manager_init(struct ev_loop* loop,
   return pkm;
 }
 
-int pk_add_kite(struct pk_manager* pkm,
-                char* protocol, char* auth_secret,
-                char* public_domain, int public_port,
-                int local_port)
+struct pk_pagekite* pk_add_kite(struct pk_manager* pkm,
+                                const char* protocol,
+                                const char* auth_secret,
+                                const char* public_domain, int public_port,
+                                int local_port)
 {
-  return 1;
+  int which;
+  struct pk_pagekite* kite;
+
+  for (which = 0; which < pkm->kite_count; which++) {
+    kite = pkm->kites+which;
+    if (kite->protocol == NULL) break;
+  }
+  if (which >= pkm->kite_count)
+    return pk_err_null(ERR_NO_MORE_KITES);
+
+  kite->protocol = strdup(protocol);
+  kite->auth_secret = strdup(auth_secret);
+  kite->public_domain = strdup(public_domain);
+  kite->public_port = public_port;
+  kite->local_port = local_port;
+
+  return kite;
 }
 
-int pk_add_frontend(struct pk_manager* pkm,
-                    char* hostname, int port, int priority)
+struct pk_frontend* pk_add_frontend(struct pk_manager* pkm,
+                                    const char* hostname,
+                                    int port, int priority)
 {
-  return 1;
+  int which;
+  struct pk_frontend* fe;
+
+  for (which = 0; which < pkm->frontend_count; which++) {
+    fe = pkm->frontends+which;
+    if (fe->fe_hostname == NULL) break;
+  }
+  if (which >= pkm->frontend_count)
+    return pk_err_null(ERR_NO_MORE_FRONTENDS);
+
+  fe->fe_hostname = strdup(hostname);
+  fe->fe_port = port;
+  fe->priority = priority;
+
+  return fe;
 }
 
 
@@ -120,6 +155,7 @@ int pkmanager_test(void)
 {
   unsigned char buffer[64000];
   struct pk_manager* m;
+  int i;
 
   /* Are too-small buffers handled correctly? */
   assert(NULL == pk_manager_init(NULL, 1000, buffer, 1000, -1, -1));
@@ -142,6 +178,22 @@ int pkmanager_test(void)
   assert(1 == *((char*) m->kites));
   assert(2 == *((char*) m->frontends));
   assert(3 == *((char*) m->be_conns));
+
+  /* Test pk_add_frontend */
+  assert(NULL == pk_add_frontend(m, "woot", 123, 1));
+  assert(ERR_NO_MORE_FRONTENDS == pk_error);
+  memset(m->frontends, 0, sizeof(struct pk_frontend) * m->frontend_count);
+  for (i = 0; i < MIN_FE_ALLOC; i++)
+    assert(NULL != pk_add_frontend(m, "woot", 123, 1));
+  assert(NULL == pk_add_frontend(m, "woot", 123, 1));
+
+  /* Test pk_add_kite */
+  assert(NULL == pk_add_kite(m, "http", "foo", "sec", 80, 80));
+  assert(ERR_NO_MORE_KITES == pk_error);
+  memset(m->kites, 0, sizeof(struct pk_pagekite) * m->kite_count);
+  for (i = 0; i < MIN_KITE_ALLOC; i++)
+    assert(NULL != pk_add_kite(m, "http", "foo", "sec", 80, 80));
+  assert(NULL == pk_add_kite(m, "http", "foo", "sec", 80, 80));
 
   return 1;
 }
