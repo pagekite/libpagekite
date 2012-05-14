@@ -21,23 +21,18 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #define PARSER_BYTES_MIN   1 * 1024
 #define PARSER_BYTES_MAX   8 * 1024  /* <= CONN_IO_BUFFER_SIZE */
 
-struct pk_pagekite;
+#define PK_HOUSEKEEPING_INTERVAL 10  /* Seconds */
+
 struct pk_conn;
 struct pk_frontend;
 struct pk_backend_conn;
 struct pk_manager;
 
-struct pk_pagekite {
-  char* protocol;
-  char* auth_secret;
-  char* public_domain;
-  int   public_port;
-  int   local_port;
-};
-
 #define CONN_IO_BUFFER_SIZE   8 * 1024
+#define CONN_STATUS_UNKNOWN   0x0000
 #define CONN_STATUS_READABLE  0x0001
 #define CONN_STATUS_WRITEABLE 0x0002
+#define CONN_STATUS_ALLOCATED 0x0004
 struct pk_conn {
   int               status;
   int               sockfd;
@@ -46,17 +41,21 @@ struct pk_conn {
   unsigned char     in_buffer[CONN_IO_BUFFER_SIZE];
   int               out_buffer_bytes_free;
   unsigned char     out_buffer[CONN_IO_BUFFER_SIZE];
+  ev_io             watch_r;
+  ev_io             watch_w;
 };
 
 #define FE_STATUS_DOWN 0x0010
 #define FE_STATUS_UP   0x0020
 struct pk_frontend {
-  struct pk_conn*   conn;
-  char*             fe_hostname;
-  int               fe_port;
-  int               priority;
-  struct pk_parser* parser;
-  struct pk_manager* manager;
+  char*                   fe_hostname;
+  int                     fe_port;
+  int                     priority;
+  struct pk_conn          conn;
+  struct pk_parser*       parser;
+  struct pk_manager*      manager;
+  int                     request_count;
+  struct pk_kite_request* requests;
 };
 
 #define BE_STATUS_EOF_READ      0x0100
@@ -69,9 +68,9 @@ struct pk_backend_conn {
   struct pk_conn*     conn;
 };
 
-#define MIN_KITE_ALLOC 1
-#define MIN_FE_ALLOC   4
-#define MIN_CONN_ALLOC 24
+#define MIN_KITE_ALLOC  1
+#define MIN_FE_ALLOC    1
+#define MIN_CONN_ALLOC 20
 struct pk_manager {
   int                      kite_count;
   struct pk_pagekite*      kites; 
@@ -83,6 +82,7 @@ struct pk_manager {
   unsigned char*           buffer;
   unsigned char*           buffer_base;
   struct ev_loop*          loop;
+  ev_timer                 timer;
 };
 
 struct pk_manager*  pk_manager_init(struct ev_loop*,

@@ -148,19 +148,21 @@ int pkproto_test_make_bsalt(void) {
 }
 
 int pkproto_test_sign_kite_request(void) {
-  struct pk_kite_request kite;
+  struct pk_pagekite kite;
+  struct pk_kite_request kite_r;
   unsigned int bytes;
   char* expected = "X-PageKite: http-99:testkite.com:123456789012345678901234567890123456::0000000166483a7e7d92338f838f6e166509\r\n";
   char buffer[120];
 
-  kite.kitename = "testkite.com";
-  kite.secret = "wigglybop";
-  kite.port = 99;
-  kite.proto = "http";
-  kite.bsalt = "123456789012345678901234567890123456";
-  kite.fsalt = NULL;
+  kite_r.kite = &kite;
+  kite.public_domain = "testkite.com";
+  kite.public_port = 99;
+  kite.auth_secret = "wigglybop";
+  kite.protocol = "http";
+  kite_r.bsalt = "123456789012345678901234567890123456";
+  kite_r.fsalt = NULL;
 
-  bytes = pk_sign_kite_request(buffer, &kite, 1);
+  bytes = pk_sign_kite_request(buffer, &kite_r, 1);
   assert(bytes == strlen(expected));
   assert(0 == strcmp(buffer, expected));
 
@@ -168,14 +170,16 @@ int pkproto_test_sign_kite_request(void) {
 }
 
 int pkproto_test_parse_kite_request(void) {
-  struct pk_kite_request kite;
+  struct pk_pagekite kite;
+  struct pk_kite_request kite_r;
 
-  pk_parse_kite_request(&kite, "foo: http-99:b.com:abacab:");
-  assert(99 == kite.port);
-  assert(0 == strcmp(kite.kitename, "b.com"));
-  assert(0 == strcmp(kite.proto, "http"));
-  assert(0 == strcmp(kite.bsalt, "abacab"));
-  assert(0 == strcmp(kite.fsalt, ""));
+  kite_r.kite = &kite;
+  pk_parse_kite_request(&kite_r, "foo: http-99:b.com:abacab:");
+  assert(99 == kite.public_port);
+  assert(0 == strcmp(kite.public_domain, "b.com"));
+  assert(0 == strcmp(kite.protocol, "http"));
+  assert(0 == strcmp(kite_r.bsalt, "abacab"));
+  assert(0 == strcmp(kite_r.fsalt, ""));
 
   return 1;
 }

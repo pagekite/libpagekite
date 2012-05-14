@@ -262,12 +262,12 @@ int pk_format_pong(char* buf)
 
 /**[ Connecting ]**************************************************************/
 
-int pk_make_bsalt(struct pk_kite_request* kite) {
+int pk_make_bsalt(struct pk_kite_request* kite_r) {
   uint8_t buffer[1024];
   SHA1_CTX context;
 
-  if (kite->bsalt == NULL) kite->bsalt = malloc(41);
-  if (kite->bsalt == NULL) {
+  if (kite_r->bsalt == NULL) kite_r->bsalt = malloc(41);
+  if (kite_r->bsalt == NULL) {
     fprintf(stderr, "WARNING: Failed to malloc() for bsalt");
     return -1;
   }
@@ -279,13 +279,13 @@ int pk_make_bsalt(struct pk_kite_request* kite) {
   SHA1_Init(&context);
   SHA1_Update(&context, buffer, strlen((const char*) buffer));
   SHA1_Final(&context, buffer);
-  digest_to_hex(buffer, kite->bsalt);
-  kite->bsalt[36] = '\0';
+  digest_to_hex(buffer, kite_r->bsalt);
+  kite_r->bsalt[36] = '\0';
 
   return 1;
 }
 
-int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite, int salt) {
+int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt) {
   char request[1024];
   char request_s[1024];
   char request_salted_s[1024];
@@ -293,24 +293,26 @@ int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite, int salt) {
   char* fsalt;
   SHA1_CTX context;
   uint8_t signature[64];
+  struct pk_pagekite* kite;
 
-  if (kite->bsalt == NULL)
-    if (pk_make_bsalt(kite) < 0)
+  kite = kite_r->kite;
+  if (kite_r->bsalt == NULL)
+    if (pk_make_bsalt(kite_r) < 0)
       return 0;
 
-  if (kite->port > 0)
-    sprintf(proto, "%s-%d", kite->proto, kite->port);
+  if (kite->public_port > 0)
+    sprintf(proto, "%s-%d", kite->protocol, kite->public_port);
   else
-    strcpy(proto, kite->proto);
+    strcpy(proto, kite->protocol);
 
-  if (kite->fsalt != NULL)
-    fsalt = kite->fsalt;
+  if (kite_r->fsalt != NULL)
+    fsalt = kite_r->fsalt;
   else
     fsalt = "";
 
-  sprintf(request, "%s:%s:%s:%s", proto, kite->kitename, kite->bsalt, fsalt);
+  sprintf(request, "%s:%s:%s:%s", proto, kite->public_domain, kite_r->bsalt, fsalt);
   sprintf(request_salted_s, "%8.8x", salt);
-  sprintf(request_s, "%s%s%s", kite->secret, request, request_salted_s);
+  sprintf(request_s, "%s%s%s", kite->auth_secret, request, request_salted_s);
 
   SHA1_Init(&context);
   SHA1_Update(&context, (uint8_t*) request_s, strlen(request_s));
@@ -324,49 +326,51 @@ int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite, int salt) {
   return sprintf(buffer, PK_HANDSHAKE_KITE, request);
 }
 
-char *pk_parse_kite_request(struct pk_kite_request* kite, const char *line)
+char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
 {
   char* copy;
   char* p;
+  struct pk_pagekite* kite = kite_r->kite;
 
   copy = malloc(strlen(line)+1);
   strcpy(copy, line);
 
-  kite->proto = strchr(copy, ' ');
-  if (kite->proto == NULL)
-    kite->proto = copy;
+  kite->protocol = strchr(copy, ' ');
+  if (kite->protocol == NULL)
+    kite->protocol = copy;
   else
-    kite->proto++;
+    kite->protocol++;
 
-  if (NULL == (kite->kitename = strchr(kite->proto, ':')))
+  if (NULL == (kite->public_domain = strchr(kite->protocol, ':')))
     return pk_err_null(ERR_PARSE_NO_KITENAME);
-  if (NULL == (kite->bsalt = strchr(kite->kitename+1, ':')))
+  if (NULL == (kite_r->bsalt = strchr(kite->public_domain+1, ':')))
     return pk_err_null(ERR_PARSE_NO_BSALT);
-  if (NULL == (kite->fsalt = strchr(kite->bsalt+1, ':')))
+  if (NULL == (kite_r->fsalt = strchr(kite_r->bsalt+1, ':')))
     return pk_err_null(ERR_PARSE_NO_FSALT);
 
-  *(kite->kitename++) = '\0';
-  *(kite->bsalt++) = '\0';
-  *(kite->fsalt++) = '\0';
+  *(kite->public_domain++) = '\0';
+  *(kite_r->bsalt++) = '\0';
+  *(kite_r->fsalt++) = '\0';
 
-  if (NULL != (p = strchr(kite->proto, '-'))) {
+  if (NULL != (p = strchr(kite->protocol, '-'))) {
     *p++ = '\0';
-    sscanf(p, "%d", &(kite->port));
+    sscanf(p, "%d", &(kite->public_port));
   }
   else
-    kite->port = 0;
+    kite->public_port = 0;
 
   return copy;
 }
 
 int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
-               unsigned int n, struct pk_kite_request** kites)
+               unsigned int n, struct pk_kite_request* requests)
 {
   unsigned int i;
   int sockfd, bytes;
   char buffer[16*1024];
   char* p;
-  struct pk_kite_request tkite;
+  struct pk_pagekite tkite;
+  struct pk_kite_request tkite_r;
   struct sockaddr_in serv_addr_buf;
   struct hostent *server;
 
@@ -383,6 +387,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     serv_addr->sin_port = htons(port);
   }
 
+
   if ((0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
       (0 > connect(sockfd, (struct sockaddr*) serv_addr, sizeof(*serv_addr))) ||
       (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))))
@@ -392,7 +397,8 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   }
 
   for (i = 0; i < n; i++) {
-    bytes = pk_sign_kite_request(buffer, kites[i], rand());
+    requests[i].status = PK_STATUS_UNKNOWN;
+    bytes = pk_sign_kite_request(buffer, &(requests[i]), rand());
     if ((0 >= bytes) || (0 > write(sockfd, buffer, bytes))) {
       close(sockfd);
       return (pk_error = ERR_CONNECT_REQUEST);
@@ -415,6 +421,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   buffer[i] = '\0';
 
   /* First, if we're rejected, parse out why and bail. */
+  /* FIXME: Should update the status of each individual request. */
   p = buffer;
   i = 0;
   while ((p = strstr(p, "X-PageKite-Duplicate")) != NULL) {
@@ -446,13 +453,14 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   i = 0;
   while ((p = strstr(p, "X-PageKite-SignThis")) != NULL) {
     bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
-    pk_parse_kite_request(&tkite, p);
+    tkite_r.kite = &tkite;
+    pk_parse_kite_request(&tkite_r, p);
     for (i = 0; i < n; i++) {
-      if ((kites[i]->port == tkite.port) &&
-          (0 == strcmp(kites[i]->kitename, tkite.kitename)) &&
-          (0 == strcmp(kites[i]->proto, tkite.proto)))
+      if ((requests[i].kite->public_port == tkite.public_port) &&
+          (0 == strcmp(requests[i].kite->public_domain, tkite.public_domain)) &&
+          (0 == strcmp(requests[i].kite->protocol, tkite.protocol)))
       {
-        kites[i]->fsalt = tkite.fsalt;
+        requests[i].fsalt = tkite_r.fsalt;
         i++;
       }
     }
@@ -460,8 +468,11 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   }
   if (i) {
     close(sockfd);
-    return pk_connect(frontend, port, serv_addr, n, kites);
+    return pk_connect(frontend, port, serv_addr, n, requests);
   }
 
+  for (i = 0; i < n; i++) {
+    requests[i].status = PK_STATUS_CONNECTED;
+  }
   return sockfd;
 }

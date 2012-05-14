@@ -80,25 +80,27 @@ int main(int argc, char **argv) {
   int fd;
   char pbuffer[64000], rbuffer[8192];
   struct pk_parser* pkp;
-  struct pk_kite_request kite;
-  struct pk_kite_request* kitep;
+  struct pk_pagekite kite;
+  struct pk_kite_request kite_r;
+  struct pk_kite_request* kite_rp;
 
   if (argc < 3) {
     usage();
     exit(1);
   }
 
-  kite.kitename = argv[1];
-  kite.secret = argv[2];
-  kite.proto = "http";
-  kite.port = 0;
+  kite_r.kite = &kite;
+  kite.protocol = "http";
+  kite.public_domain = argv[1];
+  kite.public_port = 0;
+  kite.auth_secret = argv[2];
 
-  kite.bsalt = NULL;
-  kite.fsalt = NULL;
-  kitep = &kite;
+  kite_r.bsalt = NULL;
+  kite_r.fsalt = NULL;
+  kite_rp = &kite_r;
 
   srand(time(0) ^ getpid());
-  fd = pk_connect(argv[1], 443, NULL, 1, &kitep);
+  fd = pk_connect(argv[1], 443, NULL, 1, &kite_r);
   if (fd < 0) {
     pk_perror(argv[1]);
     usage();

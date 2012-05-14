@@ -20,11 +20,15 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 #define _GNU_SOURCE 1
 #include <assert.h>
+#include <fcntl.h>
 #include <netinet/in.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <time.h>
+#include <unistd.h>
 #include <ev.h>
 
 #include "utils.h"
@@ -32,8 +36,142 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pkproto.h"
 #include "pkmanager.h"
 
-void pkm_chunk_cb(struct pk_frontend* frontend, struct pk_chunk *chunk) {
+struct pk_conn* pkm_alloc_be_conn(struct pk_manager* pkm) {
+  int i;
+  struct pk_conn* pkc;
+  for (i = 0, pkc = pkm->be_conns; i < pkm->be_conn_count; i++, pkc++) {
+    if (!(pkc->status & CONN_STATUS_ALLOCATED)) {
+      pkc->status = CONN_STATUS_ALLOCATED;
+      return pkc;
+    }
+  }
+  return NULL;
+}
+
+void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk) {
   /* FIXME */
+  fprintf(stderr, "A chunk!\n");
+}
+
+int pkm_write_data(struct pk_conn* pkc, int length, unsigned char* data) {
+  int bytes;
+  /* FIXME */
+}
+
+int pkm_read_data(struct pk_conn* pkc) {
+  int bytes;
+  bytes = read(pkc->sockfd,
+               pkc->in_buffer + (CONN_IO_BUFFER_SIZE - pkc->in_buffer_bytes_free),
+               pkc->in_buffer_bytes_free);
+  pkc->in_buffer_bytes_free -= bytes;
+  return bytes;
+}
+
+static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents) {
+  struct pk_frontend* fe;
+  int leftovers;
+  fe = (struct pk_frontend*) w->data;
+  fprintf(stderr, "Readable: %s:%d\n", fe->fe_hostname, fe->fe_port);
+  if (0 < pkm_read_data(&(fe->conn))) {
+    if (0 > pk_parser_parse(fe->parser,
+                            (CONN_IO_BUFFER_SIZE - fe->conn.in_buffer_bytes_free),
+                            fe->conn.in_buffer))
+    {
+      /* FIXME: What does this mean??? */
+      pk_perror("pkmanager.c");
+    }
+    fe->conn.in_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
+  }
+  else {
+    /* EOF, do something more sane than this. */
+    ev_io_stop(EV_A_ w);
+  }
+}
+
+static void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents) {
+  struct pk_frontend* fe;
+  fe = (struct pk_frontend*) w->data;
+  fprintf(stderr, "Writable: %s:%d\n", fe->fe_hostname, fe->fe_port);
+  ev_io_stop(EV_A_ w);
+}
+
+static void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents) {
+}
+
+static void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents) {
+
+}
+
+static void pkm_timer_cb(EV_P_ ev_timer *w, int revents) {
+  struct pk_manager* pkm;
+  struct pk_frontend *fe;
+  struct pk_kite_request *kite_r;
+  int i, j, reconnect, flags;
+
+  pkm = (struct pk_manager*) w->data;
+  fprintf(stderr, "Tick %p %p %x\n", (void *) loop, (void *) pkm, revents);
+
+  /* Loop through all configured tunnels:
+   *   - if idle, queue a ping.
+   *   - if dead, shut 'em down.
+   */
+
+  /* Loop through all configured kites:
+   *   - if missing a front-end, tear down tunnels and reconnect.
+   */
+  for (i = 0; i < pkm->frontend_count; i++) {
+    fe = (pkm->frontends + i);
+    if (fe->fe_hostname == NULL) continue;
+
+    if (fe->requests == NULL || fe->request_count != pkm->kite_count) {
+
+      if (fe->requests != NULL) free(fe->requests);
+      fe->requests = malloc(pkm->kite_count * sizeof(struct pk_kite_request));
+      bzero(fe->requests, pkm->kite_count * sizeof(struct pk_kite_request));
+      fe->request_count = 0;
+      for (kite_r = fe->requests, j = 0; j < pkm->kite_count; j++, kite_r++) {
+        kite_r->kite = (pkm->kites + j);
+        kite_r->status = PK_STATUS_UNKNOWN;
+        fe->request_count++;
+      }
+    }
+
+    reconnect = 0;
+    for (kite_r = fe->requests, j = 0; j < pkm->kite_count; j++, kite_r++) {
+      if (kite_r->status == PK_STATUS_UNKNOWN) reconnect++;
+    }
+    if (reconnect) {
+      fprintf(stderr, "Reconnecting to %s\n", fe->fe_hostname);
+      if (fe->conn.sockfd) {
+        ev_io_stop(pkm->loop, &(fe->conn.watch_r));
+        ev_io_stop(pkm->loop, &(fe->conn.watch_w));
+        close(fe->conn.sockfd);
+      }
+      fe->conn.status = CONN_STATUS_ALLOCATED;
+      fe->conn.activity = time(0);
+      fe->conn.in_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
+      fe->conn.out_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
+      if (0 < (fe->conn.sockfd = pk_connect(fe->fe_hostname, fe->fe_port, NULL,
+                                            fe->request_count, fe->requests))) {
+        fprintf(stderr, "Connected to %s:%d\n", fe->fe_hostname, fe->fe_port);
+
+        /* Set non-blocking */
+        flags = fcntl(fe->conn.sockfd, F_GETFL, 0);
+        fcntl(fe->conn.sockfd, F_SETFL, flags|O_NONBLOCK);
+
+        ev_io_init(&(fe->conn.watch_r), pkm_tunnel_readable_cb,
+                   fe->conn.sockfd, EV_READ);
+        ev_io_start(pkm->loop, &(fe->conn.watch_r));
+        ev_io_init(&(fe->conn.watch_w), pkm_tunnel_writable_cb,
+                   fe->conn.sockfd, EV_WRITE);
+        fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
+      }
+      else {
+        pk_perror("pkmanager.c");
+      }
+    }
+  }
+
 }
 
 struct pk_manager* pk_manager_init(struct ev_loop* loop,
@@ -99,6 +237,13 @@ struct pk_manager* pk_manager_init(struct ev_loop* loop,
     pkm->buffer_bytes_free -= parse_buffer_bytes;
   }
 
+  /* Set up our event-loop callbacks */
+  if (loop != NULL) {
+    ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, PK_HOUSEKEEPING_INTERVAL);
+    pkm->timer.data = (void *) pkm;
+    ev_timer_start(loop, &(pkm->timer));
+  }
+
   return pkm;
 }
 
@@ -144,6 +289,8 @@ struct pk_frontend* pk_add_frontend(struct pk_manager* pkm,
   fe->fe_hostname = strdup(hostname);
   fe->fe_port = port;
   fe->priority = priority;
+  fe->request_count = 0;
+  fe->requests = NULL;
 
   return fe;
 }

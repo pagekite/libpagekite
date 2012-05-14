@@ -32,6 +32,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <ev.h>
 
 #include "utils.h"
+#include "pkerror.h"
 #include "pkproto.h"
 #include "pkmanager.h"
 
@@ -61,10 +62,12 @@ int main(int argc, char **argv) {
   kitename = argv[3];
   secret = argv[5];
 
-  m = pk_manager_init(loop, PK_BUFFER_SIZE, buffer, -1, -1, -1);
-  pk_add_kite(m, proto, secret, kitename, pport, lport);
+  if (NULL == (m = pk_manager_init(loop, PK_BUFFER_SIZE, buffer, 1, 4, 16))) {
+    pk_perror(argv[0]);
+    exit(1);
+  }
+  pk_add_kite(m, proto, secret, kitename, 0, lport);
   pk_add_frontend(m, kitename, pport, 1);
-
   ev_loop(loop, 0);
 
   return 0;

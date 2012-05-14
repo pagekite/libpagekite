@@ -29,14 +29,25 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #define PK_HANDSHAKE_KITE "X-PageKite: %s\r\n"
 #define PK_HANDSHAKE_END "\r\n"
 
+/* Data structure describing a kite */
+struct pk_pagekite {
+  char* protocol;
+  char* public_domain;
+  int   public_port;
+  char* local_domain;
+  int   local_port;
+  char* auth_secret;
+};
+
 /* Data structure describing a kite request */
+#define PK_STATUS_UNKNOWN   0x0000
+#define PK_STATUS_CONNECTED 0x0001
+#define PK_STATUS_REJECTED  0x0002
 struct pk_kite_request {
-  char* kitename;
-  char* proto;
-  int   port;
-  char* secret;
+  struct pk_pagekite* kite;
   char* bsalt;
   char* fsalt;
+  int status;
 };
 
 /* Data structure describing a frame */
@@ -91,5 +102,5 @@ int               pk_make_bsalt(struct pk_kite_request*);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);
 char*             pk_parse_kite_request(struct pk_kite_request*, const char*);
 int               pk_connect(char *, int, struct sockaddr_in*,
-                             unsigned int, struct pk_kite_request**);
+                             unsigned int, struct pk_kite_request*);
 
