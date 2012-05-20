@@ -17,12 +17,16 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
+#include <errno.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
 #include "pkerror.h"
+#include "pkproto.h"
+#include "pklogging.h"
 
 
 void* pk_err_null(int error) {
@@ -36,11 +40,10 @@ void pk_perror(const char* prefix) {
   switch (pk_error) {
     /* FIXME: Make this prettier */
     case ERR_CONNECT_CONNECT:
-      perror(prefix);
-      fprintf(stderr, "\n");
+      pk_log(PK_LOG_ERROR, "%s: %s\n", prefix, strerror(errno));
       break;
     default:
-      fprintf(stderr, "%s: pk_error = %d\n", prefix, pk_error);
+      pk_log(PK_LOG_ERROR, "%s: pk_error = %d\n", prefix, pk_error);
   }
 
   pk_error = ERR_ALL_IS_WELL;

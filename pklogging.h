@@ -1,5 +1,5 @@
 /******************************************************************************
-pkerror.h - Basic error handling utilities
+utils.h - Logging.
 
 This file is Copyright 2011, 2012, The Beanstalks Project ehf.
 
@@ -18,32 +18,18 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
 
-#define ERR_ALL_IS_WELL            0
+#define PK_LOG_TUNNEL_DATA     0x0001
+#define PK_LOG_TUNNEL_HEADERS  0x0002
+#define PK_LOG_TUNNEL_CONNS    0x0004
+#define PK_LOG_BE_DATA         0x0010
+#define PK_LOG_BE_HEADERS      0x0020
+#define PK_LOG_BE_CONNS        0x0040
 
-#define ERR_PARSE_BAD_FRAME   -10000
-#define ERR_PARSE_BAD_CHUNK   -10001
+#define PK_LOG_ERROR           0x1000
 
-#define ERR_PARSE_NO_KITENAME -20000
-#define ERR_PARSE_NO_BSALT    -20001
-#define ERR_PARSE_NO_FSALT    -20002
+#define PK_LOG_CONNS           PK_LOG_BE_CONNS | PK_LOG_TUNNEL_CONNS
+#define PK_LOG_NORMAL          PK_LOG_ERROR | PK_LOG_CONNS
+#define PK_LOG_ALL             0xffff
 
-#define ERR_CONNECT_CONNECT   -30000
-#define ERR_CONNECT_REQUEST   -30001
-#define ERR_CONNECT_REQ_END   -30002
-
-#define ERR_CONNECT_DUPLICATE -40000
-#define ERR_CONNECT_REJECTED  -40001
-
-#define ERR_NO_MORE_KITES     -50000
-#define ERR_NO_MORE_FRONTENDS -50001
-
-#define ERR_TOOBIG_MANAGER    -60000
-#define ERR_TOOBIG_KITES      -60001
-#define ERR_TOOBIG_FRONTENDS  -60002
-#define ERR_TOOBIG_BE_CONNS   -60003
-#define ERR_TOOBIG_PARSERS    -60004
-
-
-int    pk_error;
-void*  pk_err_null(int);
-void   pk_perror(const char*);       
+int pk_log(int, const char *fmt, ...);
+int pk_log_chunk(struct pk_chunk* chnk);

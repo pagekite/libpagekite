@@ -20,6 +20,10 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <assert.h>
 #include <time.h>
 
+#include "pkstate.h"
+
+struct pk_global_state pk_state;
+
 int sha1_test();
 int utils_test();
 int pkproto_test();

@@ -31,9 +31,12 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <time.h>
 
 #include "utils.h"
+#include "pkstate.h"
 #include "pkerror.h"
 #include "pkproto.h"
+#include "pklogging.h"
 
+struct pk_global_state pk_state;
 
 void usage(void) {
   printf("Usage: httpkite your.kitename.com SECRET\n\n");
@@ -49,6 +52,7 @@ void handle_request(void* data, struct pk_chunk *chunk) {
   int *fd = data;
   int bytes;
 
+  pk_log_chunk(chunk);
   if (chunk->ping) {
     bytes = pk_format_pong(buffer);
     write(*fd, buffer, bytes);
@@ -58,10 +62,6 @@ void handle_request(void* data, struct pk_chunk *chunk) {
       /* Ignored, for now */
     }
     else if (!chunk->noop) {
-      fprintf(stderr, "%s:%d requested %s://%s:%d%s\n",
-              chunk->remote_ip, chunk->remote_port,
-              chunk->request_proto, chunk->request_host, chunk->request_port,
-              chunk->remote_tls ? " (encrypted)" : "");
 
       /* Send a reply, and close this channel right away */
       bytes = pk_format_reply(buffer, chunk->sid, strlen(hi), hi);
@@ -72,7 +72,7 @@ void handle_request(void* data, struct pk_chunk *chunk) {
     }
   }
   else {
-    fprintf(stderr, "(Weirdness: received non-ping chunk with no SID)\n");
+    /* Weirdness ... */
   }
 }
 
@@ -88,6 +88,8 @@ int main(int argc, char **argv) {
     usage();
     exit(1);
   }
+
+  pk_state.log_mask = PK_LOG_ALL;
 
   kite_r.kite = &kite;
   kite.protocol = "http";
@@ -122,4 +124,3 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-

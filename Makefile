@@ -5,8 +5,8 @@ OPT ?= -g
 CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
 CLINK ?= -lm -lev
 
-TOBJ = pkproto_test.o sha1_test.o
-OBJ = pkerror.o pkproto.o pkmanager.o utils.o sha1.o
+TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o
+OBJ = pkerror.o pkproto.o pkmanager.o pklogging.o utils.o sha1.o
 
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
@@ -28,7 +28,7 @@ clean:
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
-pkmanager.o: pkmanager.h pkproto.h utils.h
-pkproto.o: pkproto.h utils.h
+pkmanager.o: pkmanager.h pkproto.h utils.h pkerror.h pklogging.h
+pkproto.o: pkproto.h utils.h pkerror.h pklogging.h
 utils.o: utils.h
 sha1.o: sha1.h types.h
