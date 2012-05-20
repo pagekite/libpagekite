@@ -365,7 +365,7 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
 int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
                unsigned int n, struct pk_kite_request* requests)
 {
-  unsigned int i;
+  unsigned int i, j;
   int sockfd, bytes;
   char buffer[16*1024];
   char* p;
@@ -397,11 +397,13 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   }
 
   for (i = 0; i < n; i++) {
-    requests[i].status = PK_STATUS_UNKNOWN;
-    bytes = pk_sign_kite_request(buffer, &(requests[i]), rand());
-    if ((0 >= bytes) || (0 > write(sockfd, buffer, bytes))) {
-      close(sockfd);
-      return (pk_error = ERR_CONNECT_REQUEST);
+    if (requests[i].kite->protocol != NULL) {
+      requests[i].status = PK_STATUS_UNKNOWN;
+      bytes = pk_sign_kite_request(buffer, &(requests[i]), rand());
+      if ((0 >= bytes) || (0 > write(sockfd, buffer, bytes))) {
+        close(sockfd);
+        return (pk_error = ERR_CONNECT_REQUEST);
+      }
     }
   }
 
@@ -455,12 +457,13 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
     tkite_r.kite = &tkite;
     pk_parse_kite_request(&tkite_r, p);
-    for (i = 0; i < n; i++) {
-      if ((requests[i].kite->public_port == tkite.public_port) &&
-          (0 == strcmp(requests[i].kite->public_domain, tkite.public_domain)) &&
-          (0 == strcmp(requests[i].kite->protocol, tkite.protocol)))
+    for (j = 0; j < n; j++) {
+      if ((requests[j].kite->protocol != NULL) &&
+          (requests[j].kite->public_port == tkite.public_port) &&
+          (0 == strcmp(requests[j].kite->public_domain, tkite.public_domain)) &&
+          (0 == strcmp(requests[j].kite->protocol, tkite.protocol)))
       {
-        requests[i].fsalt = tkite_r.fsalt;
+        requests[j].fsalt = tkite_r.fsalt;
         i++;
       }
     }

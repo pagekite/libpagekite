@@ -52,7 +52,7 @@ int pk_log(int level, const char* fmt, ...)
 int pk_log_chunk(struct pk_chunk* chnk) {
   int r = 0;
   if (chnk->ping) {
-    r += pk_log(PK_LOG_TUNNEL_HEADERS, "[_____] Ping!");
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "[ --- ] Ping!");
   }
   else if (chnk->sid) {
     if (chnk->request_host) {
@@ -67,7 +67,7 @@ int pk_log_chunk(struct pk_chunk* chnk) {
     }
   }
   else {
-    r += pk_log(PK_LOG_TUNNEL_HEADERS, "[_____] Non-ping chnk with no SID");
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "[ ??? ] Non-ping chnk with no SID");
   }
   return r;
 }

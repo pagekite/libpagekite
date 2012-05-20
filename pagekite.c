@@ -32,11 +32,13 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <ev.h>
 
 #include "utils.h"
+#include "pkstate.h"
 #include "pkerror.h"
 #include "pkproto.h"
+#include "pklogging.h"
 #include "pkmanager.h"
 
-#define PK_BUFFER_SIZE  128 * 1024
+struct pk_global_state pk_state;
 
 void usage(void) {
   printf("Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET\n");
@@ -45,7 +47,6 @@ void usage(void) {
 int main(int argc, char **argv) {
   struct ev_loop *loop = EV_DEFAULT;
   struct pk_manager *m;
-  unsigned char buffer[PK_BUFFER_SIZE];
   char* proto;
   char* kitename;
   char* secret;
@@ -62,12 +63,14 @@ int main(int argc, char **argv) {
   kitename = argv[3];
   secret = argv[5];
 
-  if (NULL == (m = pk_manager_init(loop, PK_BUFFER_SIZE, buffer, 1, 4, 16))) {
+  pk_state.log_mask = PK_LOG_ALL;
+
+  if ((NULL == (m = pkm_manager_init(loop, 0, NULL, 1, 1, 20))) ||
+      (NULL == (pkm_add_kite(m, proto, secret, kitename, 0, lport))) ||
+      (NULL == (pkm_add_frontend(m, kitename, pport, 1)))) {
     pk_perror(argv[0]);
     exit(1);
   }
-  pk_add_kite(m, proto, secret, kitename, 0, lport);
-  pk_add_frontend(m, kitename, pport, 1);
   ev_loop(loop, 0);
 
   return 0;

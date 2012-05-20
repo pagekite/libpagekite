@@ -36,29 +36,49 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pkproto.h"
 #include "pkmanager.h"
 
-struct pk_conn* pkm_alloc_be_conn(struct pk_manager* pkm) {
-  int i;
-  struct pk_conn* pkc;
-  for (i = 0, pkc = pkm->be_conns; i < pkm->be_conn_count; i++, pkc++) {
-    if (!(pkc->status & CONN_STATUS_ALLOCATED)) {
-      pkc->status = CONN_STATUS_ALLOCATED;
-      return pkc;
+void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
+{
+  struct pk_backend_conn* pkc;
+  char pong[256];
+  int bytes;
+
+  pk_log_chunk(chunk);
+
+  if (NULL != chunk->ping) {
+    bytes = pk_format_pong(pong);
+    pkm_write_data(&(fe->conn), bytes, pong);
+  }
+
+  if ((NULL != chunk->sid) &&
+      (NULL == (pkc = pkm_find_be_conn(fe->manager, chunk->sid))) &&
+      (NULL != (pkc = pkm_alloc_be_conn(fe->manager, chunk->sid)))) {
+    pkc->frontend = fe;
+  }
+  else {
+    pkc = NULL;
+  }
+  if (NULL != pkc) {
+    if (NULL == chunk->noop) {
+      pkm_write_data(&(pkc->conn), chunk->length, chunk->data);
+    }
+    if (NULL != chunk->eof) {
+      /* FIXME: Close things. */
     }
   }
-  return NULL;
 }
 
-void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk) {
-  /* FIXME */
-  fprintf(stderr, "A chunk!\n");
+int pkm_write_data(struct pk_conn* pkc, int length, char* data)
+{
+  /* 1. Try to flush already buffered data. */
+  /* 2. If successful, try to write new data (0 copies!) */
+  /* 2a. Buffer any unwritten data. */
+  /* 3. Else, if new+old data > buffer size, do a blocking write. */
+
+  return length;
 }
 
-int pkm_write_data(struct pk_conn* pkc, int length, unsigned char* data) {
-  int bytes;
-  /* FIXME */
-}
-
-int pkm_read_data(struct pk_conn* pkc) {
+int pkm_read_data(struct pk_conn* pkc)
+{
   int bytes;
   bytes = read(pkc->sockfd,
                pkc->in_buffer + (CONN_IO_BUFFER_SIZE - pkc->in_buffer_bytes_free),
@@ -67,17 +87,17 @@ int pkm_read_data(struct pk_conn* pkc) {
   return bytes;
 }
 
-static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents) {
+static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
+{
   struct pk_frontend* fe;
-  int leftovers;
+
   fe = (struct pk_frontend*) w->data;
-  fprintf(stderr, "Readable: %s:%d\n", fe->fe_hostname, fe->fe_port);
   if (0 < pkm_read_data(&(fe->conn))) {
     if (0 > pk_parser_parse(fe->parser,
                             (CONN_IO_BUFFER_SIZE - fe->conn.in_buffer_bytes_free),
-                            fe->conn.in_buffer))
+                            (char *) fe->conn.in_buffer))
     {
-      /* FIXME: What does this mean??? */
+      /* Parse failed: remote end is a borked: should kill this connection. */
       pk_perror("pkmanager.c");
     }
     fe->conn.in_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
@@ -88,21 +108,25 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents) {
   }
 }
 
-static void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents) {
+static void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
+{
   struct pk_frontend* fe;
+
   fe = (struct pk_frontend*) w->data;
   fprintf(stderr, "Writable: %s:%d\n", fe->fe_hostname, fe->fe_port);
   ev_io_stop(EV_A_ w);
 }
 
-static void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents) {
+static void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
+{
 }
 
-static void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents) {
-
+static void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
+{
 }
 
-static void pkm_timer_cb(EV_P_ ev_timer *w, int revents) {
+static void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
+{
   struct pk_manager* pkm;
   struct pk_frontend *fe;
   struct pk_kite_request *kite_r;
@@ -124,15 +148,11 @@ static void pkm_timer_cb(EV_P_ ev_timer *w, int revents) {
     if (fe->fe_hostname == NULL) continue;
 
     if (fe->requests == NULL || fe->request_count != pkm->kite_count) {
-
-      if (fe->requests != NULL) free(fe->requests);
-      fe->requests = malloc(pkm->kite_count * sizeof(struct pk_kite_request));
+      fe->request_count = pkm->kite_count;
       bzero(fe->requests, pkm->kite_count * sizeof(struct pk_kite_request));
-      fe->request_count = 0;
       for (kite_r = fe->requests, j = 0; j < pkm->kite_count; j++, kite_r++) {
         kite_r->kite = (pkm->kites + j);
         kite_r->status = PK_STATUS_UNKNOWN;
-        fe->request_count++;
       }
     }
 
@@ -171,16 +191,24 @@ static void pkm_timer_cb(EV_P_ ev_timer *w, int revents) {
       }
     }
   }
-
 }
 
-struct pk_manager* pk_manager_init(struct ev_loop* loop,
-                                   int buffer_size, unsigned char* buffer,
-                                   int kites, int frontends, int conns)
+struct pk_manager* pkm_manager_init(struct ev_loop* loop,
+                                    int buffer_size, char* buffer,
+                                    int kites, int frontends, int conns)
 {
   struct pk_manager* pkm;
   int i;
   unsigned int parse_buffer_bytes;
+
+  if (kites < MIN_KITE_ALLOC) kites = MIN_KITE_ALLOC;
+  if (frontends < MIN_FE_ALLOC) frontends = MIN_FE_ALLOC;
+  if (conns < MIN_CONN_ALLOC) conns = MIN_CONN_ALLOC;
+
+  if (buffer == NULL) {
+    buffer_size = PK_MANAGER_BUFSIZE(kites, frontends, conns, PARSER_BYTES_AVG);
+    buffer = malloc(buffer_size);
+  }
 
   memset(buffer, 0, buffer_size);
 
@@ -191,29 +219,30 @@ struct pk_manager* pk_manager_init(struct ev_loop* loop,
   pkm->buffer_bytes_free -= sizeof(struct pk_manager);
   pkm->buffer_base = pkm->buffer;
   pkm->loop = loop;
-  if (pkm->buffer_bytes_free < 0) return NULL;
-
-  if (kites < MIN_KITE_ALLOC) kites = MIN_KITE_ALLOC;
-  if (frontends < MIN_FE_ALLOC) frontends = MIN_FE_ALLOC;
-  if (conns < MIN_CONN_ALLOC) conns = MIN_CONN_ALLOC;
+  if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_MANAGER);
 
   /* Allocate space for the kites */
   pkm->buffer_bytes_free -= sizeof(struct pk_pagekite) * kites;
-  if (pkm->buffer_bytes_free < 0) return NULL;
+  if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_KITES);
   pkm->kites = (struct pk_pagekite *) pkm->buffer;
   pkm->kite_count = kites;
   pkm->buffer += sizeof(struct pk_pagekite) * kites;
 
   /* Allocate space for the frontends */
-  pkm->buffer_bytes_free -= sizeof(struct pk_frontend) * frontends;
-  if (pkm->buffer_bytes_free < 0) return NULL;
+  pkm->buffer_bytes_free -= (sizeof(struct pk_frontend) * frontends);
+  pkm->buffer_bytes_free -= (sizeof(struct pk_kite_request) * kites * frontends);
+  if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_FRONTENDS);
   pkm->frontends = (struct pk_frontend *) pkm->buffer;
   pkm->frontend_count = frontends;
   pkm->buffer += sizeof(struct pk_frontend) * frontends;
+  for (i = 0; i < frontends; i++) {
+    (pkm->frontends + i)->requests = (struct pk_kite_request*) pkm->buffer;
+    pkm->buffer += (sizeof(struct pk_kite_request) * kites);
+  }
 
   /* Allocate space for the backend connections */
   pkm->buffer_bytes_free -= sizeof(struct pk_backend_conn) * conns;
-  if (pkm->buffer_bytes_free < 0) return NULL;
+  if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_BE_CONNS);
   pkm->be_conns = (struct pk_backend_conn *) pkm->buffer;
   pkm->be_conn_count = conns;
   pkm->buffer += sizeof(struct pk_backend_conn) * conns;
@@ -224,15 +253,15 @@ struct pk_manager* pk_manager_init(struct ev_loop* loop,
   if (parse_buffer_bytes > PARSER_BYTES_MAX)
     parse_buffer_bytes = PARSER_BYTES_MAX;
   if (parse_buffer_bytes < PARSER_BYTES_MIN)
-    return NULL;
+    return pk_err_null(ERR_TOOBIG_PARSERS);
 
   /* Initialize the frontend structs... */
   for (i = 0; i < frontends; i++) {
     (pkm->frontends+i)->manager = pkm;
     (pkm->frontends+i)->parser = pk_parser_init(parse_buffer_bytes,
                                                 (char *) pkm->buffer,
-                                                (pkChunkCallback*) &pkm_chunk_cb,
-                                                (pkm->frontends+i));
+                                               (pkChunkCallback*) &pkm_chunk_cb,
+                                              (pkm->frontends+i));
     pkm->buffer += parse_buffer_bytes;
     pkm->buffer_bytes_free -= parse_buffer_bytes;
   }
@@ -247,11 +276,11 @@ struct pk_manager* pk_manager_init(struct ev_loop* loop,
   return pkm;
 }
 
-struct pk_pagekite* pk_add_kite(struct pk_manager* pkm,
-                                const char* protocol,
-                                const char* auth_secret,
-                                const char* public_domain, int public_port,
-                                int local_port)
+struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
+                                 const char* protocol,
+                                 const char* auth_secret,
+                                 const char* public_domain, int public_port,
+                                 int local_port)
 {
   int which;
   struct pk_pagekite* kite;
@@ -272,9 +301,9 @@ struct pk_pagekite* pk_add_kite(struct pk_manager* pkm,
   return kite;
 }
 
-struct pk_frontend* pk_add_frontend(struct pk_manager* pkm,
-                                    const char* hostname,
-                                    int port, int priority)
+struct pk_frontend* pkm_add_frontend(struct pk_manager* pkm,
+                                     const char* hostname,
+                                     int port, int priority)
 {
   int which;
   struct pk_frontend* fe;
@@ -290,58 +319,58 @@ struct pk_frontend* pk_add_frontend(struct pk_manager* pkm,
   fe->fe_port = port;
   fe->priority = priority;
   fe->request_count = 0;
-  fe->requests = NULL;
 
   return fe;
 }
 
-
-/**[ TESTS ]******************************************************************/
-
-int pkmanager_test(void)
+unsigned char pkm_sid_shift(char *sid)
 {
-  unsigned char buffer[64000];
-  struct pk_manager* m;
-  int i;
+  unsigned char shift;
+  char *c;
 
-  /* Are too-small buffers handled correctly? */
-  assert(NULL == pk_manager_init(NULL, 1000, buffer, 1000, -1, -1));
-  assert(NULL == pk_manager_init(NULL, 1000, buffer, -1, 1000, -1));
-  assert(NULL == pk_manager_init(NULL, 1000, buffer, -1, -1, 1000));
-
-  /* Create a real one */
-  assert(NULL != (m = pk_manager_init(NULL, 64000, buffer, -1, -1, -1)));
-
-  /* Ensure the right defaults are used. */
-  assert(m->frontend_count == MIN_FE_ALLOC);
-  assert(m->kite_count == MIN_KITE_ALLOC);
-  assert(m->be_conn_count == MIN_CONN_ALLOC);
-
-  /* Ensure memory regions don't overlap */
-  memset(m->be_conns,  3, sizeof(struct pk_backend_conn) * m->be_conn_count);
-  memset(m->frontends, 2, sizeof(struct pk_frontend)     * m->frontend_count);
-  memset(m->kites,     1, sizeof(struct pk_pagekite)     * m->kite_count);
-  assert(0 == *((char*) m->buffer));
-  assert(1 == *((char*) m->kites));
-  assert(2 == *((char*) m->frontends));
-  assert(3 == *((char*) m->be_conns));
-
-  /* Test pk_add_frontend */
-  assert(NULL == pk_add_frontend(m, "woot", 123, 1));
-  assert(ERR_NO_MORE_FRONTENDS == pk_error);
-  memset(m->frontends, 0, sizeof(struct pk_frontend) * m->frontend_count);
-  for (i = 0; i < MIN_FE_ALLOC; i++)
-    assert(NULL != pk_add_frontend(m, "woot", 123, 1));
-  assert(NULL == pk_add_frontend(m, "woot", 123, 1));
-
-  /* Test pk_add_kite */
-  assert(NULL == pk_add_kite(m, "http", "foo", "sec", 80, 80));
-  assert(ERR_NO_MORE_KITES == pk_error);
-  memset(m->kites, 0, sizeof(struct pk_pagekite) * m->kite_count);
-  for (i = 0; i < MIN_KITE_ALLOC; i++)
-    assert(NULL != pk_add_kite(m, "http", "foo", "sec", 80, 80));
-  assert(NULL == pk_add_kite(m, "http", "foo", "sec", 80, 80));
-
-  return 1;
+  for (c = sid, shift = 0; *c != '\0'; c++) {
+    shift = (shift << 3) | (shift >> 5);
+    shift ^= *c;
+  }
+  return shift;
 }
 
+struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm, char *sid)
+{
+  int i;
+  unsigned char shift;
+  struct pk_backend_conn* pkc;
+
+  shift = pkm_sid_shift(sid);
+  for (i = 0; i < pkm->be_conn_count; i++) {
+    pkc = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
+    if (!(pkc->conn.status & CONN_STATUS_ALLOCATED)) {
+      pkc->conn.status = CONN_STATUS_ALLOCATED;
+      strncpy(pkc->sid, sid, BE_MAX_SID_SIZE);
+      return pkc;
+    }
+  }
+  return NULL;
+}
+
+void pkm_free_be_conn(struct pk_backend_conn* pkc)
+{
+  pkc->conn.status = CONN_STATUS_UNKNOWN;
+}
+
+struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm, char* sid)
+{
+  int i;
+  unsigned char shift;
+  struct pk_backend_conn* pkc;
+
+  shift = pkm_sid_shift(sid);
+  for (i = 0; i < pkm->be_conn_count; i++) {
+    pkc = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
+    if ((pkc->conn.status & CONN_STATUS_ALLOCATED) &&
+        (0 == strncmp(pkc->sid, sid, BE_MAX_SID_SIZE))) {
+      return pkc;
+    }
+  }
+  return NULL;
+}
