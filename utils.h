@@ -20,3 +20,4 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 int zero_first_crlf(int, char*);
 int dbg_write(int, char *, int);
+int set_non_blocking(int);

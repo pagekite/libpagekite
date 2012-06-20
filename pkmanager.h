@@ -99,14 +99,19 @@ struct pk_manager {
 struct pk_manager* pkm_manager_init(struct ev_loop*,
                                     int, char*, int, int, int);
 struct pk_pagekite* pkm_add_kite(struct pk_manager*,
-                                 const char*, const char*, const char*,
-                                 int, int);
+                                 const char*, const char*, int, const char*,
+                                 const char*, int);
+struct pk_pagekite* pkm_find_kite(struct pk_manager*,
+                                  const char*, const char*, int);
 struct pk_frontend* pkm_add_frontend(struct pk_manager*,
                                      const char*, int, int);
 
 int pkm_write_data(struct pk_conn*, int, char*);
 int pkm_read_data(struct pk_conn*);
 
+struct pk_backend_conn* pkm_connect_be(struct pk_frontend*, struct pk_chunk*);
 struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager*, char*);
 struct pk_backend_conn* pkm_find_be_conn(struct pk_manager*, char*);
 void pkm_free_be_conn(struct pk_backend_conn*);
+
+struct pk_conn* pkm_eof(struct pk_conn*, char*);

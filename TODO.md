@@ -20,13 +20,15 @@ These are Things TO DO for libpagekite.
 
 ### Ahead ###
 
-   * pagekite.c: libev based single-kite pagekite proxy
-   * pagekite.c: multiple-kite pagekite proxy
+   * pagekite.c: libev based single-kite pagekite proxy (blocking)
+   * pagekite.c: multiple-kite pagekite proxy (blocking, BE use only)
    * pkmanager.c: reconnect automatically
    * pkmanager.c: choose best front-end automatically
-   * pkmanager.c: SOCKS and HTTP proxy support for outgoing connections
+   * pkmanager.c: add flow control
    * libpagekite: create simple fork/thread/anonymous-pipe based API for
                   easily adding PageKite support to existing TCP/IP servers.
    * pkproto.c: add ZChunk support
    * pkproto.c: add SSL support
+   * pkmanager.c: SOCKS and HTTP proxy support for outgoing connections
+   * pagekite.c: truly non-blocking pagekite proxy, suitable for front-end
 

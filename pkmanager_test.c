@@ -80,12 +80,14 @@ int pkmanager_test(void)
   assert(NULL == pkm_add_frontend(m, "woot", 123, 1));
 
   /* Test pk_add_kite */
-  assert(NULL == pkm_add_kite(m, "http", "foo", "sec", 80, 80));
+  assert(NULL == pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));
   assert(ERR_NO_MORE_KITES == pk_error);
   memset(m->kites, 0, sizeof(struct pk_pagekite) * m->kite_count);
   for (i = 0; i < MIN_KITE_ALLOC; i++)
-    assert(NULL != pkm_add_kite(m, "http", "foo", "sec", 80, 80));
-  assert(NULL == pkm_add_kite(m, "http", "foo", "sec", 80, 80));
+    assert(NULL != pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));
+  assert(NULL == pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));
+  assert(NULL != pkm_find_kite(m, "http", "foo", 80));
+  assert(NULL == pkm_find_kite(m, "http", "bar", 80));
 
   /* Test pk_*_be_conn */
   assert(NULL == pkm_find_be_conn(m, "abc"));

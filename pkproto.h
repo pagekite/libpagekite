@@ -71,7 +71,8 @@ struct pk_chunk {
   char*           remote_ip;       /* RIP:   Remote IP address (string)      */
   int             remote_port;     /* RPort: Remote port number              */
   char*           remote_tls;      /* RTLS:  Remote TLS encryption (string)  */
-  int             throttle_spd;    /* SPD:   Flow control                    */
+  int             remote_sent_kb;  /* SKB:   Flow control v2                 */
+  int             throttle_spd;    /* SPD:   Flow control v1                 */
   int             length;          /* Length of chunk data.                  */
   char*           data;            /* Pointer to chunk data.                 */
   struct pk_frame frame;           /* The raw data.                          */

@@ -66,7 +66,8 @@ int main(int argc, char **argv) {
   pk_state.log_mask = PK_LOG_ALL;
 
   if ((NULL == (m = pkm_manager_init(loop, 0, NULL, 1, 1, 20))) ||
-      (NULL == (pkm_add_kite(m, proto, secret, kitename, 0, lport))) ||
+      (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
+                                "localhost", lport))) ||
       (NULL == (pkm_add_frontend(m, kitename, pport, 1)))) {
     pk_perror(argv[0]);
     exit(1);

@@ -20,7 +20,9 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 #define _GNU_SOURCE 1
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,33 +40,110 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
 {
-  struct pk_backend_conn* pkc;
+  struct pk_backend_conn* pkc; /* FIXME: What if we are a front-end? */
   char pong[256];
   int bytes;
 
   pk_log_chunk(chunk);
 
-  if (NULL != chunk->ping) {
-    bytes = pk_format_pong(pong);
-    pkm_write_data(&(fe->conn), bytes, pong);
-  }
-
-  if ((NULL != chunk->sid) &&
-      (NULL == (pkc = pkm_find_be_conn(fe->manager, chunk->sid))) &&
-      (NULL != (pkc = pkm_alloc_be_conn(fe->manager, chunk->sid)))) {
-    pkc->frontend = fe;
+  if (NULL != chunk->noop) {
+    if (NULL != chunk->ping) {
+      bytes = pk_format_pong(pong);
+      pkm_write_data(&(fe->conn), bytes, pong);
+    }
   }
   else {
-    pkc = NULL;
-  }
-  if (NULL != pkc) {
-    if (NULL == chunk->noop) {
+    if ((NULL != chunk->sid) &&
+        ((NULL != (pkc = pkm_find_be_conn(fe->manager, chunk->sid))) ||
+         (NULL != (pkc = pkm_connect_be(fe, chunk))))) {
+      /* We are happy, pkc should be a valid connection. */
+      fprintf(stderr, "Connected?\n");
+    }
+    else {
+      pkc = NULL;
+    }
+    if (NULL == pkc) {
+      /* FIXME: Send back an error */
+    }
+    else {
       pkm_write_data(&(pkc->conn), chunk->length, chunk->data);
-    }
-    if (NULL != chunk->eof) {
-      /* FIXME: Close things. */
+      if ((NULL != chunk->eof) &&
+          (NULL == pkm_eof(&(pkc->conn), chunk->eof))) {
+        /* FIXME: Completely dead.  Deallocate pk_backend_conn ? */
+      }
     }
   }
+}
+
+struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
+                                       struct pk_chunk* chunk)
+{
+  /* Connect to the backend, or free the conn object if we fail */
+  int sockfd;
+  struct sockaddr_in addr_buf;
+  struct sockaddr_in* addr;
+  struct hostent *backend;
+  struct pk_backend_conn* pkc;
+  struct pk_pagekite *kite;
+
+  /* FIXME: Better error handling? */
+
+  /* First, search the list of configured back-ends for one that matches
+     the request in the chunk.  If nothing is found, there is no point in
+     continuing. */
+  if (NULL == (kite = pkm_find_kite(fe->manager,
+                                    chunk->request_proto,
+                                    chunk->request_host,
+                                    chunk->request_port)))
+    return NULL;
+
+  /* Allocate a connection for this request or die... */
+  if (NULL == (pkc = pkm_alloc_be_conn(fe->manager, chunk->sid)))
+    return NULL;
+
+  /* Look up the back-end... */
+  addr = NULL;
+  if (NULL != (backend = gethostbyname(kite->local_domain))) {
+    addr = &addr_buf;
+    bzero((char *) addr, sizeof(addr));
+    addr->sin_family = AF_INET;
+    bcopy((char*) backend->h_addr_list[0],
+          (char*) &(addr->sin_addr.s_addr),
+          backend->h_length);
+    addr->sin_port = htons(kite->local_port);
+  }
+
+  /* Try to connect and set non-blocking. */
+  errno = 0;
+  if ((NULL == addr) ||
+      (0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
+      (0 > set_non_blocking(sockfd)) ||
+      (0 > connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))))
+  {
+    if (errno != EINPROGRESS) {
+      close(sockfd);
+      pkm_free_be_conn(pkc);
+      return NULL;
+    }
+  }
+
+  /* FIXME: This should be non-blocking for use on high volume front-ends,
+            but that requires more buffering and fancy logic, so we're
+            lazy for now.
+            See also: http://developerweb.net/viewtopic.php?id=3196 */
+
+  pkc->kite = kite;
+  pkc->frontend = fe;
+  pkc->conn.sockfd = sockfd;
+
+  return pkc;
+}
+
+struct pk_conn* pkm_eof(struct pk_conn* pkc, char *eof)
+{
+  /* Shut down to varying degrees, depending on what kind of EOF this is. */
+  /* Return NULL if we are completely dead, pkc otherwise */
+  return NULL;
 }
 
 int pkm_write_data(struct pk_conn* pkc, int length, char* data)
@@ -94,7 +173,7 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
   fe = (struct pk_frontend*) w->data;
   if (0 < pkm_read_data(&(fe->conn))) {
     if (0 > pk_parser_parse(fe->parser,
-                            (CONN_IO_BUFFER_SIZE - fe->conn.in_buffer_bytes_free),
+                            (CONN_IO_BUFFER_SIZE-fe->conn.in_buffer_bytes_free),
                             (char *) fe->conn.in_buffer))
     {
       /* Parse failed: remote end is a borked: should kill this connection. */
@@ -130,7 +209,7 @@ static void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   struct pk_manager* pkm;
   struct pk_frontend *fe;
   struct pk_kite_request *kite_r;
-  int i, j, reconnect, flags;
+  int i, j, reconnect;
 
   pkm = (struct pk_manager*) w->data;
   fprintf(stderr, "Tick %p %p %x\n", (void *) loop, (void *) pkm, revents);
@@ -171,13 +250,12 @@ static void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
       fe->conn.activity = time(0);
       fe->conn.in_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
       fe->conn.out_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
-      if (0 < (fe->conn.sockfd = pk_connect(fe->fe_hostname, fe->fe_port, NULL,
-                                            fe->request_count, fe->requests))) {
+      if ((0 <= (fe->conn.sockfd = pk_connect(fe->fe_hostname,
+                                              fe->fe_port, NULL,
+                                              fe->request_count,
+                                              fe->requests))) &&
+          (0 <= set_non_blocking(fe->conn.sockfd))) {
         fprintf(stderr, "Connected to %s:%d\n", fe->fe_hostname, fe->fe_port);
-
-        /* Set non-blocking */
-        flags = fcntl(fe->conn.sockfd, F_GETFL, 0);
-        fcntl(fe->conn.sockfd, F_SETFL, flags|O_NONBLOCK);
 
         ev_io_init(&(fe->conn.watch_r), pkm_tunnel_readable_cb,
                    fe->conn.sockfd, EV_READ);
@@ -276,15 +354,42 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   return pkm;
 }
 
+struct pk_pagekite* pkm_find_kite(struct pk_manager* pkm,
+                                  const char* protocol,
+                                  const char* domain,
+                                  int port)
+{
+  int which;
+  struct pk_pagekite* kite;
+  struct pk_pagekite* found;
+
+  /* FIXME: This is O(N), we'll need a nicer data structure for frontends */
+  found = NULL;
+  for (which = 0; which < pkm->kite_count; which++) {
+    kite = pkm->kites+which;
+    if (kite->protocol != NULL) {
+      if ((0 == strcasecmp(domain, kite->public_domain)) &&
+          (0 == strcasecmp(protocol, kite->protocol))) {
+        if (kite->public_port <= 0)
+          found = kite;
+        else if (kite->public_port == port)
+          return kite;
+      }
+    }
+  }
+  return found;
+}
+
 struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
                                  const char* protocol,
-                                 const char* auth_secret,
                                  const char* public_domain, int public_port,
-                                 int local_port)
+                                 const char* auth_secret,
+                                 const char* local_domain, int local_port)
 {
   int which;
   struct pk_pagekite* kite;
 
+  /* FIXME: This is O(N), we'll need a nicer data structure for frontends */
   for (which = 0; which < pkm->kite_count; which++) {
     kite = pkm->kites+which;
     if (kite->protocol == NULL) break;
@@ -296,6 +401,7 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   kite->auth_secret = strdup(auth_secret);
   kite->public_domain = strdup(public_domain);
   kite->public_port = public_port;
+  kite->local_domain = local_domain;
   kite->local_port = local_port;
 
   return kite;

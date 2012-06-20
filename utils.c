@@ -17,6 +17,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,4 +40,12 @@ int dbg_write(int sockfd, char *buffer, int bytes)
 {
   printf(">> %s", buffer);
   return write(sockfd, buffer, bytes);
+}
+
+int set_non_blocking(int sockfd)
+{
+  int flags;
+  if ((0 <= (flags = fcntl(sockfd, F_GETFL, 0))) &&
+      (0 <= fcntl(sockfd, F_SETFL, flags|O_NONBLOCK))) return sockfd;
+  return -1;
 }

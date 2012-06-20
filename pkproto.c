@@ -56,12 +56,13 @@ void chunk_reset_values(struct pk_chunk* chunk)
   chunk->eof = NULL;
   chunk->noop = NULL;
   chunk->ping = NULL;
-  chunk->request_host = NULL;
   chunk->request_proto = NULL;
+  chunk->request_host = NULL;
   chunk->request_port = -1;
   chunk->remote_ip = NULL;
   chunk->remote_port = -1;
   chunk->remote_tls = NULL;
+  chunk->remote_sent_kb = -1;
   chunk->throttle_spd = -1;
   chunk->length = -1;
   chunk->data = NULL;
@@ -142,8 +143,13 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
       chunk->eof = frame->data + pos + 5;
     else if (0 == strncasecmp(frame->data + pos, "PING: ", 6))
       chunk->ping = frame->data + pos + 6;
+    else if (0 == strncasecmp(frame->data + pos, "SKB: ", 5))
+      sscanf(frame->data + pos + 5, "%d", &(chunk->remote_sent_kb));
     else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
       sscanf(frame->data + pos + 5, "%d", &(chunk->throttle_spd));
+
+    /* FIXME: Chunk headers may also contain larger headers for setting up
+     *        or tearing down kites, or quota information.  Parse that too? */
 
     pos += len;
   }
