@@ -28,7 +28,9 @@ clean:
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
+pkmanager_test.o: pkmanager.h pkproto.h utils.h pkerror.h pklogging.h
 pkmanager.o: pkmanager.h pkproto.h utils.h pkerror.h pklogging.h
+pkproto_test.o: pkproto.h utils.h pkerror.h pklogging.h
 pkproto.o: pkproto.h utils.h pkerror.h pklogging.h
 pklogging.o: pkproto.h pklogging.h
 utils.o: utils.h

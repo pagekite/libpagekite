@@ -52,22 +52,31 @@ int pk_log(int level, const char* fmt, ...)
 int pk_log_chunk(struct pk_chunk* chnk) {
   int r = 0;
   if (chnk->ping) {
-    r += pk_log(PK_LOG_TUNNEL_HEADERS, "[ --- ] Ping!");
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "< --- < Ping?");
   }
   else if (chnk->sid) {
-    if (chnk->request_host) {
-      r += pk_log(PK_LOG_TUNNEL_CONNS,
-                  "[%5.5s] %s:%d requested %s://%s:%d%s",
-                  chnk->sid, chnk->remote_ip, chnk->remote_port,
-                  chnk->request_proto, chnk->request_host, chnk->request_port,
-                  chnk->remote_tls ? " (encrypted)" : "");
+    if (chnk->noop) {
+      r += pk_log(PK_LOG_TUNNEL_DATA, "<%5.5s< NOOP: (skb:%d spd:%d)",
+                                      chnk->sid, chnk->eof,
+                                      chnk->remote_sent_kb, chnk->throttle_spd);
+    }
+    else if (chnk->eof) {
+      r += pk_log(PK_LOG_TUNNEL_DATA, "<%5.5s< EOF: %s", chnk->sid, chnk->eof);
     }
     else {
-      r += pk_log(PK_LOG_TUNNEL_DATA, "[%5.5s] << FIXME: DATA >>", chnk->sid);
+      if (chnk->request_host) {
+        r += pk_log(PK_LOG_TUNNEL_CONNS,
+                    "<%5.5s<  %s:%d requested %s://%s:%d%s",
+                    chnk->sid, chnk->remote_ip, chnk->remote_port,
+                    chnk->request_proto, chnk->request_host, chnk->request_port,
+                    chnk->remote_tls ? " (encrypted)" : "");
+      }
+      r += pk_log(PK_LOG_TUNNEL_DATA, "<%5.5s< DATA: %d bytes",
+                                      chnk->sid, chnk->length);
     }
   }
   else {
-    r += pk_log(PK_LOG_TUNNEL_HEADERS, "[ ??? ] Non-ping chnk with no SID");
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "< ??? < Non-ping chnk with no SID");
   }
   return r;
 }

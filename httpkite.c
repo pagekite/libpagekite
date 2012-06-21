@@ -67,7 +67,7 @@ void handle_request(void* data, struct pk_chunk *chunk) {
       bytes = pk_format_reply(buffer, chunk->sid, strlen(hi), hi);
       write(*fd, buffer, bytes);
 
-      bytes = pk_format_eof(buffer, chunk->sid);
+      bytes = pk_format_eof(buffer, chunk->sid, PK_EOF);
       write(*fd, buffer, bytes);
     }
   }

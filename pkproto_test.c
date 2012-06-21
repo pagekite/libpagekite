@@ -33,7 +33,7 @@ int pkproto_test_format_frame(void)
 {
   char dest[1024];
   char* expect = "e\r\nSID: 12345\r\n\r\n";
-  int bytes = strlen(expect);
+  size_t bytes = strlen(expect);
   assert(bytes == pk_format_frame(dest, "12345", "SID: %s\r\n\r\n", 0));
   assert(0 == strncmp(expect, dest, bytes));
   return 1;
@@ -43,7 +43,8 @@ int pkproto_test_format_reply(void)
 {
   char dest[1024];
   char* expect = "19\r\nSID: 12345\r\n\r\nHello World";
-  int bytes = strlen(expect);
+  size_t bytes = strlen(expect);
+  assert(bytes == 11+pk_reply_overhead("12345", 11));
   assert(bytes == pk_format_reply(dest, "12345", 11, "Hello World"));
   assert(0 == strncmp(expect, dest, bytes));
   return 1;
@@ -52,9 +53,9 @@ int pkproto_test_format_reply(void)
 int pkproto_test_format_eof(void)
 {
   char dest[1024];
-  char* expect = "17\r\nSID: 12345\r\nEOF: rw\r\n\r\n";
-  int bytes = strlen(expect);
-  assert(bytes == pk_format_eof(dest, "12345"));
+  char* expect = "17\r\nSID: 12345\r\nEOF: 1W\r\n\r\n";
+  size_t bytes = strlen(expect);
+  assert(bytes == pk_format_eof(dest, "12345", PK_EOF_WRITE));
   assert(0 == strncmp(expect, dest, bytes));
   return 1;
 }
@@ -63,7 +64,7 @@ int pkproto_test_format_pong(void)
 {
   char dest[1024];
   char* expect = "b\r\nNOOP: 1\r\n\r\n";
-  int bytes = strlen(expect);
+  size_t bytes = strlen(expect);
   assert(bytes == pk_format_pong(dest));
   assert(0 == strncmp(expect, dest, bytes));
   return 1;

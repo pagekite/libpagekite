@@ -46,6 +46,14 @@ int set_non_blocking(int sockfd)
 {
   int flags;
   if ((0 <= (flags = fcntl(sockfd, F_GETFL, 0))) &&
-      (0 <= fcntl(sockfd, F_SETFL, flags|O_NONBLOCK))) return sockfd;
+      (0 <= fcntl(sockfd, F_SETFL, flags | O_NONBLOCK))) return sockfd;
+  return -1;
+}
+
+int set_blocking(int sockfd)
+{
+  int flags;
+  if ((0 <= (flags = fcntl(sockfd, F_GETFL, 0))) &&
+      (0 <= fcntl(sockfd, F_SETFL, flags & (~O_NONBLOCK)))) return sockfd;
   return -1;
 }

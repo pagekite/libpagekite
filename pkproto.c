@@ -239,28 +239,51 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
 
 /**[ Serialization ]**********************************************************/
 
-int pk_format_frame(char* buf, const char* sid, const char *headers, int bytes)
+size_t pk_format_frame(char* buf, const char* sid,
+                       const char *headers, size_t bytes)
 {
-  int hlen;
+  size_t hlen;
   if (!sid) sid = "";
   hlen = strlen(sid) + strlen(headers) - 2;
   hlen = sprintf(buf, "%x\r\n", hlen + bytes);
   return hlen + sprintf(buf + hlen, headers, sid);
 }
 
-int pk_format_reply(char* buf, const char* sid, int bytes, const char* input)
+size_t pk_reply_overhead(const char *sid, size_t bytes)
 {
-  int hlen = pk_format_frame(buf, sid, "SID: %s\r\n\r\n", bytes);
-  memcpy(buf + hlen, input, bytes);
-  return hlen + bytes;
+  size_t hexlen, chunkhdr;
+  chunkhdr = (5 + strlen(sid) + 4); /* SID: %s\r\n\r\n */
+  hexlen = 0;
+  bytes += chunkhdr;
+  do {
+    hexlen++;
+    bytes = bytes >> 4;
+  } while (bytes);
+  return hexlen + 2 + chunkhdr; /* %x\r\n... */
 }
 
-int pk_format_eof(char* buf, const char *sid)
+size_t pk_format_reply(char* buf, const char* sid, size_t bytes, const char* input)
 {
-  return pk_format_frame(buf, sid, "SID: %s\r\nEOF: rw\r\n\r\n", 0);
+  size_t hlen;
+  hlen = pk_format_frame(buf, sid, "SID: %s\r\n\r\n", bytes);
+  if (NULL != input) {
+    memcpy(buf + hlen, input, bytes);
+    return hlen + bytes;
+  }
+  else
+    return hlen;
 }
 
-int pk_format_pong(char* buf)
+size_t pk_format_eof(char* buf, const char *sid, int how)
+{
+  char format[64];
+  sprintf(format, "SID: %%s\r\nEOF: 1%s%s\r\n\r\n",
+                  (how & PK_EOF_READ) ? "R" : "",
+                  (how & PK_EOF_WRITE) ? "W" : "");
+  return pk_format_frame(buf, sid, format, 0);
+}
+
+size_t pk_format_pong(char* buf)
 {
   return pk_format_frame(buf, "", "NOOP: 1%s\r\n\r\n", 0);
 }

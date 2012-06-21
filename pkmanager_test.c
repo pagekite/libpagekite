@@ -96,6 +96,8 @@ int pkmanager_test(void)
   assert(NULL != pkm_alloc_be_conn(m, "abcef"));
   assert(NULL != (c = pkm_find_be_conn(m, "abc")));
   assert(0 == strcmp(c->sid, "abc"));
+  assert(CONN_IO_BUFFER_SIZE == PKC_IN_FREE(c->conn));
+  assert(CONN_IO_BUFFER_SIZE == PKC_OUT_FREE(c->conn));
   pkm_free_be_conn(c);
   assert(NULL == pkm_find_be_conn(m, "abc"));
 

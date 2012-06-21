@@ -29,6 +29,10 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #define PK_HANDSHAKE_KITE "X-PageKite: %s\r\n"
 #define PK_HANDSHAKE_END "\r\n"
 
+#define PK_EOF_READ  0x1
+#define PK_EOF_WRITE 0x2
+#define PK_EOF       (PK_EOF_READ | PK_EOF_WRITE)
+
 /* Data structure describing a kite */
 struct pk_pagekite {
   char* protocol;
@@ -52,11 +56,11 @@ struct pk_kite_request {
 
 /* Data structure describing a frame */
 struct pk_frame {
-  int   length;                /* Length of data                    */
-  char* data;                  /* Pointer to beginning of data      */
-  int   hdr_length;            /* Length of header (including nuls) */
-  int   raw_length;            /* Length of raw data                */
-  char* raw_frame;             /* Raw data (including frame header  */
+  ssize_t length;             /* Length of data                    */
+  char*   data;               /* Pointer to beginning of data      */
+  ssize_t hdr_length;         /* Length of header (including nuls) */
+  ssize_t raw_length;         /* Length of raw data                */
+  char* raw_frame;            /* Raw data (including frame header  */
 };
 
 /* Data structure describing a parsed chunk */
@@ -71,9 +75,9 @@ struct pk_chunk {
   char*           remote_ip;       /* RIP:   Remote IP address (string)      */
   int             remote_port;     /* RPort: Remote port number              */
   char*           remote_tls;      /* RTLS:  Remote TLS encryption (string)  */
-  int             remote_sent_kb;  /* SKB:   Flow control v2                 */
+  ssize_t         remote_sent_kb;  /* SKB:   Flow control v2                 */
   int             throttle_spd;    /* SPD:   Flow control v1                 */
-  int             length;          /* Length of chunk data.                  */
+  ssize_t         length;          /* Length of chunk data.                  */
   char*           data;            /* Pointer to chunk data.                 */
   struct pk_frame frame;           /* The raw data.                          */
 };
@@ -94,10 +98,11 @@ struct pk_parser* pk_parser_init (int, char*,
 int               pk_parser_parse(struct pk_parser*, int, char*);
 void              pk_parser_reset(struct pk_parser*);
 
-int               pk_format_frame(char*, const char*, const char *, int);
-int               pk_format_reply(char*, const char*, int, const char*);
-int               pk_format_eof(char*, const char*);
-int               pk_format_pong(char*);
+size_t            pk_format_frame(char*, const char*, const char *, size_t);
+size_t            pk_reply_overhead(const char *sid, size_t);
+size_t            pk_format_reply(char*, const char*, size_t, const char*);
+size_t            pk_format_eof(char*, const char*, int);
+size_t            pk_format_pong(char*);
 
 int               pk_make_bsalt(struct pk_kite_request*);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);

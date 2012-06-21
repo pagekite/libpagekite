@@ -37,11 +37,12 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pkerror.h"
 #include "pkproto.h"
 #include "pkmanager.h"
+#include "pklogging.h"
 
 void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
 {
-  struct pk_backend_conn* pkc; /* FIXME: What if we are a front-end? */
-  char pong[256];
+  struct pk_backend_conn* pkb; /* FIXME: What if we are a front-end? */
+  char pong[64];
   int bytes;
 
   pk_log_chunk(chunk);
@@ -49,27 +50,29 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
   if (NULL != chunk->noop) {
     if (NULL != chunk->ping) {
       bytes = pk_format_pong(pong);
-      pkm_write_data(&(fe->conn), bytes, pong);
+      pkm_write_data(fe->manager, &(fe->conn), bytes, pong);
+      pk_log(PK_LOG_TUNNEL_DATA, "> --- > Pong!");
     }
   }
   else {
     if ((NULL != chunk->sid) &&
-        ((NULL != (pkc = pkm_find_be_conn(fe->manager, chunk->sid))) ||
-         (NULL != (pkc = pkm_connect_be(fe, chunk))))) {
-      /* We are happy, pkc should be a valid connection. */
-      fprintf(stderr, "Connected?\n");
+        ((NULL != (pkb = pkm_find_be_conn(fe->manager, chunk->sid))) ||
+         (NULL != (pkb = pkm_connect_be(fe, chunk))))) {
+      /* We are happy, pkb should be a valid connection. */
     }
     else {
-      pkc = NULL;
+      pkb = NULL;
     }
-    if (NULL == pkc) {
+    if (NULL == pkb) {
       /* FIXME: Send back an error */
     }
     else {
-      pkm_write_data(&(pkc->conn), chunk->length, chunk->data);
-      if ((NULL != chunk->eof) &&
-          (NULL == pkm_eof(&(pkc->conn), chunk->eof))) {
-        /* FIXME: Completely dead.  Deallocate pk_backend_conn ? */
+      if (NULL == chunk->eof) {
+        /* Not EOF, write data */
+        pkm_write_data(fe->manager, &(pkb->conn), chunk->length, chunk->data);
+      }
+      else if (NULL == pkm_eof(fe->manager, &(pkb->conn), chunk->eof)) {
+        /* EOF told us this was the very end: deallocate pk_backend_conn ? */
       }
     }
   }
@@ -83,7 +86,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   struct sockaddr_in addr_buf;
   struct sockaddr_in* addr;
   struct hostent *backend;
-  struct pk_backend_conn* pkc;
+  struct pk_backend_conn* pkb;
   struct pk_pagekite *kite;
 
   /* FIXME: Better error handling? */
@@ -98,7 +101,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
     return NULL;
 
   /* Allocate a connection for this request or die... */
-  if (NULL == (pkc = pkm_alloc_be_conn(fe->manager, chunk->sid)))
+  if (NULL == (pkb = pkm_alloc_be_conn(fe->manager, chunk->sid)))
     return NULL;
 
   /* Look up the back-end... */
@@ -117,12 +120,15 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   errno = 0;
   if ((NULL == addr) ||
       (0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
-      (0 > set_non_blocking(sockfd)) ||
-      (0 > connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))))
+      (0 > connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))) ||
+      (0 > set_non_blocking(sockfd)))
   {
     if (errno != EINPROGRESS) {
+      /* FIXME:
+         EINPROGRESS never happens until we swap connect/set_non_blocking
+         above.  Do that later once we've figured out error handling. */
       close(sockfd);
-      pkm_free_be_conn(pkc);
+      pkm_free_be_conn(pkb);
       return NULL;
     }
   }
@@ -132,79 +138,221 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
             lazy for now.
             See also: http://developerweb.net/viewtopic.php?id=3196 */
 
-  pkc->kite = kite;
-  pkc->frontend = fe;
-  pkc->conn.sockfd = sockfd;
+  pkb->kite = kite;
+  pkb->frontend = fe;
+  pkb->conn.sockfd = sockfd;
 
-  return pkc;
+  ev_io_init(&(pkb->conn.watch_r), pkm_be_conn_readable_cb, sockfd, EV_READ);
+  ev_io_init(&(pkb->conn.watch_w), pkm_be_conn_writable_cb, sockfd, EV_WRITE);
+  ev_io_start(fe->manager->loop, &(pkb->conn.watch_r));
+  ev_io_start(fe->manager->loop, &(pkb->conn.watch_w));
+  pkb->conn.watch_r.data = pkb->conn.watch_w.data = (void *) pkb;
+
+  return pkb;
 }
 
-struct pk_conn* pkm_eof(struct pk_conn* pkc, char *eof)
+ssize_t pkm_write_data(struct pk_manager *pkm,
+                       struct pk_conn* pkc, ssize_t length, char* data)
 {
-  /* Shut down to varying degrees, depending on what kind of EOF this is. */
-  /* Return NULL if we are completely dead, pkc otherwise */
-  return NULL;
-}
+  size_t wleft;
+  ssize_t wrote = 0;
 
-int pkm_write_data(struct pk_conn* pkc, int length, char* data)
-{
   /* 1. Try to flush already buffered data. */
+  if (pkc->out_buffer_pos)
+    pkm_flush(pkc, NULL, 0, NON_BLOCKING_FLUSH);
+
   /* 2. If successful, try to write new data (0 copies!) */
-  /* 2a. Buffer any unwritten data. */
-  /* 3. Else, if new+old data > buffer size, do a blocking write. */
+  if (0 == pkc->out_buffer_pos) {
+    errno = 0;
+    do {
+      wrote = write(pkc->sockfd, data, length);
+    } while ((wrote < 0) && (errno == EINTR));
+  }
+
+  if (wrote < length) {
+    if (wrote < 0) /* Ignore errors, for now */
+      wrote = 0;
+
+    wleft = length-wrote;
+    if (wleft <= PKC_OUT_FREE(*pkc)) {
+      /* 2a. Have data left, there is space in our buffer: buffer it! */
+      memcpy(PKC_OUT(*pkc), data+wrote, wleft);
+      pkc->out_buffer_pos += wleft;
+      ev_io_start(pkm->loop, &(pkc->watch_w));
+    }
+    else {
+      /* 2b. If new+old data > buffer size, do a blocking write. */
+      pkm_flush(pkc, data+wrote, length-wrote, BLOCKING_FLUSH);
+    }
+  }
 
   return length;
 }
 
-int pkm_read_data(struct pk_conn* pkc)
+ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
+                          ssize_t length, char* data)
 {
-  int bytes;
-  bytes = read(pkc->sockfd,
-               pkc->in_buffer + (CONN_IO_BUFFER_SIZE - pkc->in_buffer_bytes_free),
-               pkc->in_buffer_bytes_free);
-  pkc->in_buffer_bytes_free -= bytes;
+  ssize_t wrote = 0;
+  struct pk_conn* pkc = &(fe->conn);
+
+  /* FIXME: Better error handling */
+
+  /* Make sure there is space in our output buffer for the header. */
+  if (PKC_OUT_FREE(*pkc) < pk_reply_overhead(pkb->sid, length))
+    if (0 > pkm_flush(pkc, NULL, 0, BLOCKING_FLUSH))
+      return -1;
+
+  /* Write the chunk header to the output buffer */
+  pkc->out_buffer_pos += pk_format_reply(PKC_OUT(*pkc), pkb->sid, length, NULL);
+
+  /* Write the data (will pick up the header automatically) */
+  return pkm_write_data(fe->manager, pkc, length, data);
+}
+
+ssize_t pkm_read_data(struct pk_conn* pkc)
+{
+  ssize_t bytes;
+  fprintf(stderr, "Attempting to read %d bytes\n", PKC_IN_FREE(*pkc));
+  bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
+  pkc->in_buffer_pos += bytes;
   return bytes;
 }
 
-static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
+ssize_t pkm_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode)
+{
+  ssize_t flushed, wrote, bytes;
+  flushed = 0;
+  wrote = 0;
+  errno = 0;
+  if (mode == BLOCKING_FLUSH) set_blocking(pkc->sockfd);
+
+  /* First, flush whatever was in the conn buffers */
+  do {
+    wrote = write(pkc->sockfd, pkc->out_buffer, pkc->out_buffer_pos);
+    if (wrote > 0) {
+      if (pkc->out_buffer_pos > wrote) {
+        memmove(pkc->out_buffer,
+                pkc->out_buffer + wrote,
+                pkc->out_buffer_pos - wrote);
+      }
+      pkc->out_buffer_pos -= wrote;
+      flushed += wrote;
+    }
+  } while ((errno == EINTR) ||
+           ((mode == BLOCKING_FLUSH) && (pkc->out_buffer_pos > 0)));
+
+  /* At this point we either have a non-EINTR error, or we've flushed
+   * everything.  Return errors, else continue. */
+  if (wrote < 0) {
+    flushed = wrote;
+  }
+  else if ((NULL != data) &&
+           (mode == BLOCKING_FLUSH) &&
+           (pkc->out_buffer_pos == 0)) {
+    /* So far so good, everything has been flushed. Write the new data! */
+    flushed = wrote = 0;
+    while ((length > wrote) || (errno == EINTR)) {
+      bytes = write(pkc->sockfd, data+wrote, length-wrote);
+      if (bytes > 0) {
+        wrote += bytes;
+        flushed += bytes;
+      }
+    }
+    /* At this point, if we have a non-EINTR error, bytes is < 0 and we
+     * want to return that.  Otherwise, return how much got written. */
+    if (bytes < 0)
+      flushed = bytes;
+  }
+
+  if (mode == BLOCKING_FLUSH) set_non_blocking(pkc->sockfd);
+  return flushed;
+}
+
+struct pk_conn* pkm_eof(struct pk_manager* pkm, struct pk_conn* pkc, char *eof)
+{
+  /* Shut down to varying degrees, depending on what kind of EOF this is. */
+  /* Return NULL if we are completely dead, pkc otherwise */
+  fprintf(stderr, "FIXME: unhandled EOF: %s\n", eof);
+  return NULL;
+}
+
+void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_frontend* fe;
 
   fe = (struct pk_frontend*) w->data;
   if (0 < pkm_read_data(&(fe->conn))) {
     if (0 > pk_parser_parse(fe->parser,
-                            (CONN_IO_BUFFER_SIZE-fe->conn.in_buffer_bytes_free),
+                            fe->conn.in_buffer_pos,
                             (char *) fe->conn.in_buffer))
     {
-      /* Parse failed: remote end is a borked: should kill this connection. */
+      /* FIXME: Parse failed: remote is borked: should kill this conn. */
       pk_perror("pkmanager.c");
     }
-    fe->conn.in_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
+    fe->conn.in_buffer_pos = 0;
   }
   else {
-    /* EOF, do something more sane than this. */
+    /* FIXME: EOF, do something more sane than this. */
     ev_io_stop(EV_A_ w);
   }
 }
 
-static void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
+void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
 {
-  struct pk_frontend* fe;
-
-  fe = (struct pk_frontend*) w->data;
-  fprintf(stderr, "Writable: %s:%d\n", fe->fe_hostname, fe->fe_port);
-  ev_io_stop(EV_A_ w);
+  struct pk_frontend* fe = (struct pk_frontend*) w->data;
+  pkm_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH);
+  if (fe->conn.out_buffer_pos == 0) {
+    /* FIXME: Unblock readers that were waiting for us to unblock? */
+    ev_io_stop(EV_A_ w);
+  }
 }
 
-static void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
+void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
 {
+  struct pk_backend_conn* pkb;
+  size_t bytes;
+  char eof[64];
+
+  pkb = (struct pk_backend_conn*) w->data;
+  bytes = pkm_read_data(&(pkb->conn));
+  if ((0 < bytes) &&
+      (0 <= pkm_write_chunked(pkb->frontend, pkb,
+                              pkb->conn.in_buffer_pos,
+                              pkb->conn.in_buffer))) {
+    pkb->conn.in_buffer_pos = 0;
+    pk_log(PK_LOG_BE_DATA, ">%5.5s> DATA: %d bytes", pkb->sid, bytes);
+  }
+  else if (bytes == 0) {
+    pk_log(PK_LOG_BE_DATA, ">%5.5s> EOF: read", pkb->sid);
+    bytes = pk_format_eof(eof, pkb->sid, PK_EOF_READ);
+    pkm_write_data(pkb->frontend->manager, &(pkb->frontend->conn), bytes, eof);
+    ev_io_stop(EV_A_ w);
+  }
+  else {
+    fprintf(stderr, "FIXME: Bytes < 0 in conn_readable_cb\n");
+    ev_io_stop(EV_A_ w);
+  }
 }
 
-static void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
+void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
 {
+  struct pk_backend_conn* pkb;
+
+  pkb = (struct pk_backend_conn*) w->data;
+  pkm_flush(&(pkb->conn), NULL, 0, NON_BLOCKING_FLUSH);
+  if (pkb->conn.out_buffer_pos == 0)
+  {
+    ev_io_stop(EV_A_ w);
+    fprintf(stderr, "Flushed: %s:%d (done)\n",
+            pkb->kite->local_domain, pkb->kite->local_port);
+  }
+  else {
+    fprintf(stderr, "Flushed: %s:%d\n",
+            pkb->kite->local_domain, pkb->kite->local_port);
+  }
 }
 
-static void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
+void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
 {
   struct pk_manager* pkm;
   struct pk_frontend *fe;
@@ -248,8 +396,8 @@ static void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
       }
       fe->conn.status = CONN_STATUS_ALLOCATED;
       fe->conn.activity = time(0);
-      fe->conn.in_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
-      fe->conn.out_buffer_bytes_free = CONN_IO_BUFFER_SIZE;
+      fe->conn.in_buffer_pos = 0;
+      fe->conn.out_buffer_pos = 0;
       if ((0 <= (fe->conn.sockfd = pk_connect(fe->fe_hostname,
                                               fe->fe_port, NULL,
                                               fe->request_count,
@@ -257,11 +405,12 @@ static void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
           (0 <= set_non_blocking(fe->conn.sockfd))) {
         fprintf(stderr, "Connected to %s:%d\n", fe->fe_hostname, fe->fe_port);
 
-        ev_io_init(&(fe->conn.watch_r), pkm_tunnel_readable_cb,
-                   fe->conn.sockfd, EV_READ);
+        ev_io_init(&(fe->conn.watch_r),
+                   pkm_tunnel_readable_cb, fe->conn.sockfd, EV_READ);
+        ev_io_init(&(fe->conn.watch_w),
+                   pkm_tunnel_writable_cb, fe->conn.sockfd, EV_WRITE);
+
         ev_io_start(pkm->loop, &(fe->conn.watch_r));
-        ev_io_init(&(fe->conn.watch_w), pkm_tunnel_writable_cb,
-                   fe->conn.sockfd, EV_WRITE);
         fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
       }
       else {
@@ -401,7 +550,7 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   kite->auth_secret = strdup(auth_secret);
   kite->public_domain = strdup(public_domain);
   kite->public_port = public_port;
-  kite->local_domain = local_domain;
+  kite->local_domain = strdup(local_domain);
   kite->local_port = local_port;
 
   return kite;
@@ -441,41 +590,50 @@ unsigned char pkm_sid_shift(char *sid)
   return shift;
 }
 
+void pkm_reset_conn(struct pk_conn* pkc)
+{
+  pkc->status = CONN_STATUS_UNKNOWN;
+  pkc->activity = 0;
+  pkc->out_buffer_pos = 0;
+  pkc->in_buffer_pos = 0;
+}
+
 struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm, char *sid)
 {
   int i;
   unsigned char shift;
-  struct pk_backend_conn* pkc;
+  struct pk_backend_conn* pkb;
 
   shift = pkm_sid_shift(sid);
   for (i = 0; i < pkm->be_conn_count; i++) {
-    pkc = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
-    if (!(pkc->conn.status & CONN_STATUS_ALLOCATED)) {
-      pkc->conn.status = CONN_STATUS_ALLOCATED;
-      strncpy(pkc->sid, sid, BE_MAX_SID_SIZE);
-      return pkc;
+    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
+    if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
+      pkm_reset_conn(&(pkb->conn));
+      pkb->conn.status = CONN_STATUS_ALLOCATED;
+      strncpy(pkb->sid, sid, BE_MAX_SID_SIZE);
+      return pkb;
     }
   }
   return NULL;
 }
 
-void pkm_free_be_conn(struct pk_backend_conn* pkc)
+void pkm_free_be_conn(struct pk_backend_conn* pkb)
 {
-  pkc->conn.status = CONN_STATUS_UNKNOWN;
+  pkb->conn.status = CONN_STATUS_UNKNOWN;
 }
 
 struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm, char* sid)
 {
   int i;
   unsigned char shift;
-  struct pk_backend_conn* pkc;
+  struct pk_backend_conn* pkb;
 
   shift = pkm_sid_shift(sid);
   for (i = 0; i < pkm->be_conn_count; i++) {
-    pkc = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
-    if ((pkc->conn.status & CONN_STATUS_ALLOCATED) &&
-        (0 == strncmp(pkc->sid, sid, BE_MAX_SID_SIZE))) {
-      return pkc;
+    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
+    if ((pkb->conn.status & CONN_STATUS_ALLOCATED) &&
+        (0 == strncmp(pkb->sid, sid, BE_MAX_SID_SIZE))) {
+      return pkb;
     }
   }
   return NULL;

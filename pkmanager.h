@@ -22,6 +22,9 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #define PARSER_BYTES_AVG   2 * 1024
 #define PARSER_BYTES_MAX   4 * 1024  /* <= CONN_IO_BUFFER_SIZE */
 
+#define BLOCKING_FLUSH 1
+#define NON_BLOCKING_FLUSH 0
+
 #define PK_HOUSEKEEPING_INTERVAL 10  /* Seconds */
 
 struct pk_conn;
@@ -34,13 +37,17 @@ struct pk_manager;
 #define CONN_STATUS_READABLE   0x0001
 #define CONN_STATUS_WRITEABLE  0x0002
 #define CONN_STATUS_ALLOCATED  0x0004
+#define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
+#define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
+#define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
+#define PKC_IN_FREE(c)  (CONN_IO_BUFFER_SIZE - (c).in_buffer_pos)
 struct pk_conn {
   int      status;
   int      sockfd;
   time_t   activity;
-  int      in_buffer_bytes_free;
+  int      in_buffer_pos;
   char     in_buffer[CONN_IO_BUFFER_SIZE];
-  int      out_buffer_bytes_free;
+  int      out_buffer_pos;
   char     out_buffer[CONN_IO_BUFFER_SIZE];
   ev_io    watch_r;
   ev_io    watch_w;
@@ -84,11 +91,11 @@ struct pk_backend_conn {
                                               MIN_CONN_ALLOC, PARSER_BYTES_MIN)
 struct pk_manager {
   int                      kite_count;
-  struct pk_pagekite*      kites; 
+  struct pk_pagekite*      kites;
   int                      frontend_count;
-  struct pk_frontend*      frontends;   
+  struct pk_frontend*      frontends;
   int                      be_conn_count;
-  struct pk_backend_conn*  be_conns;   
+  struct pk_backend_conn*  be_conns;
   int                      buffer_bytes_free;
   char*                    buffer;
   char*                    buffer_base;
@@ -96,22 +103,36 @@ struct pk_manager {
   ev_timer                 timer;
 };
 
-struct pk_manager* pkm_manager_init(struct ev_loop*,
-                                    int, char*, int, int, int);
-struct pk_pagekite* pkm_add_kite(struct pk_manager*,
-                                 const char*, const char*, int, const char*,
-                                 const char*, int);
-struct pk_pagekite* pkm_find_kite(struct pk_manager*,
-                                  const char*, const char*, int);
-struct pk_frontend* pkm_add_frontend(struct pk_manager*,
-                                     const char*, int, int);
+struct pk_manager*   pkm_manager_init(struct ev_loop*,
+                                      int, char*, int, int, int);
+struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
+                                  const char*, const char*, int, const char*,
+                                  const char*, int);
+struct pk_pagekite*  pkm_find_kite(struct pk_manager*,
+                                   const char*, const char*, int);
+ssize_t              pkm_write_chunked(struct pk_frontend*,
+                                       struct pk_backend_conn*,
+                                       ssize_t, char*);
+struct pk_frontend*  pkm_add_frontend(struct pk_manager*,
+                                      const char*, int, int);
 
-int pkm_write_data(struct pk_conn*, int, char*);
-int pkm_read_data(struct pk_conn*);
+ssize_t              pkm_write_data(struct pk_manager*, struct pk_conn*,
+                                    ssize_t, char*);
+ssize_t              pkm_read_data(struct pk_conn*);
+ssize_t              pkm_flush(struct pk_conn*, char*, ssize_t, int);
+struct pk_conn*      pkm_eof(struct pk_manager*, struct pk_conn*, char*);
 
-struct pk_backend_conn* pkm_connect_be(struct pk_frontend*, struct pk_chunk*);
-struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager*, char*);
-struct pk_backend_conn* pkm_find_be_conn(struct pk_manager*, char*);
-void pkm_free_be_conn(struct pk_backend_conn*);
+/* Backend connection handling */
+struct pk_backend_conn*  pkm_connect_be(struct pk_frontend*, struct pk_chunk*);
+struct pk_backend_conn*  pkm_alloc_be_conn(struct pk_manager*, char*);
+struct pk_backend_conn*  pkm_find_be_conn(struct pk_manager*, char*);
+void                     pkm_free_be_conn(struct pk_backend_conn*);
 
-struct pk_conn* pkm_eof(struct pk_conn*, char*);
+
+void pkm_chunk_cb(struct pk_frontend*, struct pk_chunk *);
+void pkm_tunnel_readable_cb(EV_P_ ev_io *, int);
+void pkm_tunnel_writable_cb(EV_P_ ev_io *, int);
+void pkm_be_conn_readable_cb(EV_P_ ev_io *, int);
+void pkm_be_conn_writable_cb(EV_P_ ev_io *, int);
+void pkm_timer_cb(EV_P_ ev_timer *w, int);
+
