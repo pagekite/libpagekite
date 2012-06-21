@@ -50,6 +50,7 @@ int pk_log(int level, const char* fmt, ...)
 }
 
 int pk_log_chunk(struct pk_chunk* chnk) {
+  int i;
   int r = 0;
   if (chnk->ping) {
     r += pk_log(PK_LOG_TUNNEL_HEADERS, "< --- < Ping?");
@@ -77,6 +78,9 @@ int pk_log_chunk(struct pk_chunk* chnk) {
   }
   else {
     r += pk_log(PK_LOG_TUNNEL_HEADERS, "< ??? < Non-ping chnk with no SID");
+  }
+  for (i = 0; i < chnk->header_count; i++) {
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "<-----< %s", chnk->headers[i]);
   }
   return r;
 }

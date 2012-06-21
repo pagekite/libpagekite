@@ -121,6 +121,7 @@ int parse_frame_header(struct pk_frame* frame)
 int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
 {
   int len, pos = 0;
+  chunk->header_count = 0;
   while (2 < (len = zero_first_crlf(frame->length - pos, frame->data + pos)))
   {
     if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
@@ -147,9 +148,10 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
       sscanf(frame->data + pos + 5, "%d", &(chunk->remote_sent_kb));
     else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
       sscanf(frame->data + pos + 5, "%d", &(chunk->throttle_spd));
-
-    /* FIXME: Chunk headers may also contain larger headers for setting up
-     *        or tearing down kites, or quota information.  Parse that too? */
+    else if (chunk->header_count < PK_MAX_CHUNK_HEADERS) {
+      /* Just store pointers to any other headers, for later processing. */
+      chunk->headers[chunk->header_count++] = frame->data + pos;
+    }
 
     pos += len;
   }

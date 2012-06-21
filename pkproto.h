@@ -64,7 +64,10 @@ struct pk_frame {
 };
 
 /* Data structure describing a parsed chunk */
+#define PK_MAX_CHUNK_HEADERS 64
 struct pk_chunk {
+  int             header_count;    /* Raw header data, number of headers.    */
+  char*           headers[PK_MAX_CHUNK_HEADERS]; /* Raw header data.         */
   char*           sid;             /* SID:   Stream ID                       */
   char*           eof;             /* EOF:   End of stream (r, w or both)    */
   char*           noop;            /* NOOP:  Signal to ignore chunk data     */
