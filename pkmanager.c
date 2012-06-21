@@ -395,10 +395,8 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
         ev_io_stop(pkm->loop, &(fe->conn.watch_w));
         close(fe->conn.sockfd);
       }
+      pkm_reset_conn(&(fe->conn));
       fe->conn.status = CONN_STATUS_ALLOCATED;
-      fe->conn.activity = time(0);
-      fe->conn.in_buffer_pos = 0;
-      fe->conn.out_buffer_pos = 0;
       if ((0 <= (fe->conn.sockfd = pk_connect(fe->fe_hostname,
                                               fe->fe_port, NULL,
                                               fe->request_count,
@@ -596,7 +594,7 @@ unsigned char pkm_sid_shift(char *sid)
 void pkm_reset_conn(struct pk_conn* pkc)
 {
   pkc->status = CONN_STATUS_UNKNOWN;
-  pkc->activity = 0;
+  pkc->activity = time(0);
   pkc->out_buffer_pos = 0;
   pkc->in_buffer_pos = 0;
 }

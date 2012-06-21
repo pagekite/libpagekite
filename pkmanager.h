@@ -115,12 +115,14 @@ ssize_t              pkm_write_chunked(struct pk_frontend*,
                                        ssize_t, char*);
 struct pk_frontend*  pkm_add_frontend(struct pk_manager*,
                                       const char*, int, int);
+void                 pkm_reset_conn(struct pk_conn*);
 
 ssize_t              pkm_write_data(struct pk_manager*, struct pk_conn*,
                                     ssize_t, char*);
 ssize_t              pkm_read_data(struct pk_conn*);
 ssize_t              pkm_flush(struct pk_conn*, char*, ssize_t, int);
 struct pk_conn*      pkm_eof(struct pk_manager*, struct pk_conn*, char*);
+
 
 /* Backend connection handling */
 struct pk_backend_conn*  pkm_connect_be(struct pk_frontend*, struct pk_chunk*);
