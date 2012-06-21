@@ -436,6 +436,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   if (buffer == NULL) {
     buffer_size = PK_MANAGER_BUFSIZE(kites, frontends, conns, PARSER_BYTES_AVG);
     buffer = malloc(buffer_size);
+    pk_log(PK_LOG_TUNNEL_DATA,
+           "pkm_manager_init: Allocating %d bytes", buffer_size);
   }
 
   memset(buffer, 0, buffer_size);
