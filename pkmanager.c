@@ -154,7 +154,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
 ssize_t pkm_write_data(struct pk_manager *pkm,
                        struct pk_conn* pkc, ssize_t length, char* data)
 {
-  size_t wleft;
+  ssize_t wleft;
   ssize_t wrote = 0;
 
   /* 1. Try to flush already buffered data. */
@@ -192,13 +192,14 @@ ssize_t pkm_write_data(struct pk_manager *pkm,
 ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
                           ssize_t length, char* data)
 {
-  ssize_t wrote = 0;
+  ssize_t overhead = 0;
   struct pk_conn* pkc = &(fe->conn);
 
   /* FIXME: Better error handling */
 
   /* Make sure there is space in our output buffer for the header. */
-  if (PKC_OUT_FREE(*pkc) < pk_reply_overhead(pkb->sid, length))
+  overhead = pk_reply_overhead(pkb->sid, length);
+  if (PKC_OUT_FREE(*pkc) < overhead)
     if (0 > pkm_flush(pkc, NULL, 0, BLOCKING_FLUSH))
       return -1;
 
