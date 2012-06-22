@@ -121,33 +121,44 @@ int parse_frame_header(struct pk_frame* frame)
 int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
 {
   int len, pos = 0;
+  char first;
   chunk->header_count = 0;
   while (2 < (len = zero_first_crlf(frame->length - pos, frame->data + pos)))
   {
-    if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
-      chunk->sid = frame->data + pos + 5;
+    /* This gives us an upper-case (US-ASCII) of the first character. */
+    first = *(frame->data + pos) & (0xff - 32);
+
+    /* Cases ordered roughly by frequency, without too much obfuscation. */
+    if (first == 'S') {
+      if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
+        chunk->sid = frame->data + pos + 5;
+      else if (0 == strncasecmp(frame->data + pos, "SKB: ", 5))
+        sscanf(frame->data + pos + 5, "%d", &(chunk->remote_sent_kb));
+      else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
+        sscanf(frame->data + pos + 5, "%d", &(chunk->throttle_spd));
+    }
     else if (0 == strncasecmp(frame->data + pos, "NOOP: ", 6))
       chunk->noop = frame->data + pos + 6;
-    else if (0 == strncasecmp(frame->data + pos, "Host: ", 6))
-      chunk->request_host = frame->data + pos + 6;
-    else if (0 == strncasecmp(frame->data + pos, "Proto: ", 7))
-      chunk->request_proto = frame->data + pos + 7;
-    else if (0 == strncasecmp(frame->data + pos, "Port: ", 6))
-      sscanf(frame->data + pos + 6, "%d", &(chunk->request_port));
-    else if (0 == strncasecmp(frame->data + pos, "RIP: ", 5))
-      chunk->remote_ip = frame->data + pos + 5;
-    else if (0 == strncasecmp(frame->data + pos, "RPort: ", 7))
-      sscanf(frame->data + pos + 7, "%d", &(chunk->remote_port));
-    else if (0 == strncasecmp(frame->data + pos, "RTLS: ", 6))
-      chunk->remote_tls = frame->data + pos + 6;
+    else if (first == 'P') {
+      if (0 == strncasecmp(frame->data + pos, "PING: ", 6))
+        chunk->ping = frame->data + pos + 6;
+      else if (0 == strncasecmp(frame->data + pos, "Proto: ", 7))
+        chunk->request_proto = frame->data + pos + 7;
+      else if (0 == strncasecmp(frame->data + pos, "Port: ", 6))
+        sscanf(frame->data + pos + 6, "%d", &(chunk->request_port));
+    }
     else if (0 == strncasecmp(frame->data + pos, "EOF: ", 5))
       chunk->eof = frame->data + pos + 5;
-    else if (0 == strncasecmp(frame->data + pos, "PING: ", 6))
-      chunk->ping = frame->data + pos + 6;
-    else if (0 == strncasecmp(frame->data + pos, "SKB: ", 5))
-      sscanf(frame->data + pos + 5, "%d", &(chunk->remote_sent_kb));
-    else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
-      sscanf(frame->data + pos + 5, "%d", &(chunk->throttle_spd));
+    else if (first == 'R') {
+      if (0 == strncasecmp(frame->data + pos, "RIP: ", 5))
+        chunk->remote_ip = frame->data + pos + 5;
+      else if (0 == strncasecmp(frame->data + pos, "RPort: ", 7))
+        sscanf(frame->data + pos + 7, "%d", &(chunk->remote_port));
+      else if (0 == strncasecmp(frame->data + pos, "RTLS: ", 6))
+        chunk->remote_tls = frame->data + pos + 6;
+    }
+    else if (0 == strncasecmp(frame->data + pos, "Host: ", 6))
+      chunk->request_host = frame->data + pos + 6;
     else if (chunk->header_count < PK_MAX_CHUNK_HEADERS) {
       /* Just store pointers to any other headers, for later processing. */
       chunk->headers[chunk->header_count++] = frame->data + pos;
