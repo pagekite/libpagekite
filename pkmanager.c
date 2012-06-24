@@ -50,14 +50,13 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
   if (NULL != chunk->noop) {
     if (NULL != chunk->ping) {
       bytes = pk_format_pong(pong);
-      pkm_write_data(fe->manager, &(fe->conn), bytes, pong);
+      pkm_write_data(&(fe->conn), bytes, pong);
       pk_log(PK_LOG_TUNNEL_DATA, "> --- > Pong!");
     }
   }
-  else {
-    if ((NULL != chunk->sid) &&
-        ((NULL != (pkb = pkm_find_be_conn(fe->manager, chunk->sid))) ||
-         (NULL != (pkb = pkm_connect_be(fe, chunk))))) {
+  else if (NULL != chunk->sid) {
+    if ((NULL != (pkb = pkm_find_be_conn(fe->manager, chunk->sid))) ||
+        (NULL != (pkb = pkm_connect_be(fe, chunk)))) {
       /* We are happy, pkb should be a valid connection. */
     }
     else {
@@ -65,16 +64,20 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
     }
     if (NULL == pkb) {
       /* FIXME: Send back an error */
+      pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s", chunk->sid);
     }
     else {
       if (NULL == chunk->eof) {
-        /* Not EOF, write data */
-        pkm_write_data(fe->manager, &(pkb->conn), chunk->length, chunk->data);
+        pkm_write_data(&(pkb->conn), chunk->length, chunk->data);
       }
-      else if (NULL == pkm_eof(fe->manager, &(pkb->conn), chunk->eof)) {
-        /* EOF told us this was the very end: deallocate pk_backend_conn ? */
+      else {
+        pkm_parse_eof(pkb, chunk->eof);
       }
+      pkm_update_io(fe, pkb);
     }
+  }
+  else {
+    pk_log(PK_LOG_TUNNEL_CONNS, "WTF, chunk with no SID and no NOOP?");
   }
 }
 
@@ -151,8 +154,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   return pkb;
 }
 
-ssize_t pkm_write_data(struct pk_manager *pkm,
-                       struct pk_conn* pkc, ssize_t length, char* data)
+ssize_t pkm_write_data(struct pk_conn* pkc, ssize_t length, char* data)
 {
   ssize_t wleft;
   ssize_t wrote = 0;
@@ -178,7 +180,6 @@ ssize_t pkm_write_data(struct pk_manager *pkm,
       /* 2a. Have data left, there is space in our buffer: buffer it! */
       memcpy(PKC_OUT(*pkc), data+wrote, wleft);
       pkc->out_buffer_pos += wleft;
-      ev_io_start(pkm->loop, &(pkc->watch_w));
     }
     else {
       /* 2b. If new+old data > buffer size, do a blocking write. */
@@ -207,7 +208,7 @@ ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
   pkc->out_buffer_pos += pk_format_reply(PKC_OUT(*pkc), pkb->sid, length, NULL);
 
   /* Write the data (will pick up the header automatically) */
-  return pkm_write_data(fe->manager, pkc, length, data);
+  return pkm_write_data(pkc, length, data);
 }
 
 ssize_t pkm_read_data(struct pk_conn* pkc)
@@ -246,6 +247,8 @@ ssize_t pkm_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode)
    * everything.  Return errors, else continue. */
   if (wrote < 0) {
     flushed = wrote;
+    if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
+      pkc->status |= CONN_STATUS_CLS_WRITE;
   }
   else if ((NULL != data) &&
            (mode == BLOCKING_FLUSH) &&
@@ -261,20 +264,150 @@ ssize_t pkm_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode)
     }
     /* At this point, if we have a non-EINTR error, bytes is < 0 and we
      * want to return that.  Otherwise, return how much got written. */
-    if (bytes < 0)
+    if (bytes < 0) {
       flushed = bytes;
+      if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
+        pkc->status |= CONN_STATUS_CLS_WRITE;
+    }
   }
 
   if (mode == BLOCKING_FLUSH) set_non_blocking(pkc->sockfd);
   return flushed;
 }
 
-struct pk_conn* pkm_eof(struct pk_manager* pkm, struct pk_conn* pkc, char *eof)
+int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
 {
-  /* Shut down to varying degrees, depending on what kind of EOF this is. */
-  /* Return NULL if we are completely dead, pkc otherwise */
-  fprintf(stderr, "FIXME: unhandled EOF: %s\n", eof);
-  return NULL;
+  int bytes;
+  int loglevel;
+  char buffer[1024];
+  int eof = 0;
+  int flows = 2;
+  struct pk_conn* pkc;
+  struct pk_manager* pkm = fe->manager;
+
+  if (pkb != NULL) {
+    pkc = &(pkb->conn);
+    loglevel = PK_LOG_BE_DATA;
+  }
+  else {
+    pkc = &(fe->conn);
+    loglevel = PK_LOG_TUNNEL_DATA;
+  }
+  if (0 >= pkc->sockfd)
+    return 0;
+
+  if (pkc->status & (CONN_STATUS_CLS_READ|CONN_STATUS_END_READ)) {
+    if (pkc->status & CONN_STATUS_END_READ) {
+      /* They know, we know, we know they know... */
+    }
+    else {
+      /* Other end doesn't know we're closing, send an EOF. */
+      eof |= PK_EOF_READ;
+    }
+    /* Not going to read anymore, stop listening. */
+    pkc->status |= (CONN_STATUS_END_READ | CONN_STATUS_CLS_READ);
+    ev_io_stop(pkm->loop, &(pkc->watch_r));
+    shutdown(pkc->sockfd, SHUT_RD);
+    flows -= 1;
+    pk_log(loglevel, "%d: Closed for reading.", pkc->sockfd);
+  }
+  else {
+    if (pkc->status & CONN_STATUS_THROTTLED) {
+      ev_io_stop(pkm->loop, &(pkc->watch_r));
+    }
+    else {
+      ev_io_start(pkm->loop, &(pkc->watch_r));
+    }
+  }
+
+  if (pkc->status & CONN_STATUS_CLS_WRITE) {
+    /* Writing is impossible, discard buffer and shutdown. */
+    if (pkc->status & CONN_STATUS_END_WRITE) {
+      /* They know, we know, we know they know... */
+    }
+    else {
+      /* Other end doesn't know we're closing, send an EOF. */
+      eof |= PK_EOF_WRITE;
+    }
+    pkc->status |= (CONN_STATUS_END_WRITE | CONN_STATUS_CLS_WRITE);
+    pkc->out_buffer_pos = 0;
+    shutdown(pkc->sockfd, SHUT_WR);
+    ev_io_stop(pkm->loop, &(pkc->watch_w));
+    flows -= 1;
+    pk_log(loglevel, "%d: Closed for writing.", pkc->sockfd);
+  }
+  else if (0 < pkc->out_buffer_pos) {
+    /* Blocked: activate write listener, FIXME: throttle data sources */
+    ev_io_start(pkm->loop, &(pkc->watch_w));
+    pk_log(loglevel, "%d: Blocked!", pkc->sockfd);
+  }
+  else {
+    if (pkc->status & CONN_STATUS_END_WRITE) {
+      /* Not blocked, no more data (sources closed), shutdown. */
+      pkc->status |= CONN_STATUS_CLS_WRITE;
+      shutdown(pkc->sockfd, SHUT_WR);
+      flows -= 1;
+      pk_log(loglevel, "%d: Closed for writing (remote).", pkc->sockfd);
+    }
+    else {
+      /* FIXME: unthrottle data sources */
+    }
+    ev_io_stop(pkm->loop, &(pkc->watch_w));
+  }
+
+  if (eof) {
+    if (pkb != NULL) {
+      /* This is a backend conn, send EOF to over tunnel. */
+      bytes = pk_format_eof(buffer, pkb->sid, eof);
+      pkm_write_data(&(fe->conn), bytes, buffer);
+      pk_log(loglevel, "%d: Sent EOF (0x%x)", pkc->sockfd, eof);
+    }
+    else {
+      /* This is a tunnel, send EOF to all backends. */
+    }
+  }
+
+  if (0 == flows) {
+    /* Nothing to read or write, close and clean up. */
+    if (0 < pkc->sockfd) close(pkc->sockfd);
+    pkc->sockfd = 0;
+    if (pkb != NULL) {
+      pkm_free_be_conn(pkb);
+    }
+    else {
+      /* FIXME: How do we clean up dead tunnels? */
+    }
+    pk_log(loglevel, "%d: Closed.", pkc->sockfd, eof);
+  }
+  return flows;
+}
+
+void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
+{
+  struct pk_conn* pkc = &(pkb->conn);
+  int eof_read = 0;
+  int eof_write = 0;
+  char *p;
+
+  /* Figure out what kind of EOF this is */
+  for (p = eof; (p != NULL) && (*p != '\0'); p++) {
+    if (*p == 'R' || *p == 'r')
+      eof_read = 1;
+    else if (*p == 'W' || *p == 'w')
+      eof_write = 1;
+  }
+  if (!eof_write && !eof_read) /* Legacy EOF support */
+    eof_write = eof_read = 1;
+
+  /* If we cannot write anymore, there is no point in reading. */
+  if (eof_write) {
+    pkc->status |= CONN_STATUS_END_READ;
+  }
+
+  /* If we cannot read anymore, we won't be writing either. */
+  if (eof_read) {
+    pkc->status |= CONN_STATUS_END_WRITE;
+  }
 }
 
 void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
@@ -287,25 +420,24 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
                             fe->conn.in_buffer_pos,
                             (char *) fe->conn.in_buffer))
     {
-      /* FIXME: Parse failed: remote is borked: should kill this conn. */
-      pk_perror("pkmanager.c");
+      /* Parse failed: remote is borked: should kill this conn. */
+      fe->conn.status |= CONN_STATUS_BROKEN;
+      /* FIXME: Log this event? */
     }
     fe->conn.in_buffer_pos = 0;
   }
   else {
-    /* FIXME: EOF, do something more sane than this. */
-    ev_io_stop(EV_A_ w);
+    /* EOF on read */
+    fe->conn.status |= CONN_STATUS_CLS_READ;
   }
+  pkm_update_io(fe, NULL);
 }
 
 void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
   pkm_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH);
-  if (fe->conn.out_buffer_pos == 0) {
-    /* FIXME: Unblock readers that were waiting for us to unblock? */
-    ev_io_stop(EV_A_ w);
-  }
+  pkm_update_io(fe, NULL);
 }
 
 void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
@@ -325,14 +457,12 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
   }
   else if (bytes == 0) {
     pk_log(PK_LOG_BE_DATA, ">%5.5s> EOF: read", pkb->sid);
-    bytes = pk_format_eof(eof, pkb->sid, PK_EOF_READ);
-    pkm_write_data(pkb->frontend->manager, &(pkb->frontend->conn), bytes, eof);
-    ev_io_stop(EV_A_ w);
+    pkb->conn.status |= CONN_STATUS_CLS_READ;
   }
   else {
-    fprintf(stderr, "FIXME: Bytes < 0 in conn_readable_cb\n");
-    ev_io_stop(EV_A_ w);
+    pkb->conn.status |= CONN_STATUS_BROKEN;
   }
+  pkm_update_io(pkb->frontend, pkb);
 }
 
 void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
@@ -343,7 +473,6 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
   pkm_flush(&(pkb->conn), NULL, 0, NON_BLOCKING_FLUSH);
   if (pkb->conn.out_buffer_pos == 0)
   {
-    ev_io_stop(EV_A_ w);
     fprintf(stderr, "Flushed: %s:%d (done)\n",
             pkb->kite->local_domain, pkb->kite->local_port);
   }
@@ -351,6 +480,7 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
     fprintf(stderr, "Flushed: %s:%d\n",
             pkb->kite->local_domain, pkb->kite->local_port);
   }
+  pkm_update_io(pkb->frontend, pkb);
 }
 
 void pkm_timer_cb(EV_P_ ev_timer *w, int revents)

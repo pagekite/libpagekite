@@ -34,9 +34,13 @@ struct pk_manager;
 
 #define CONN_IO_BUFFER_SIZE  4 * 1024
 #define CONN_STATUS_UNKNOWN    0x0000
-#define CONN_STATUS_READABLE   0x0001
-#define CONN_STATUS_WRITEABLE  0x0002
-#define CONN_STATUS_ALLOCATED  0x0004
+#define CONN_STATUS_END_READ   0x0001 /* Don't want more data     */
+#define CONN_STATUS_END_WRITE  0x0002 /* Won't receive more data  */
+#define CONN_STATUS_THROTTLED  0x0004 /* Destination blocked      */
+#define CONN_STATUS_CLS_READ   0x0010 /* No more data available   */
+#define CONN_STATUS_CLS_WRITE  0x0020 /* No more writing possible */
+#define CONN_STATUS_BROKEN     0x0130 /* Socket is defunct        */
+#define CONN_STATUS_ALLOCATED  0x1000
 #define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
 #define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
 #define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
@@ -117,11 +121,11 @@ struct pk_frontend*  pkm_add_frontend(struct pk_manager*,
                                       const char*, int, int);
 void                 pkm_reset_conn(struct pk_conn*);
 
-ssize_t              pkm_write_data(struct pk_manager*, struct pk_conn*,
-                                    ssize_t, char*);
+ssize_t              pkm_write_data(struct pk_conn*, ssize_t, char*);
 ssize_t              pkm_read_data(struct pk_conn*);
 ssize_t              pkm_flush(struct pk_conn*, char*, ssize_t, int);
-struct pk_conn*      pkm_eof(struct pk_manager*, struct pk_conn*, char*);
+void                 pkm_parse_eof(struct pk_backend_conn*, char*);
+int                  pkm_update_io(struct pk_frontend*, struct pk_backend_conn*);
 
 
 /* Backend connection handling */
