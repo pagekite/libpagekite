@@ -29,6 +29,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <pthread.h>
 #include <time.h>
 #include <unistd.h>
 #include <ev.h>
@@ -549,6 +550,10 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   }
 }
 
+static void pkm_quit_cb(EV_P_ ev_async *w, int revents) {
+  ev_unloop(EV_A_ EVUNLOOP_ALL);
+}
+
 struct pk_manager* pkm_manager_init(struct ev_loop* loop,
                                     int buffer_size, char* buffer,
                                     int kites, int frontends, int conns)
@@ -567,6 +572,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pk_log(PK_LOG_TUNNEL_DATA,
            "pkm_manager_init: Allocating %d bytes", buffer_size);
   }
+
+  if (loop == NULL) loop = EV_DEFAULT;
 
   memset(buffer, 0, buffer_size);
 
@@ -630,6 +637,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pkm->timer.data = (void *) pkm;
     ev_timer_start(loop, &(pkm->timer));
   }
+  ev_async_init(&(pkm->quit), pkm_quit_cb);
+  ev_async_start(loop, &(pkm->quit));
 
   return pkm;
 }
@@ -768,4 +777,25 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm, char* sid)
     }
   }
   return NULL;
+}
+
+void* pkm_run(void *void_pkm) {
+  struct pk_manager* pkm = (struct pk_manager*) void_pkm;
+  ev_loop(pkm->loop, 0);
+  return void_pkm;
+}
+
+int pkm_run_in_thread(struct pk_manager* pkm) {
+  pk_log(PK_LOG_MANAGER_INFO, "Starting manager in new thread");
+  return pthread_create(&(pkm->main_thread), NULL, pkm_run, (void *) pkm);
+}
+
+int pkm_wait_thread(struct pk_manager* pkm) {
+  return pthread_join(pkm->main_thread, NULL);
+}
+
+int pkm_stop_thread(struct pk_manager* pkm) {
+  pk_log(PK_LOG_MANAGER_INFO, "Stopping manager...");
+  ev_async_send(pkm->loop, &(pkm->quit));
+  return pthread_join(pkm->main_thread, NULL);
 }

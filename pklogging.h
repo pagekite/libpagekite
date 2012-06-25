@@ -24,6 +24,9 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #define PK_LOG_BE_DATA         0x0010
 #define PK_LOG_BE_HEADERS      0x0020
 #define PK_LOG_BE_CONNS        0x0040
+#define PK_LOG_MANAGER_ERROR   0x0100
+#define PK_LOG_MANAGER_INFO    0x0200
+#define PK_LOG_MANAGER_DEBUG   0x0400
 
 #define PK_LOG_ERROR           0x1000
 

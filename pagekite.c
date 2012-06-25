@@ -25,6 +25,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -45,7 +46,6 @@ void usage(void) {
 }
 
 int main(int argc, char **argv) {
-  struct ev_loop *loop = EV_DEFAULT;
   struct pk_manager *m;
   char* proto;
   char* kitename;
@@ -65,15 +65,16 @@ int main(int argc, char **argv) {
 
   pk_state.log_mask = PK_LOG_ALL;
 
-  if ((NULL == (m = pkm_manager_init(loop, 0, NULL, 1, 1, 20))) ||
+  if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 1, 1, 10))) ||
       (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
                                 "localhost", lport))) ||
-      (NULL == (pkm_add_frontend(m, kitename, pport, 1)))) {
+      (NULL == (pkm_add_frontend(m, kitename, pport, 1))) ||
+      (0 > pkm_run_in_thread(m))) {
     pk_perror(argv[0]);
     exit(1);
   }
-  ev_loop(loop, 0);
 
+  pkm_wait_thread(m);
   return 0;
 }
 

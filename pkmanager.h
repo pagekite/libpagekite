@@ -104,8 +104,15 @@ struct pk_manager {
   char*                    buffer;
   char*                    buffer_base;
   struct ev_loop*          loop;
+  pthread_t                main_thread;
+  ev_async                 quit;
   ev_timer                 timer;
 };
+
+void* pkm_run                       (void *);
+int pkm_run_in_thread               (struct pk_manager*);
+int pkm_wait_thread                 (struct pk_manager*);
+int pkm_stop_thread                 (struct pk_manager*);
 
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
                                       int, char*, int, int, int);
