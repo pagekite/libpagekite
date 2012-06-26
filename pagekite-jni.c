@@ -29,8 +29,10 @@ along with th program.  If not, see: <http://www.gnu.org/licenses/>
 #include <sys/socket.h>
 #include <pthread.h>
 #include <time.h>
+
 #include <ev.h>
 #include <jni.h>
+#include <android/log.h>
 
 #include "utils.h"
 #include "pkstate.h"
@@ -39,10 +41,12 @@ along with th program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pklogging.h"
 #include "pkmanager.h"
 
+
 #define BUFFER_SIZE 256 * 1024
-static struct pk_global_state pk_state;
-static struct pk_manager *pk_manager_global = NULL;
-static char pk_manager_buffer[BUFFER_SIZE];
+struct pk_global_state pk_state;
+struct pk_manager *pk_manager_global = NULL;
+char pk_manager_buffer[BUFFER_SIZE];
+
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
   jint jKites, jint jFrontends, jint jConns)
@@ -53,7 +57,9 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
   char *buffer;
 
   if (pk_manager_global != NULL) return JNI_FALSE;
-  
+
+  pk_state.log_mask = PK_LOG_ALL;
+  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
                                        kites, frontends, conns);
   if (NULL == pk_manager_global) {
@@ -65,7 +71,7 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
 jboolean Java_net_pagekite_lib_PageKiteAPI_free(JNIEnv* env, jclass cl)
 {
   if (pk_manager_global != NULL) {
-    free(pk_manager_global);
+    pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Cleaning up");
     pk_manager_global = NULL;
     return JNI_TRUE;
   }
@@ -84,6 +90,8 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addKite(JNIEnv* env, jclass cl,
   int lport = jLport;
 
   if (pk_manager_global == NULL) return JNI_FALSE;
+  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add kite: %s://%s:%d -> %s:%d",
+                               proto, kitename, port, backend, lport);
   int rv = (pkm_add_kite(pk_manager_global, proto, kitename, port, secret,
                                             backend, lport) != NULL); 
 
@@ -102,6 +110,7 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addFrontend(JNIEnv* env, jclass cl,
   int prio = jPrio;
 
   if (pk_manager_global == NULL) return JNI_FALSE;
+  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add frontend: %s:%d", domain, port);
   int rv = (pkm_add_frontend(pk_manager_global, domain, port, prio) != NULL); 
 
   (*env)->ReleaseStringUTFChars(env, jDomain, domain);
@@ -111,12 +120,17 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addFrontend(JNIEnv* env, jclass cl,
 jboolean Java_net_pagekite_lib_PageKiteAPI_start(JNIEnv* env, jclass cl)
 {
   if (pk_manager_global == NULL) return JNI_FALSE;
-  return (0 >= pkm_run_in_thread(pk_manager_global));
+  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Starting worker thread.");
+  return (0 == pkm_run_in_thread(pk_manager_global));
 }
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_stop(JNIEnv* env, jclass cl)
 {
+  int rv;
   if (pk_manager_global == NULL) return JNI_FALSE;
-  return (0 >= pkm_stop_thread(pk_manager_global));
+  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Stopping worker thread.");
+  rv = pkm_stop_thread(pk_manager_global);
+  pk_manager_global = NULL;
+  return (0 == rv);
 }
 

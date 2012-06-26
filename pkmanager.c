@@ -800,7 +800,7 @@ int pkm_wait_thread(struct pk_manager* pkm) {
 }
 
 int pkm_stop_thread(struct pk_manager* pkm) {
-  pk_log(PK_LOG_MANAGER_INFO, "Stopping manager...");
+  pk_log(PK_LOG_MANAGER_DEBUG, "Stopping manager...");
   ev_async_send(pkm->loop, &(pkm->quit));
   return pthread_join(pkm->main_thread, NULL);
 }

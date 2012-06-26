@@ -40,10 +40,10 @@ void pk_perror(const char* prefix) {
   switch (pk_error) {
     /* FIXME: Make this prettier */
     case ERR_CONNECT_CONNECT:
-      pk_log(PK_LOG_ERROR, "%s: %s\n", prefix, strerror(errno));
+      pk_log(PK_LOG_ERROR, "%s: %s", prefix, strerror(errno));
       break;
     default:
-      pk_log(PK_LOG_ERROR, "%s: pk_error = %d\n", prefix, pk_error);
+      pk_log(PK_LOG_ERROR, "%s: pk_error = %d", prefix, pk_error);
   }
 
   pk_error = ERR_ALL_IS_WELL;

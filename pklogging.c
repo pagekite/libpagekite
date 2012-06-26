@@ -25,6 +25,10 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include <string.h>
 #include <unistd.h>
 
+#ifdef ANDROID
+#include <android/log.h>
+#endif
+
 #include "pkstate.h"
 #include "pkproto.h"
 #include "pklogging.h"
@@ -40,7 +44,14 @@ int pk_log(int level, const char* fmt, ...)
     va_start(args, fmt);
     r = vsnprintf(output, 4000, fmt, args); 
     va_end(args);
-    if (r > 0) fprintf(stderr, "%.4000s\n", output);
+    if (r > 0) {
+#ifdef ANDROID
+#warning Logging uses Android __android_log_print.
+      __android_log_print(ANDROID_LOG_INFO, "libpagekite", "%.4000s\n", output);
+#else
+      fprintf(stderr, "%.4000s\n", output);
+#endif
+    }
   }
   else {
     r = 0;
