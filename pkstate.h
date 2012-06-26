@@ -22,4 +22,4 @@ struct pk_global_state {
   int log_mask;
 };
 
-extern struct pk_global_state pk_state;
+static struct pk_global_state pk_state;

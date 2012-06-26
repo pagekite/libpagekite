@@ -39,7 +39,7 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pklogging.h"
 #include "pkmanager.h"
 
-struct pk_global_state pk_state;
+static struct pk_global_state pk_state;
 
 void usage(void) {
   printf("Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET\n");

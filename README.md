@@ -25,8 +25,9 @@ Things that work:
 
 Works in progress:
 
-    pagekite.c   Standalone pagekite daemon.
-    pkmanager.c  Management code: choose front-ends, re/connect, update DNS
+    pagekite.c     Standalone pagekite daemon.
+    pkmanager.c    Management code: choose front-ends, re/connect, update DNS
+    pagekite-jni.c JNI wrapper for use in Android development
 
 Everything else is either support code or documentation.
 

@@ -572,6 +572,11 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pk_log(PK_LOG_TUNNEL_DATA,
            "pkm_manager_init: Allocating %d bytes", buffer_size);
   }
+  if (buffer == NULL) {
+    pk_log(PK_LOG_MANAGER_ERROR,
+           "pkm_manager_init: No buffer! Malloc failed?");
+    return NULL;
+  }
 
   if (loop == NULL) loop = EV_DEFAULT;
 

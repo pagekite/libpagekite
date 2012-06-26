@@ -1,5 +1,7 @@
 /******************************************************************************
-tests.c - Unit tests for pagekite.
+PageKiteAPI - A high-performance PageKite implementation in C.
+
+*******************************************************************************
 
 This file is Copyright 2011, 2012, The Beanstalks Project ehf.
 
@@ -17,24 +19,22 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
-#include <assert.h>
-#include <time.h>
+package net.pagekite.lib;
 
-#include "pkstate.h"
+public class PageKiteAPI extends Object
+{
+    public static native boolean init(int jKites, int jFrontend, int jConns);
+    public static native boolean free();
 
-static struct pk_global_state pk_state;
+    public static native boolean addKite(String jProto, String jKitename,
+    		                         	 int jPort, String jSecret,
+    		                         	 String jBackend, int jLport);
+    public static native boolean addFrontend(String jKitename, int jPort, int jPrio);
 
-int sha1_test();
-int utils_test();
-int pkproto_test();
-int pkmanager_test();
+    public static native boolean start();
+    public static native boolean stop();
 
-int main(void) {
-  assert(sha1_test() &&
-         utils_test() &&
-         pkproto_test() &&
-         pkmanager_test());
-  return 0;
+    static {
+        System.loadLibrary("pagekite-jni");
+    }
 }
-
-

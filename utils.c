@@ -25,7 +25,8 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 int zero_first_crlf(int length, char* data)
 {
-  for (int i = 0; i < length-1; i++)
+  int i;
+  for (i = 0; i < length-1; i++)
   {
     if ((data[i] == '\r') && (data[i+1] == '\n'))
     {

@@ -8,10 +8,15 @@ CLINK ?= -lpthread -lm -lev
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
 OBJ = pkerror.o pkproto.o pkmanager.o pklogging.o utils.o sha1.o
 
+NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
+
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
 
 all: runtests pagekite httpkite
+
+android: clean
+	@$(NDK_PROJECT_PATH)/ndk-build
 
 tests: tests.o $(OBJ) $(TOBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ) $(TOBJ)
