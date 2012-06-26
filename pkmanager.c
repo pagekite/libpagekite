@@ -43,15 +43,15 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
 {
   struct pk_backend_conn* pkb; /* FIXME: What if we are a front-end? */
-  char pong[64];
+  char reply[1024];
   int bytes;
 
   pk_log_chunk(chunk);
 
   if (NULL != chunk->noop) {
     if (NULL != chunk->ping) {
-      bytes = pk_format_pong(pong);
-      pkm_write_data(&(fe->conn), bytes, pong);
+      bytes = pk_format_pong(reply);
+      pkm_write_data(&(fe->conn), bytes, reply);
       pk_log(PK_LOG_TUNNEL_DATA, "> --- > Pong!");
     }
   }
@@ -64,8 +64,10 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
       pkb = NULL;
     }
     if (NULL == pkb) {
-      /* FIXME: Send back an error */
-      pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s", chunk->sid);
+      /* FIXME: Send back a nicer error */
+      bytes = pk_format_eof(reply, chunk->sid, PK_EOF);
+      pkm_write_data(&(fe->conn), bytes, reply);
+      pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s (sent EOF)", chunk->sid);
     }
     else {
       if (NULL == chunk->eof) {
@@ -94,6 +96,10 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   struct pk_pagekite *kite;
 
   /* FIXME: Better error handling? */
+  if ((NULL == chunk->request_proto) || (NULL == chunk->request_host)) {
+    pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: Request details missing.");
+    return NULL;
+  }
 
   /* First, search the list of configured back-ends for one that matches
      the request in the chunk.  If nothing is found, there is no point in
@@ -101,12 +107,20 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   if (NULL == (kite = pkm_find_kite(fe->manager,
                                     chunk->request_proto,
                                     chunk->request_host,
-                                    chunk->request_port)))
+                                    chunk->request_port))) {
+    pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: No such kite %s://%s:%d",
+                                chunk->request_proto, chunk->request_host,
+                                chunk->request_port);
     return NULL;
+  }
 
   /* Allocate a connection for this request or die... */
-  if (NULL == (pkb = pkm_alloc_be_conn(fe->manager, chunk->sid)))
+  if (NULL == (pkb = pkm_alloc_be_conn(fe->manager, chunk->sid))) {
+    pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: BE alloc failed for %s://%s:%d",
+                                chunk->request_proto, chunk->request_host,
+                                chunk->request_port);
     return NULL;
+  }
 
   /* Look up the back-end... */
   addr = NULL;
@@ -133,6 +147,8 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
          above.  Do that later once we've figured out error handling. */
       close(sockfd);
       pkm_free_be_conn(pkb);
+      pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: Failed to connect %s:%d",
+                                  kite->local_domain, kite->local_port);
       return NULL;
     }
   }
