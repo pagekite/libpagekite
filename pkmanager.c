@@ -664,6 +664,34 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   return pkm;
 }
 
+static void pkm_reset_manager(struct pk_manager* pkm) {
+  int i;
+  struct pk_conn* pkc;
+
+  for (i = 0; i < pkm->kite_count; i++) {
+    pk_reset_pagekite(pkm->kites+i);
+  }
+  for (i = 0; i < pkm->frontend_count; i++) {
+    pkc = &((pkm->frontends+i)->conn);
+    if (pkc->status != CONN_STATUS_UNKNOWN) {
+      ev_io_stop(pkm->loop, &(pkc->watch_r));
+      ev_io_stop(pkm->loop, &(pkc->watch_w));
+      if (pkc->sockfd > 0) close(pkc->sockfd);
+      pkm_reset_conn(pkc);
+    }
+  }
+  for (i = 0; i < pkm->be_conn_count; i++) {
+    pkc = &((pkm->be_conns+i)->conn);
+    if (pkc->status != CONN_STATUS_UNKNOWN) {
+      ev_io_stop(pkm->loop, &(pkc->watch_r));
+      ev_io_stop(pkm->loop, &(pkc->watch_w));
+      if (pkc->sockfd > 0) close(pkc->sockfd);
+      pkm_reset_conn(pkc);
+    }
+  }
+  ev_async_stop(pkm->loop, &(pkm->quit));
+}
+
 struct pk_pagekite* pkm_find_kite(struct pk_manager* pkm,
                                   const char* protocol,
                                   const char* domain,
@@ -803,6 +831,8 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm, char* sid)
 void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
   ev_loop(pkm->loop, 0);
+  pkm_reset_manager(pkm);
+  pk_log(PK_LOG_MANAGER_DEBUG, "Event loop exited.");
   return void_pkm;
 }
 

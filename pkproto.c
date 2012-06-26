@@ -36,6 +36,16 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "pkproto.h"
 
 
+void pk_reset_pagekite(struct pk_pagekite* kite)
+{
+  kite->protocol = NULL;
+  kite->public_domain = NULL;
+  kite->public_port = 0;
+  kite->local_domain = NULL;
+  kite->local_port = 0;
+  kite->auth_secret = NULL;
+}
+
 void frame_reset_values(struct pk_frame* frame)
 {
   frame->data = NULL;

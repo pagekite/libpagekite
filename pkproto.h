@@ -101,6 +101,8 @@ struct pk_parser* pk_parser_init (int, char*,
 int               pk_parser_parse(struct pk_parser*, int, char*);
 void              pk_parser_reset(struct pk_parser*);
 
+void              pk_reset_pagekite(struct pk_pagekite* kite);
+
 size_t            pk_format_frame(char*, const char*, const char *, size_t);
 size_t            pk_reply_overhead(const char *sid, size_t);
 size_t            pk_format_reply(char*, const char*, size_t, const char*);
