@@ -76,19 +76,11 @@ code differently and massage the Android.mk files a bit.
 
 libpagekite is Copyright 2011, 2012, The Beanstalks Project ehf.
 
-**Note:** Alternate licenses and commercial support for this code, as well
-as managed front-end service, are available from <https://pagekite.net/>.
+This code is released under the GNU Affero General Public License version 3,
+but may also be used (under specific conditions) according to the terms of the
+GNU Lesser General Public License.  Please see the file COPYING.md for details
+on which license applies to you.
 
-This program is free software: you can redistribute it and/or modify it under
-the terms of the  GNU  Affero General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
-
-This program is distributed in the hope that it will be useful,  but  WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
-details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see: <http://www.gnu.org/licenses/>
+Commercial support for this code, as well as managed front-end relay service,
+are available from <https://pagekite.net/>.
 
