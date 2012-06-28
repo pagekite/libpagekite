@@ -17,12 +17,13 @@ These are Things TO DO for libpagekite.
    * pkproto.c: parse pagekite proto, emitting a callback for each chunk
    * pkproto.c: serialize the pagekite protocol to buffer or file descriptor
    * httpkite.c: Implement a very basic back-end (hello world)
-
-### Ahead ###
-
    * pagekite.c: libev based single-kite pagekite proxy (blocking)
    * pagekite.c: multiple-kite pagekite proxy (blocking, BE use only)
    * pkmanager.c: reconnect automatically
+   * pagekite-jni.c: Bare-bones android wrapper for libpagekite
+
+### Ahead ###
+
    * pkmanager.c: choose best front-end automatically
    * pkmanager.c: add flow control
    * libpagekite: create simple fork/thread/anonymous-pipe based API for
