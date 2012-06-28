@@ -178,7 +178,7 @@ ssize_t pkm_write_data(struct pk_conn* pkc, ssize_t length, char* data)
 
   /* 1. Try to flush already buffered data. */
   if (pkc->out_buffer_pos)
-    pkm_flush(pkc, NULL, 0, NON_BLOCKING_FLUSH);
+    pkm_flush(pkc, NULL, 0, NON_BLOCKING_FLUSH, "pkm_write_data/1");
 
   /* 2. If successful, try to write new data (0 copies!) */
   if (0 == pkc->out_buffer_pos) {
@@ -200,7 +200,8 @@ ssize_t pkm_write_data(struct pk_conn* pkc, ssize_t length, char* data)
     }
     else {
       /* 2b. If new+old data > buffer size, do a blocking write. */
-      pkm_flush(pkc, data+wrote, length-wrote, BLOCKING_FLUSH);
+      pkm_flush(pkc, data+wrote, length-wrote, BLOCKING_FLUSH,
+                "pkm_write_data/2");
     }
   }
 
@@ -218,7 +219,7 @@ ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
   /* Make sure there is space in our output buffer for the header. */
   overhead = pk_reply_overhead(pkb->sid, length);
   if (PKC_OUT_FREE(*pkc) < overhead)
-    if (0 > pkm_flush(pkc, NULL, 0, BLOCKING_FLUSH))
+    if (0 > pkm_flush(pkc, NULL, 0, BLOCKING_FLUSH, "pkm_write_chunked"))
       return -1;
 
   /* Write the chunk header to the output buffer */
@@ -231,19 +232,30 @@ ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
 ssize_t pkm_read_data(struct pk_conn* pkc)
 {
   ssize_t bytes;
-  fprintf(stderr, "Attempting to read %d bytes\n", PKC_IN_FREE(*pkc));
   bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
   pkc->in_buffer_pos += bytes;
   return bytes;
 }
 
-ssize_t pkm_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode)
+ssize_t pkm_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
+                  char* where)
 {
   ssize_t flushed, wrote, bytes;
   flushed = 0;
   wrote = 0;
   errno = 0;
-  if (mode == BLOCKING_FLUSH) set_blocking(pkc->sockfd);
+
+  if (pkc->sockfd < 0) {
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Bogus flush?",
+                                              pkc->sockfd, where);
+    return -1;
+  }
+
+  if (mode == BLOCKING_FLUSH) {
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Attempting blocking flush",
+                                              pkc->sockfd, where);
+    set_blocking(pkc->sockfd);
+  }
 
   /* First, flush whatever was in the conn buffers */
   do {
@@ -288,12 +300,17 @@ ssize_t pkm_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode)
     }
   }
 
-  if (mode == BLOCKING_FLUSH) set_non_blocking(pkc->sockfd);
+  if (mode == BLOCKING_FLUSH) {
+    set_non_blocking(pkc->sockfd);
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Blocking flush complete.",
+                                              pkc->sockfd, where);
+  }
   return flushed;
 }
 
 int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
 {
+  int i;
   int bytes;
   int loglevel;
   char buffer[1024];
@@ -327,12 +344,18 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     shutdown(pkc->sockfd, SHUT_RD);
     flows -= 1;
     pk_log(loglevel, "%d: Closed for reading.", pkc->sockfd);
+    if (pkb == NULL) {
+      /* Frontend: If we can't read the tunnel, we can't write it either. */
+      pkc->status |= CONN_STATUS_CLS_WRITE;
+    }
   }
   else {
     if (pkc->status & CONN_STATUS_THROTTLED) {
+      pk_log(loglevel, "%d: Throttled.", pkc->sockfd);
       ev_io_stop(pkm->loop, &(pkc->watch_r));
     }
     else {
+      pk_log(loglevel, "%d: Watching for input.", pkc->sockfd);
       ev_io_start(pkm->loop, &(pkc->watch_r));
     }
   }
@@ -367,6 +390,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
       pk_log(loglevel, "%d: Closed for writing (remote).", pkc->sockfd);
     }
     else {
+      pk_log(loglevel, "%d: Unblocked!", pkc->sockfd);
       /* FIXME: unthrottle data sources */
     }
     ev_io_stop(pkm->loop, &(pkc->watch_w));
@@ -380,21 +404,33 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
       pk_log(loglevel, "%d: Sent EOF (0x%x)", pkc->sockfd, eof);
     }
     else {
-      /* This is a tunnel, send EOF to all backends. */
+      /* This is a tunnel, send EOF to all backends, mark for reconnection. */
+      /* FIXME: This is O(n), but rare.  Maybe OK? */
+      pk_log(loglevel, "%d: Shutting down tunnel.", pkc->sockfd);
+      for (i = 0; i < pkm->be_conn_count; i++) {
+        pkb = (pkm->be_conns+i);
+        if ((pkb->frontend == fe) && (pkb->conn.status != CONN_STATUS_UNKNOWN)) {
+          pkb->conn.status |= (CONN_STATUS_END_WRITE|CONN_STATUS_END_READ);
+          pkm_update_io(fe, pkb);
+        }
+      }
+      pkb = NULL;
     }
   }
 
   if (0 == flows) {
     /* Nothing to read or write, close and clean up. */
-    if (0 < pkc->sockfd) close(pkc->sockfd);
-    pkc->sockfd = 0;
+    if (0 <= pkc->sockfd) close(pkc->sockfd);
     if (pkb != NULL) {
       pkm_free_be_conn(pkb);
     }
     else {
-      /* FIXME: How do we clean up dead tunnels? */
+      /* FIXME: Is this the right way to clean up dead tunnels? */
+      pkm_reset_conn(&(fe->conn));
+      fe->request_count = 0;
     }
     pk_log(loglevel, "%d: Closed.", pkc->sockfd, eof);
+    pkc->sockfd = -1;
   }
   return flows;
 }
@@ -453,7 +489,7 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
-  pkm_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH);
+  pkm_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
   pkm_update_io(fe, NULL);
 }
 
@@ -487,14 +523,14 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
   struct pk_backend_conn* pkb;
 
   pkb = (struct pk_backend_conn*) w->data;
-  pkm_flush(&(pkb->conn), NULL, 0, NON_BLOCKING_FLUSH);
+  pkm_flush(&(pkb->conn), NULL, 0, NON_BLOCKING_FLUSH, "be_conn");
   if (pkb->conn.out_buffer_pos == 0)
   {
-    fprintf(stderr, "Flushed: %s:%d (done)\n",
+    pk_log(PK_LOG_BE_DATA, "Flushed: %s:%d (done)",
             pkb->kite->local_domain, pkb->kite->local_port);
   }
   else {
-    fprintf(stderr, "Flushed: %s:%d\n",
+    pk_log(PK_LOG_BE_DATA, "Flushed: %s:%d\n",
             pkb->kite->local_domain, pkb->kite->local_port);
   }
   pkm_update_io(pkb->frontend, pkb);
@@ -505,12 +541,13 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   struct pk_manager* pkm;
   struct pk_frontend *fe;
   struct pk_kite_request *kite_r;
-  int i, j, reconnect;
+  int i, j, reconnect, error;
 
   pkm = (struct pk_manager*) w->data;
-  fprintf(stderr, "Tick %p %p %x\n", (void *) loop, (void *) pkm, revents);
+  pk_log(PK_LOG_MANAGER_DEBUG, "Tick %p %p %x",
+                               (void *) loop, (void *) pkm, revents);
 
-  /* Loop through all configured tunnels:
+  /* FIXME: Loop through all configured tunnels:
    *   - if idle, queue a ping.
    *   - if dead, shut 'em down.
    */
@@ -536,11 +573,13 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
       if (kite_r->status == PK_STATUS_UNKNOWN) reconnect++;
     }
     if (reconnect) {
-      fprintf(stderr, "Reconnecting to %s\n", fe->fe_hostname);
-      if (fe->conn.sockfd) {
+      pk_log(PK_LOG_MANAGER_INFO, "Connecting to %s:%d",
+                                  fe->fe_hostname, fe->fe_port);
+      if (0 <= fe->conn.sockfd) {
         ev_io_stop(pkm->loop, &(fe->conn.watch_r));
         ev_io_stop(pkm->loop, &(fe->conn.watch_w));
         close(fe->conn.sockfd);
+        fe->conn.sockfd = -1;
       }
       pkm_reset_conn(&(fe->conn));
       fe->conn.status = CONN_STATUS_ALLOCATED;
@@ -548,8 +587,8 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
                                               fe->fe_port, NULL,
                                               fe->request_count,
                                               fe->requests))) &&
-          (0 <= set_non_blocking(fe->conn.sockfd))) {
-        fprintf(stderr, "Connected to %s:%d\n", fe->fe_hostname, fe->fe_port);
+          (0 < set_non_blocking(fe->conn.sockfd))) {
+        pk_log(PK_LOG_MANAGER_INFO, "Connected!");
 
         ev_io_init(&(fe->conn.watch_r),
                    pkm_tunnel_readable_cb, fe->conn.sockfd, EV_READ);
@@ -560,6 +599,10 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
         fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
       }
       else {
+        /* FIXME: Is this the right behavior? */
+        pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
+        fe->request_count = 0;
+        pkm_reset_conn(&(fe->conn));
         pk_perror("pkmanager.c");
       }
     }
@@ -631,6 +674,10 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_BE_CONNS);
   pkm->be_conns = (struct pk_backend_conn *) pkm->buffer;
   pkm->be_conn_count = conns;
+  for (i = 0; i < conns; i++) {
+    (pkm->be_conns+i)->conn.sockfd = -1;
+    pkm_reset_conn(&(pkm->be_conns+i)->conn);
+  }
   pkm->buffer += sizeof(struct pk_backend_conn) * conns;
 
   /* Whatever is left, we divide evenly between the protocol parsers... */
@@ -644,6 +691,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   /* Initialize the frontend structs... */
   for (i = 0; i < frontends; i++) {
     (pkm->frontends+i)->manager = pkm;
+    (pkm->frontends+i)->conn.sockfd = -1;
     (pkm->frontends+i)->parser = pk_parser_init(parse_buffer_bytes,
                                                 (char *) pkm->buffer,
                                                (pkChunkCallback*) &pkm_chunk_cb,
@@ -676,7 +724,6 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
       ev_io_stop(pkm->loop, &(pkc->watch_w));
-      if (pkc->sockfd > 0) close(pkc->sockfd);
       pkm_reset_conn(pkc);
     }
   }
@@ -685,7 +732,6 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
       ev_io_stop(pkm->loop, &(pkc->watch_w));
-      if (pkc->sockfd > 0) close(pkc->sockfd);
       pkm_reset_conn(pkc);
     }
   }
@@ -785,6 +831,8 @@ void pkm_reset_conn(struct pk_conn* pkc)
   pkc->activity = time(0);
   pkc->out_buffer_pos = 0;
   pkc->in_buffer_pos = 0;
+  if (pkc->sockfd >= 0) close(pkc->sockfd);
+  pkc->sockfd = -1;
 }
 
 struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm, char *sid)

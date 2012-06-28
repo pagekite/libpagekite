@@ -130,7 +130,7 @@ void                 pkm_reset_conn(struct pk_conn*);
 
 ssize_t              pkm_write_data(struct pk_conn*, ssize_t, char*);
 ssize_t              pkm_read_data(struct pk_conn*);
-ssize_t              pkm_flush(struct pk_conn*, char*, ssize_t, int);
+ssize_t              pkm_flush(struct pk_conn*, char*, ssize_t, int, char*);
 void                 pkm_parse_eof(struct pk_backend_conn*, char*);
 int                  pkm_update_io(struct pk_frontend*, struct pk_backend_conn*);
 

@@ -32,9 +32,9 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 #include "types.h"
 #include "sha1.h"
 #include "utils.h"
-#include "pkerror.h"
 #include "pkproto.h"
-
+#include "pklogging.h"
+#include "pkerror.h"
 
 void pk_reset_pagekite(struct pk_pagekite* kite)
 {
@@ -320,7 +320,7 @@ int pk_make_bsalt(struct pk_kite_request* kite_r) {
 
   if (kite_r->bsalt == NULL) kite_r->bsalt = malloc(41);
   if (kite_r->bsalt == NULL) {
-    fprintf(stderr, "WARNING: Failed to malloc() for bsalt");
+    pk_log(PK_LOG_TUNNEL_CONNS, "WARNING: Failed to malloc() for bsalt");
     return -1;
   }
 
@@ -417,7 +417,7 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
 int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
                unsigned int n, struct pk_kite_request* requests)
 {
-  unsigned int i, j;
+  unsigned int i, j, reconnecting;
   int sockfd, bytes;
   char buffer[16*1024];
   char* p;
@@ -426,7 +426,11 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   struct sockaddr_in serv_addr_buf;
   struct hostent *server;
 
-  if (serv_addr == NULL)
+  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect(%s:%d, %p, %d, %p)",
+                             frontend, port, serv_addr, n, requests);
+
+  reconnecting = (serv_addr != NULL);
+  if (!reconnecting)
   {
     if (NULL == (server = gethostbyname(frontend))) return -1;
 
@@ -439,12 +443,13 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     serv_addr->sin_port = htons(port);
   }
 
-
+  pk_log(PK_LOG_TUNNEL_DATA, "socket/connect/write");
   if ((0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
       (0 > connect(sockfd, (struct sockaddr*) serv_addr, sizeof(*serv_addr))) ||
       (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))))
   {
-    close(sockfd);
+    if (sockfd >= 0)
+      close(sockfd);
     return (pk_error = ERR_CONNECT_CONNECT);
   }
 
@@ -452,6 +457,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     if (requests[i].kite->protocol != NULL) {
       requests[i].status = PK_STATUS_UNKNOWN;
       bytes = pk_sign_kite_request(buffer, &(requests[i]), rand());
+      pk_log(PK_LOG_TUNNEL_DATA, "request(%s)", requests[i].kite->public_domain);
       if ((0 >= bytes) || (0 > write(sockfd, buffer, bytes))) {
         close(sockfd);
         return (pk_error = ERR_CONNECT_REQUEST);
@@ -459,14 +465,16 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     }
   }
 
+  pk_log(PK_LOG_TUNNEL_DATA, "end handshake");
   if (0 > write(sockfd, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END))) {
     close(sockfd);
     return (pk_error = ERR_CONNECT_REQ_END);
   }
 
   /* Gather response from server */
+  pk_log(PK_LOG_TUNNEL_DATA, "read response...");
   for (i = 0; i < sizeof(buffer)-1; i++) {
-    if (1 > read(sockfd, buffer+i, 1)) break;
+    if (1 > timed_read(sockfd, buffer+i, 1, 2000)) break;
     if (i > 4) {
       if (0 == strcmp(buffer+i-2, "\n\r\n")) break;
       if (0 == strcmp(buffer+i-1, "\n\n")) break;
@@ -480,7 +488,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   i = 0;
   while ((p = strstr(p, "X-PageKite-Duplicate")) != NULL) {
     bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
-    fprintf(stderr, "Duplicate: %s\n", p);
+    pk_log(PK_LOG_TUNNEL_CONNS, "Duplicate: %s", p);
     p += bytes;
     i++;
   }
@@ -492,7 +500,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   i = 0;
   while ((p = strstr(p, "X-PageKite-Invalid")) != NULL) {
     bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
-    fprintf(stderr, "Rejected: %s\n", p);
+    pk_log(PK_LOG_TUNNEL_CONNS, "Rejected: %s", p);
     p += bytes;
     i++;
   }
@@ -522,12 +530,20 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     p += bytes;
   }
   if (i) {
-    close(sockfd);
-    return pk_connect(frontend, port, serv_addr, n, requests);
+    if (reconnecting) {
+      close(sockfd);
+      return (pk_error = ERR_CONNECT_REJECTED);
+    }
+    else {
+      close(sockfd);
+      return pk_connect(frontend, port, serv_addr, n, requests);
+    }
   }
 
   for (i = 0; i < n; i++) {
     requests[i].status = PK_STATUS_CONNECTED;
   }
+  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect(%s:%d, %p, %d, %p) => %d",
+                             frontend, port, serv_addr, n, requests, sockfd);
   return sockfd;
 }

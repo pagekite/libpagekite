@@ -22,3 +22,5 @@ int zero_first_crlf(int, char*);
 int dbg_write(int, char *, int);
 int set_non_blocking(int);
 int set_blocking(int);
+ssize_t timed_read(int, void*, size_t, int);
+

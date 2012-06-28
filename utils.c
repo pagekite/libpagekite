@@ -17,7 +17,9 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see: <http://www.gnu.org/licenses/>
 
 ******************************************************************************/
+#include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,4 +59,21 @@ int set_blocking(int sockfd)
   if ((0 <= (flags = fcntl(sockfd, F_GETFL, 0))) &&
       (0 <= fcntl(sockfd, F_SETFL, flags & (~O_NONBLOCK)))) return sockfd;
   return -1;
+}
+
+ssize_t timed_read(int sockfd, void* buf, size_t count, int timeout)
+{
+  struct pollfd pfd;
+  ssize_t rv;
+
+  set_non_blocking(sockfd);
+  pfd.fd = sockfd;
+  pfd.events = (POLLIN | POLLPRI | POLLHUP);
+  do {
+    if (0 <= (rv = poll(&pfd, 1, timeout)))
+      rv = read(sockfd, buf, count);
+  } while (errno == EINTR);
+  set_blocking(sockfd);
+
+  return rv;
 }
