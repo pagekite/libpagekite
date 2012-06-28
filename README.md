@@ -20,8 +20,8 @@ For more information about PageKite, see http://pagekite.org/
 
 Things that work:
 
-    httpkite.c   Sample implementation of a very basic HTTP server
-    pkproto.c    Parser and basic implementation of the protocol
+    httpkite.c     Sample implementation of a very basic HTTP server
+    pkproto.c      Parser and basic implementation of the protocol
 
 Works in progress:
 
