@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
   kite_rp = &kite_r;
 
   srand(time(0) ^ getpid());
-  fd = pk_connect(argv[1], 443, NULL, 1, &kite_r);
+  fd = pk_connect(argv[1], 443, NULL, 1, &kite_r, NULL);
   if (fd < 0) {
     pk_perror(argv[1]);
     usage();

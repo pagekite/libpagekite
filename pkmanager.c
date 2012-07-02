@@ -590,7 +590,8 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
       if ((0 <= (fe->conn.sockfd = pk_connect(fe->fe_hostname,
                                               fe->fe_port, NULL,
                                               fe->request_count,
-                                              fe->requests))) &&
+                                              fe->requests,
+                                              (fe->fe_session)))) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
         pk_log(PK_LOG_MANAGER_INFO, "Connected!");
 

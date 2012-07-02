@@ -34,8 +34,10 @@ Note: For alternate license terms, see the file COPYING.md.
 #else
 #define PK_HANDSHAKE_FEATURES ""
 #endif
+#define PK_HANDSHAKE_SESSION "X-PageKite-Replace: %s\r\n"
 #define PK_HANDSHAKE_KITE "X-PageKite: %s\r\n"
 #define PK_HANDSHAKE_END "\r\n"
+#define PK_HANDSHAKE_SESSIONID_MAX 256
 
 #define PK_EOF_READ  0x1
 #define PK_EOF_WRITE 0x2
@@ -120,6 +122,6 @@ size_t            pk_format_pong(char*);
 int               pk_make_bsalt(struct pk_kite_request*);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);
 char*             pk_parse_kite_request(struct pk_kite_request*, const char*);
-int               pk_connect(char *, int, struct sockaddr_in*,
-                             unsigned int, struct pk_kite_request*);
+int               pk_connect(char*, int, struct sockaddr_in*,
+                             unsigned int, struct pk_kite_request*, char*);
 

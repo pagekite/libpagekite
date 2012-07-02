@@ -69,6 +69,7 @@ struct pk_conn {
 struct pk_frontend {
   char*                   fe_hostname;
   int                     fe_port;
+  char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
   int                     priority;
   struct pk_conn          conn;
   struct pk_parser*       parser;

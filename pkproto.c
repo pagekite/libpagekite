@@ -417,7 +417,8 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
 }
 
 int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
-               unsigned int n, struct pk_kite_request* requests)
+               unsigned int n, struct pk_kite_request* requests,
+               char *session_id)
 {
   unsigned int i, j, reconnecting;
   int sockfd, bytes;
@@ -456,6 +457,15 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     return (pk_error = ERR_CONNECT_CONNECT);
   }
 
+  if (session_id && *session_id) {
+    pk_log(PK_LOG_TUNNEL_DATA, "Replacing Session ID: %s", session_id);
+    sprintf(buffer, PK_HANDSHAKE_SESSION, session_id);
+    if (0 > write(sockfd, buffer, strlen(buffer))) {
+      close(sockfd);
+      return (pk_error = ERR_CONNECT_CONNECT);
+    }
+  }
+
   for (i = 0; i < n; i++) {
     if (requests[i].kite->protocol != NULL) {
       requests[i].status = PK_STATUS_UNKNOWN;
@@ -485,53 +495,46 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   }
   buffer[i] = '\0';
 
-  /* First, if we're rejected, parse out why and bail. */
-  /* FIXME: Should update the status of each individual request. */
-  p = buffer;
+  /* OK, let's walk through the response header line-by-line and parse. */
   i = 0;
-  while ((p = strstr(p, "X-PageKite-Duplicate")) != NULL) {
-    bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
-    pk_log(PK_LOG_TUNNEL_CONNS, "Duplicate: %s", p);
-    p += bytes;
-    i++;
-  }
-  if (i) {
-    close(sockfd);
-    return (pk_error = ERR_CONNECT_DUPLICATE);
-  }
   p = buffer;
-  i = 0;
-  while ((p = strstr(p, "X-PageKite-Invalid")) != NULL) {
+  do {
     bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
-    pk_log(PK_LOG_TUNNEL_CONNS, "Rejected: %s", p);
-    p += bytes;
-    i++;
-  }
-  if (i) {
-    close(sockfd);
-    return (pk_error = ERR_CONNECT_REJECTED);
-  }
 
-  /* Second, if we need to reconnect with a signature, gather up all the fsalt
-   * values and then retry. */
-  p = buffer;
-  i = 0;
-  while ((p = strstr(p, "X-PageKite-SignThis")) != NULL) {
-    bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
-    tkite_r.kite = &tkite;
-    pk_parse_kite_request(&tkite_r, p);
-    for (j = 0; j < n; j++) {
-      if ((requests[j].kite->protocol != NULL) &&
-          (requests[j].kite->public_port == tkite.public_port) &&
-          (0 == strcmp(requests[j].kite->public_domain, tkite.public_domain)) &&
-          (0 == strcmp(requests[j].kite->protocol, tkite.protocol)))
-      {
-        requests[j].fsalt = tkite_r.fsalt;
-        i++;
+                      /* 123456789012345678901 = 21 bytes */
+    if ((strncasecmp(p, "X-PageKite-Duplicate:", 21) == 0) ||
+        (strncasecmp(p, "X-PageKite-Invalid:", 19) == 0)) {
+      pk_log(PK_LOG_TUNNEL_CONNS, "%s", p);
+      close(sockfd);
+      /* FIXME: Should update the status of each individual request. */
+      return (pk_error = (p[13] == 'u') ? ERR_CONNECT_DUPLICATE
+                                        : ERR_CONNECT_REJECTED);
+    }
+                     /* 12345678901234567890 = 20 bytes */
+    if (strncasecmp(p, "X-PageKite-SignThis:", 20) == 0) {
+      pk_log(PK_LOG_TUNNEL_DATA, "%s", p);
+      tkite_r.kite = &tkite;
+      pk_parse_kite_request(&tkite_r, p);
+      for (j = 0; j < n; j++) {
+        if ((requests[j].kite->protocol != NULL) &&
+            (requests[j].kite->public_port == tkite.public_port) &&
+            (0 == strcmp(requests[j].kite->public_domain, tkite.public_domain)) &&
+            (0 == strcmp(requests[j].kite->protocol, tkite.protocol)))
+        {
+          requests[j].fsalt = tkite_r.fsalt;
+          i++;
+        }
       }
     }
+    else if (session_id && /* 123456789012345678901 = 21 bytes */
+             (strncasecmp(p, "X-PageKite-SessionID:", 21) == 0)) {
+      strncpy(session_id, p+22, PK_HANDSHAKE_SESSIONID_MAX);
+      pk_log(PK_LOG_TUNNEL_DATA, "Session ID is: %s", session_id);
+      session_id[PK_HANDSHAKE_SESSIONID_MAX-1] = '\0';
+    }
     p += bytes;
-  }
+  } while (bytes);
+
   if (i) {
     if (reconnecting) {
       close(sockfd);
@@ -539,7 +542,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     }
     else {
       close(sockfd);
-      return pk_connect(frontend, port, serv_addr, n, requests);
+      return pk_connect(frontend, port, serv_addr, n, requests, session_id);
     }
   }
 
