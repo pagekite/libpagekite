@@ -430,6 +430,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
       /* FIXME: Is this the right way to clean up dead tunnels? */
       pkm_reset_conn(&(fe->conn));
       fe->request_count = 0;
+      pkm_reset_timer(pkm);
     }
     pk_log(loglevel, "%d: Closed.", pkc->sockfd, eof);
     pkc->sockfd = -1;
@@ -543,15 +544,16 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   struct pk_manager* pkm;
   struct pk_frontend *fe;
   struct pk_kite_request *kite_r;
-  int i, j, reconnect, error;
+  int i, j, reconnect, need_timer;
 
+  need_timer = 0;
   pkm = (struct pk_manager*) w->data;
-  pk_log(PK_LOG_MANAGER_DEBUG, "Tick %p %p %x",
-                               (void *) loop, (void *) pkm, revents);
+  pk_log(PK_LOG_MANAGER_DEBUG, "Tick (repeat=%.1f)", w->repeat);
 
   /* FIXME: Loop through all configured tunnels:
    *   - if idle, queue a ping.
    *   - if dead, shut 'em down.
+   *   - this will force need_timer to nonzero, skip on mobile?
    */
 
   /* Loop through all configured kites:
@@ -606,10 +608,28 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
         fe->request_count = 0;
         pkm_reset_conn(&(fe->conn));
         pk_perror("pkmanager.c");
+        if (!need_timer) need_timer = (pkm->timer.repeat * 2);
       }
     }
   }
+
+  /* If the timer is no longer needed, turn it off. */
+  if (need_timer) {
+    if (need_timer > PK_HOUSEKEEPING_INTERVAL_MAX)
+      need_timer = PK_HOUSEKEEPING_INTERVAL_MAX;
+    pkm->timer.repeat = need_timer;
+    ev_timer_again(pkm->loop, &(pkm->timer));
+  }
+  else {
+    ev_timer_stop(pkm->loop, &(pkm->timer));
+  }
 }
+
+void pkm_reset_timer(struct pk_manager* pkm) {
+  ev_timer_set(&(pkm->timer), 0.0, PK_HOUSEKEEPING_INTERVAL_MIN);
+  ev_timer_start(pkm->loop, &(pkm->timer));
+}
+
 
 static void pkm_quit_cb(EV_P_ ev_async *w, int revents) {
   ev_unloop(EV_A_ EVUNLOOP_ALL);
@@ -703,11 +723,11 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   }
 
   /* Set up our event-loop callbacks */
-  if (loop != NULL) {
-    ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, PK_HOUSEKEEPING_INTERVAL);
-    pkm->timer.data = (void *) pkm;
-    ev_timer_start(loop, &(pkm->timer));
-  }
+  ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, 0);
+  pkm->timer.data = (void *) pkm;
+  pkm_reset_timer(pkm);
+
+  /* Let external threads shut us down */
   ev_async_init(&(pkm->quit), pkm_quit_cb);
   ev_async_start(loop, &(pkm->quit));
 

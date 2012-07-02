@@ -448,7 +448,8 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   pk_log(PK_LOG_TUNNEL_DATA, "socket/connect/write");
   if ((0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
       (0 > connect(sockfd, (struct sockaddr*) serv_addr, sizeof(*serv_addr))) ||
-      (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))))
+      (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) ||
+      (0 > write(sockfd, PK_HANDSHAKE_FEATURES, strlen(PK_HANDSHAKE_FEATURES))))
   {
     if (sockfd >= 0)
       close(sockfd);

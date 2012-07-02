@@ -27,7 +27,12 @@ Note: For alternate license terms, see the file COPYING.md.
 #define BLOCKING_FLUSH 1
 #define NON_BLOCKING_FLUSH 0
 
-#define PK_HOUSEKEEPING_INTERVAL 10  /* Seconds */
+#define PK_HOUSEKEEPING_INTERVAL_MIN   2.0  /* Seconds */
+#ifndef ANDROID
+#define PK_HOUSEKEEPING_INTERVAL_MAX  60.0  /* 1 minute */
+#else
+#define PK_HOUSEKEEPING_INTERVAL_MAX 240.0  /* 4 minutes on mobile */
+#endif
 
 struct pk_conn;
 struct pk_frontend;
@@ -118,6 +123,7 @@ int pkm_stop_thread                 (struct pk_manager*);
 
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
                                       int, char*, int, int, int);
+void                 pkm_reset_timer(struct pk_manager*);
 struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
                                   const char*, const char*, int, const char*,
                                   const char*, int);

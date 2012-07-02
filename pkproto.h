@@ -27,7 +27,13 @@ Note: For alternate license terms, see the file COPYING.md.
  */
 #define PROTO_OVERHEAD_PER_KB  64
 
-#define PK_HANDSHAKE_CONNECT "CONNECT PageKite:1 HTTP/1.0\r\n"
+#define PK_HANDSHAKE_CONNECT ("CONNECT PageKite:1 HTTP/1.0\r\n" \
+                              "X-PageKite-Version: c1\r\n")
+#ifdef ANDROID
+#define PK_HANDSHAKE_FEATURES "X-PageKite-Features: Mobile\r\n"
+#else
+#define PK_HANDSHAKE_FEATURES ""
+#endif
 #define PK_HANDSHAKE_KITE "X-PageKite: %s\r\n"
 #define PK_HANDSHAKE_END "\r\n"
 
