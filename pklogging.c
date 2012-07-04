@@ -25,6 +25,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifdef ANDROID
@@ -49,7 +50,8 @@ int pk_log(int level, const char* fmt, ...)
     if (r > 0) {
 #ifdef ANDROID
 #warning Logging uses Android __android_log_print.
-      __android_log_print(ANDROID_LOG_INFO, "libpagekite", "%.4000s\n", output);
+      __android_log_print(ANDROID_LOG_INFO, "libpagekite", "[%d] %.4000s\n",
+                          time(0), output);
 #else
       fprintf(stderr, "%.4000s\n", output);
 #endif
