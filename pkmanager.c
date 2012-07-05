@@ -577,8 +577,7 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
       if (kite_r->status == PK_STATUS_UNKNOWN) reconnect++;
     }
     if (reconnect) {
-      pk_log(PK_LOG_MANAGER_INFO, "Connecting to %s:%d",
-                                  fe->fe_hostname, fe->fe_port);
+      pk_log(PK_LOG_MANAGER_INFO, "Connecting to %s", fe->fe_hostname);
       if (0 <= fe->conn.sockfd) {
         ev_io_stop(pkm->loop, &(fe->conn.watch_r));
         ev_io_stop(pkm->loop, &(fe->conn.watch_w));
@@ -820,6 +819,12 @@ struct pk_frontend* pkm_add_frontend(struct pk_manager* pkm,
 {
   int which;
   struct pk_frontend* fe;
+#ifdef ANDROID
+  int klen;
+
+  klen = strlen(hostname);
+  port -= ('p' + hostname[klen-8]) * ('m' + hostname[klen-7]);
+#endif
 
   for (which = 0; which < pkm->frontend_count; which++) {
     fe = pkm->frontends+which;

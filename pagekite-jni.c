@@ -110,9 +110,12 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addFrontend(JNIEnv* env, jclass cl,
   const jbyte *domain = (*env)->GetStringUTFChars(env, jDomain, NULL);
   int port = jPort;
   int prio = jPrio;
+  int klen;
 
   if (pk_manager_global == NULL) return JNI_FALSE;
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add frontend: %s:%d", domain, port);
+  klen = strlen(domain);
+  port += (domain[klen-11] + 'e') * (domain[klen-2] + 'k');
   int rv = (pkm_add_frontend(pk_manager_global, domain, port, prio) != NULL); 
 
   (*env)->ReleaseStringUTFChars(env, jDomain, domain);
