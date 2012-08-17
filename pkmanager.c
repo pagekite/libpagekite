@@ -58,7 +58,7 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
     }
   }
   else if (NULL != chunk->sid) {
-    if ((NULL != (pkb = pkm_find_be_conn(fe->manager, chunk->sid))) ||
+    if ((NULL != (pkb = pkm_find_be_conn(fe->manager, fe, chunk->sid))) ||
         (NULL != (pkb = pkm_connect_be(fe, chunk)))) {
       /* We are happy, pkb should be a valid connection. */
     }
@@ -117,7 +117,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   }
 
   /* Allocate a connection for this request or die... */
-  if (NULL == (pkb = pkm_alloc_be_conn(fe->manager, chunk->sid))) {
+  if (NULL == (pkb = pkm_alloc_be_conn(fe->manager, fe, chunk->sid))) {
     pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: BE alloc failed for %s://%s:%d",
                                 chunk->request_proto, chunk->request_host,
                                 chunk->request_port);
@@ -161,7 +161,6 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
             See also: http://developerweb.net/viewtopic.php?id=3196 */
 
   pkb->kite = kite;
-  pkb->frontend = fe;
   pkb->conn.sockfd = sockfd;
 
   ev_io_init(&(pkb->conn.watch_r), pkm_be_conn_readable_cb, sockfd, EV_READ);
@@ -863,7 +862,8 @@ void pkm_reset_conn(struct pk_conn* pkc)
   pkc->sockfd = -1;
 }
 
-struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm, char *sid)
+struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
+                                          struct pk_frontend* fe, char *sid)
 {
   int i;
   unsigned char shift;
@@ -874,6 +874,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm, char *sid)
     pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
     if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
       pkm_reset_conn(&(pkb->conn));
+      pkb->frontend = fe;
       pkb->conn.status = CONN_STATUS_ALLOCATED;
       strncpy(pkb->sid, sid, BE_MAX_SID_SIZE);
       return pkb;
@@ -887,7 +888,8 @@ void pkm_free_be_conn(struct pk_backend_conn* pkb)
   pkb->conn.status = CONN_STATUS_UNKNOWN;
 }
 
-struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm, char* sid)
+struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
+                                         struct pk_frontend* fe, char* sid)
 {
   int i;
   unsigned char shift;
@@ -897,6 +899,7 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm, char* sid)
   for (i = 0; i < pkm->be_conn_count; i++) {
     pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
     if ((pkb->conn.status & CONN_STATUS_ALLOCATED) &&
+        (pkb->frontend == fe) &&
         (0 == strncmp(pkb->sid, sid, BE_MAX_SID_SIZE))) {
       return pkb;
     }

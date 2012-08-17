@@ -16,7 +16,7 @@ can also be used for a variety of other things, including SSH access.
 For more information about PageKite, see http://pagekite.org/
 
 
-## What's in the box? ##
+## What is in the box? ##
 
 Things that work:
 

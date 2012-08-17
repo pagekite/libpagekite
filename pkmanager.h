@@ -146,8 +146,10 @@ int                  pkm_update_io(struct pk_frontend*, struct pk_backend_conn*)
 
 /* Backend connection handling */
 struct pk_backend_conn*  pkm_connect_be(struct pk_frontend*, struct pk_chunk*);
-struct pk_backend_conn*  pkm_alloc_be_conn(struct pk_manager*, char*);
-struct pk_backend_conn*  pkm_find_be_conn(struct pk_manager*, char*);
+struct pk_backend_conn*  pkm_alloc_be_conn(struct pk_manager*,
+                                           struct pk_frontend*, char*);
+struct pk_backend_conn*  pkm_find_be_conn(struct pk_manager*,
+                                          struct pk_frontend*,  char*);
 void                     pkm_free_be_conn(struct pk_backend_conn*);
 
 
