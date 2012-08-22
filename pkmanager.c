@@ -53,6 +53,8 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
   pkb = NULL;
   if (NULL != chunk->sid) {
     if ((NULL != (pkb = pkm_find_be_conn(fe->manager, fe, chunk->sid))) ||
+        (NULL != chunk->noop) ||
+        (NULL != chunk->eof) ||
         (NULL != (pkb = pkm_connect_be(fe, chunk)))) {
       /* We are happy, pkb should be a valid connection. */
     }

@@ -549,7 +549,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   for (i = 0; i < n; i++) {
     requests[i].status = PK_STATUS_CONNECTED;
   }
-  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect(%s, %p, %d, %p) => %d",
-                             frontend, serv_addr, n, requests, sockfd);
+  pk_log(PK_LOG_TUNNEL_CONNS, "pk_connect(%s, %p, %d, %p) => %d",
+                              frontend, serv_addr, n, requests, sockfd);
   return sockfd;
 }
