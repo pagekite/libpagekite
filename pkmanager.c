@@ -88,11 +88,7 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
     }
     if (0 < chunk->remote_sent_kb) {
       pkb->conn.sent_kb = chunk->remote_sent_kb;
-      pk_log(PK_LOG_TUNNEL_CONNS, "*** read:%d delivered:%d window:%d ***",
-                                  pkb->conn.read_kb, chunk->remote_sent_kb,
-                                  pkb->conn.send_window_kb);
     }
-
     pkm_update_io(fe, pkb);
   }
 }
@@ -357,16 +353,9 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
 
   if (pkb != NULL) {
     if (pkc->read_kb > pkc->sent_kb + pkc->send_window_kb)
-    {
-      if (!(pkc->status & CONN_STATUS_DST_BLOCKED)) {
-        pk_log(PK_LOG_TUNNEL_CONNS, "Destination blocked");
-        pkc->status |= CONN_STATUS_DST_BLOCKED;
-      }
-    }
-    else if (pkc->status & CONN_STATUS_DST_BLOCKED) {
-      pk_log(PK_LOG_TUNNEL_CONNS, "Destination unblocked");
-      pkc->status &= ~CONN_STATUS_DST_BLOCKED;
-    }
+      pkm_flow_control_conn(pkc, CONN_DEST_BLOCKED);
+    else
+      pkm_flow_control_conn(pkc, CONN_DEST_UNBLOCKED);
   }
 
   if (pkc->status & (CONN_STATUS_CLS_READ|CONN_STATUS_END_READ)) {
@@ -416,9 +405,10 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     pk_log(loglevel, "%d: Closed for writing.", pkc->sockfd);
   }
   else if (0 < pkc->out_buffer_pos) {
-    /* Blocked: activate write listener, FIXME: throttle data sources */
+    /* Blocked: activate write listener */
     ev_io_start(pkm->loop, &(pkc->watch_w));
     pk_log(loglevel, "%d: Blocked!", pkc->sockfd);
+    pkm_flow_control_fe(fe, CONN_TUNNEL_BLOCKED);
   }
   else {
     if (pkc->status & CONN_STATUS_END_WRITE) {
@@ -430,7 +420,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     }
     else {
       pk_log(loglevel, "%d: Unblocked!", pkc->sockfd);
-      /* FIXME: unthrottle data sources */
+      pkm_flow_control_fe(fe, CONN_TUNNEL_UNBLOCKED);
     }
     ev_io_stop(pkm->loop, &(pkc->watch_w));
   }
@@ -473,6 +463,47 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     pkc->sockfd = -1;
   }
   return flows;
+}
+
+void pkm_flow_control_fe(struct pk_frontend* fe, flow_op op)
+{
+  int i;
+  struct pk_backend_conn* pkb;
+  struct pk_manager* pkm = fe->manager;
+
+  for (i = 0; i < pkm->be_conn_count; i++) {
+    pkb = (pkm->be_conns + i);
+    if (pkb->frontend == fe) {
+      if (pkb->conn.status & CONN_STATUS_TNL_BLOCKED) {
+        if (op == CONN_TUNNEL_UNBLOCKED) {
+          pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel unblocked", pkb->conn.sockfd);
+          pkb->conn.status &= ~CONN_STATUS_TNL_BLOCKED;
+          pkm_update_io(fe, pkb);
+        }
+      }
+      else
+        if (op == CONN_TUNNEL_BLOCKED) {
+          pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel blocked", pkb->conn.sockfd);
+          pkb->conn.status |= CONN_STATUS_TNL_BLOCKED;
+          pkm_update_io(fe, pkb);
+        }
+    }
+  }
+}
+
+void pkm_flow_control_conn(struct pk_conn* pkc, flow_op op)
+{
+  if (pkc->status & CONN_STATUS_DST_BLOCKED) {
+    if (op == CONN_DEST_UNBLOCKED) {
+      pk_log(PK_LOG_BE_DATA, "%d: Destination unblocked", pkc->sockfd);
+      pkc->status &= ~CONN_STATUS_DST_BLOCKED;
+    }
+  }
+  else
+    if (op == CONN_DEST_BLOCKED) {
+      pk_log(PK_LOG_BE_DATA, "%d: Destination blocked", pkc->sockfd);
+      pkc->status |= CONN_STATUS_DST_BLOCKED;
+    }
 }
 
 void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)

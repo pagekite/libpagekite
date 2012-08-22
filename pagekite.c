@@ -66,6 +66,7 @@ int main(int argc, char **argv) {
   secret = argv[5];
 
   pk_state.log_mask = PK_LOG_ALL;
+  pk_state.log_mask = PK_LOG_NORMAL;
 
   if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 1, 1, 10))) ||
       (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,

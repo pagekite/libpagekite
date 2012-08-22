@@ -47,6 +47,13 @@ struct pk_manager;
 #define CONN_WINDOW_SIZE_KB_MINIMUM  16
 #define CONN_WINDOW_SIZE_STEPFACTOR  16 /* Lower: more aggressive/volatile */
 
+typedef enum {
+  CONN_TUNNEL_BLOCKED,
+  CONN_TUNNEL_UNBLOCKED,
+  CONN_DEST_BLOCKED,
+  CONN_DEST_UNBLOCKED
+} flow_op;
+
 #define CONN_IO_BUFFER_SIZE     PARSER_BYTES_MAX
 #define CONN_STATUS_UNKNOWN     0x0000
 #define CONN_STATUS_END_READ    0x0001 /* Don't want more data     */
@@ -156,7 +163,8 @@ ssize_t              pkm_read_data(struct pk_conn*);
 ssize_t              pkm_flush(struct pk_conn*, char*, ssize_t, int, char*);
 void                 pkm_parse_eof(struct pk_backend_conn*, char*);
 int                  pkm_update_io(struct pk_frontend*, struct pk_backend_conn*);
-
+void                 pkm_flow_control_fe(struct pk_frontend*, flow_op);
+void                 pkm_flow_control_conn(struct pk_conn*, flow_op);
 
 /* Backend connection handling */
 struct pk_backend_conn*  pkm_connect_be(struct pk_frontend*, struct pk_chunk*);

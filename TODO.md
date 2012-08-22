@@ -22,11 +22,12 @@ These are Things TO DO for libpagekite.
    * pkmanager.c: reconnect automatically
    * pagekite-jni.c: Bare-bones android wrapper for libpagekite
    * pkproto.c: Use session IDs for replacing old/dead connections.
+   * pkmanager.c: added flow control for individual streams
+   * pkmanager.c: added flow control for tunnels
 
 ### Ahead ###
 
    * pkmanager.c: choose best front-end automatically.
-   * pkmanager.c: add flow control
    * libpagekite: create simple fork/thread/anonymous-pipe based API for
                   easily adding PageKite support to existing TCP/IP servers.
    * pkproto.c: add ZChunk support
