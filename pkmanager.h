@@ -39,15 +39,25 @@ struct pk_frontend;
 struct pk_backend_conn;
 struct pk_manager;
 
-#define CONN_IO_BUFFER_SIZE  4 * 1024
-#define CONN_STATUS_UNKNOWN    0x0000
-#define CONN_STATUS_END_READ   0x0001 /* Don't want more data     */
-#define CONN_STATUS_END_WRITE  0x0002 /* Won't receive more data  */
-#define CONN_STATUS_THROTTLED  0x0004 /* Destination blocked      */
-#define CONN_STATUS_CLS_READ   0x0010 /* No more data available   */
-#define CONN_STATUS_CLS_WRITE  0x0020 /* No more writing possible */
-#define CONN_STATUS_BROKEN     0x0130 /* Socket is defunct        */
-#define CONN_STATUS_ALLOCATED  0x1000
+/* These are the controlling parameters for our flow control - in order
+ * to minimize buffer bloat, we want to keep the window relatively small
+ * and assume that selecting a nearby front-end will keep this from
+ * becoming too big a bottleneck on transfer speeds. */
+#define CONN_WINDOW_SIZE_KB_MAXIMUM 256
+#define CONN_WINDOW_SIZE_KB_MINIMUM  16
+#define CONN_WINDOW_SIZE_STEPFACTOR  16 /* Lower: more aggressive/volatile */
+
+#define CONN_IO_BUFFER_SIZE     PARSER_BYTES_MAX
+#define CONN_STATUS_UNKNOWN     0x0000
+#define CONN_STATUS_END_READ    0x0001 /* Don't want more data     */
+#define CONN_STATUS_END_WRITE   0x0002 /* Won't receive more data  */
+#define CONN_STATUS_DST_BLOCKED 0x0004 /* Destination blocked      */
+#define CONN_STATUS_TNL_BLOCKED 0x0008 /* Tunnel blocked           */
+#define CONN_STATUS_BLOCKED    (0x0008|0x0004) /* Blocked         */
+#define CONN_STATUS_CLS_READ    0x0010 /* No more data available   */
+#define CONN_STATUS_CLS_WRITE   0x0020 /* No more writing possible */
+#define CONN_STATUS_BROKEN      0x0130 /* Socket is defunct        */
+#define CONN_STATUS_ALLOCATED   0x1000
 #define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
 #define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
 #define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
@@ -56,6 +66,10 @@ struct pk_conn {
   int      status;
   int      sockfd;
   time_t   activity;
+  size_t   read_bytes;
+  size_t   read_kb;
+  size_t   sent_kb;
+  size_t   send_window_kb;
   int      in_buffer_pos;
   char     in_buffer[CONN_IO_BUFFER_SIZE];
   int      out_buffer_pos;

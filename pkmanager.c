@@ -50,6 +50,20 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
 
   pk_log_chunk(chunk);
 
+  pkb = NULL;
+  if (NULL != chunk->sid) {
+    if ((NULL != (pkb = pkm_find_be_conn(fe->manager, fe, chunk->sid))) ||
+        (NULL != (pkb = pkm_connect_be(fe, chunk)))) {
+      /* We are happy, pkb should be a valid connection. */
+    }
+    else {
+      /* FIXME: Send back a nicer error */
+      bytes = pk_format_eof(reply, chunk->sid, PK_EOF);
+      pkm_write_data(&(fe->conn), bytes, reply);
+      pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s (sent EOF)", chunk->sid);
+    }
+  }
+
   if (NULL != chunk->noop) {
     if (NULL != chunk->ping) {
       bytes = pk_format_pong(reply);
@@ -57,32 +71,29 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
       pk_log(PK_LOG_TUNNEL_DATA, "> --- > Pong!");
     }
   }
-  else if (NULL != chunk->sid) {
-    if ((NULL != (pkb = pkm_find_be_conn(fe->manager, fe, chunk->sid))) ||
-        (NULL != (pkb = pkm_connect_be(fe, chunk)))) {
-      /* We are happy, pkb should be a valid connection. */
+  else if (NULL != pkb) {
+    if (NULL == chunk->eof) {
+      pkm_write_data(&(pkb->conn), chunk->length, chunk->data);
     }
     else {
-      pkb = NULL;
-    }
-    if (NULL == pkb) {
-      /* FIXME: Send back a nicer error */
-      bytes = pk_format_eof(reply, chunk->sid, PK_EOF);
-      pkm_write_data(&(fe->conn), bytes, reply);
-      pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s (sent EOF)", chunk->sid);
-    }
-    else {
-      if (NULL == chunk->eof) {
-        pkm_write_data(&(pkb->conn), chunk->length, chunk->data);
-      }
-      else {
-        pkm_parse_eof(pkb, chunk->eof);
-      }
-      pkm_update_io(fe, pkb);
+      pkm_parse_eof(pkb, chunk->eof);
     }
   }
-  else {
-    pk_log(PK_LOG_TUNNEL_CONNS, "WTF, chunk with no SID and no NOOP?");
+
+  if (NULL != pkb) {
+    if (0 < chunk->throttle_spd) {
+      if (pkb->conn.send_window_kb > CONN_WINDOW_SIZE_KB_MINIMUM) {
+        pkb->conn.send_window_kb *= 0.8;
+      }
+    }
+    if (0 < chunk->remote_sent_kb) {
+      pkb->conn.sent_kb = chunk->remote_sent_kb;
+      pk_log(PK_LOG_TUNNEL_CONNS, "*** read:%d delivered:%d window:%d ***",
+                                  pkb->conn.read_kb, chunk->remote_sent_kb,
+                                  pkb->conn.send_window_kb);
+    }
+
+    pkm_update_io(fe, pkb);
   }
 }
 
@@ -232,9 +243,22 @@ ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
 
 ssize_t pkm_read_data(struct pk_conn* pkc)
 {
-  ssize_t bytes;
+  ssize_t bytes, delta;
   bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
   pkc->in_buffer_pos += bytes;
+
+  /* Update KB counter and window... this is a bit messy. */
+  pkc->read_bytes += bytes;
+  while (pkc->read_bytes > 1024) {
+    pkc->read_kb += 1;
+    pkc->read_bytes -= 1024;
+    if ((pkc->read_kb & 0x1f) == 0x00) {
+      delta = (CONN_WINDOW_SIZE_KB_MAXIMUM - pkc->send_window_kb);
+      if (delta < 0) delta = 0;
+      pkc->send_window_kb += (delta/CONN_WINDOW_SIZE_STEPFACTOR);
+    }
+  }
+
   return bytes;
 }
 
@@ -331,6 +355,20 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
   if (0 >= pkc->sockfd)
     return 0;
 
+  if (pkb != NULL) {
+    if (pkc->read_kb > pkc->sent_kb + pkc->send_window_kb)
+    {
+      if (!(pkc->status & CONN_STATUS_DST_BLOCKED)) {
+        pk_log(PK_LOG_TUNNEL_CONNS, "Destination blocked");
+        pkc->status |= CONN_STATUS_DST_BLOCKED;
+      }
+    }
+    else if (pkc->status & CONN_STATUS_DST_BLOCKED) {
+      pk_log(PK_LOG_TUNNEL_CONNS, "Destination unblocked");
+      pkc->status &= ~CONN_STATUS_DST_BLOCKED;
+    }
+  }
+
   if (pkc->status & (CONN_STATUS_CLS_READ|CONN_STATUS_END_READ)) {
     if (pkc->status & CONN_STATUS_END_READ) {
       /* They know, we know, we know they know... */
@@ -351,7 +389,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     }
   }
   else {
-    if (pkc->status & CONN_STATUS_THROTTLED) {
+    if (pkc->status & CONN_STATUS_BLOCKED) {
       pk_log(loglevel, "%d: Throttled.", pkc->sockfd);
       ev_io_stop(pkm->loop, &(pkc->watch_r));
     }
@@ -858,6 +896,10 @@ void pkm_reset_conn(struct pk_conn* pkc)
   pkc->activity = time(0);
   pkc->out_buffer_pos = 0;
   pkc->in_buffer_pos = 0;
+  pkc->send_window_kb = CONN_WINDOW_SIZE_KB_MAXIMUM/2;
+  pkc->read_bytes = 0;
+  pkc->read_kb = 0;
+  pkc->sent_kb = 0;
   if (pkc->sockfd >= 0) close(pkc->sockfd);
   pkc->sockfd = -1;
 }

@@ -72,7 +72,7 @@ int pk_log_chunk(struct pk_chunk* chnk) {
   }
   else if (chnk->sid) {
     if (chnk->noop) {
-      r += pk_log(PK_LOG_TUNNEL_DATA, "<%5.5s< NOOP: (skb:%d spd:%d)",
+      r += pk_log(PK_LOG_TUNNEL_DATA, "<%5.5s< NOOP: (eof:%d skb:%d spd:%d)",
                                       chnk->sid, chnk->eof,
                                       chnk->remote_sent_kb, chnk->throttle_spd);
     }
