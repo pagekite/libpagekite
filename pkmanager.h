@@ -55,16 +55,16 @@ typedef enum {
 } flow_op;
 
 #define CONN_IO_BUFFER_SIZE     PARSER_BYTES_MAX
-#define CONN_STATUS_UNKNOWN     0x0000
-#define CONN_STATUS_END_READ    0x0001 /* Don't want more data     */
-#define CONN_STATUS_END_WRITE   0x0002 /* Won't receive more data  */
-#define CONN_STATUS_DST_BLOCKED 0x0004 /* Destination blocked      */
-#define CONN_STATUS_TNL_BLOCKED 0x0008 /* Tunnel blocked           */
-#define CONN_STATUS_BLOCKED    (0x0008|0x0004) /* Blocked         */
-#define CONN_STATUS_CLS_READ    0x0010 /* No more data available   */
-#define CONN_STATUS_CLS_WRITE   0x0020 /* No more writing possible */
-#define CONN_STATUS_BROKEN      0x0130 /* Socket is defunct        */
-#define CONN_STATUS_ALLOCATED   0x1000
+#define CONN_STATUS_UNKNOWN     0x00000000
+#define CONN_STATUS_END_READ    0x00000001 /* Don't want more data     */
+#define CONN_STATUS_END_WRITE   0x00000002 /* Won't receive more data  */
+#define CONN_STATUS_DST_BLOCKED 0x00000004 /* Destination blocked      */
+#define CONN_STATUS_TNL_BLOCKED 0x00000008 /* Tunnel blocked           */
+#define CONN_STATUS_BLOCKED    (0x00000008|0x00000004) /* Blocked      */
+#define CONN_STATUS_CLS_READ    0x00000010 /* No more data available   */
+#define CONN_STATUS_CLS_WRITE   0x00000020 /* No more writing possible */
+#define CONN_STATUS_BROKEN      0x00000070 /* Socket is defunct        */
+#define CONN_STATUS_ALLOCATED   0x00000080
 #define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
 #define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
 #define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
@@ -85,13 +85,17 @@ struct pk_conn {
   ev_io    watch_w;
 };
 
-#define FE_STATUS_DOWN  0x0010
-#define FE_STATUS_UP    0x0020
+/* These are also written to the conn.status field, using the fourth byte. */
+#define FE_STATUS_AUTO      0x00000000
+#define FE_STATUS_WANTED    0x01000000
+#define FE_STATUS_NAILED_UP 0x02000000
+#define FE_STATUS_IN_DNS    0x04000000
+#define FE_STATUS_REJECTED  0x08000000
 struct pk_frontend {
   char*                   fe_hostname;
   int                     fe_port;
   char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
-  int                     priority;
+  int                     latency;
   struct pk_conn          conn;
   struct pk_parser*       parser;
   struct pk_manager*      manager;
@@ -99,9 +103,10 @@ struct pk_frontend {
   struct pk_kite_request* requests;
 };
 
-#define BE_STATUS_EOF_READ       0x0100
-#define BE_STATUS_EOF_WRITE      0x0200
-#define BE_STATUS_EOF_THROTTLED  0x0400
+/* These are also written to the conn.status field, using the third byte. */
+#define BE_STATUS_EOF_READ       0x00010000
+#define BE_STATUS_EOF_WRITE      0x00020000
+#define BE_STATUS_EOF_THROTTLED  0x00040000
 #define BE_MAX_SID_SIZE          8
 struct pk_backend_conn {
   char                sid[BE_MAX_SID_SIZE];

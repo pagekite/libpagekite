@@ -885,7 +885,7 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
 
 struct pk_frontend* pkm_add_frontend(struct pk_manager* pkm,
                                      const char* hostname,
-                                     int port, int priority)
+                                     int port, int flags)
 {
   int which;
   struct pk_frontend* fe;
@@ -905,7 +905,7 @@ struct pk_frontend* pkm_add_frontend(struct pk_manager* pkm,
 
   fe->fe_hostname = strdup(hostname);
   fe->fe_port = port;
-  fe->priority = priority;
+  fe->conn.status = flags;
   fe->request_count = 0;
 
   return fe;

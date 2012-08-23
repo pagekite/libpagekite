@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
   if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 1, 1, 10))) ||
       (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
                                 "localhost", lport))) ||
-      (NULL == (pkm_add_frontend(m, kitename, pport, 1))) ||
+      (NULL == (pkm_add_frontend(m, kitename, pport, FE_STATUS_NAILED_UP))) ||
       (0 > pkm_run_in_thread(m))) {
     pk_perror(argv[0]);
     exit(1);
