@@ -429,8 +429,8 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   struct sockaddr_in serv_addr_buf;
   struct hostent *server;
 
-  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect(%s, %p, %d, %p)",
-                             frontend, serv_addr, n, requests);
+  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect(%s:%d, %p, %d, %p)",
+                             frontend, port, serv_addr, n, requests);
 
   reconnecting = (serv_addr != NULL);
   if (!reconnecting)
@@ -549,7 +549,7 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
   for (i = 0; i < n; i++) {
     requests[i].status = PK_STATUS_CONNECTED;
   }
-  pk_log(PK_LOG_TUNNEL_CONNS, "pk_connect(%s, %p, %d, %p) => %d",
-                              frontend, serv_addr, n, requests, sockfd);
+  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect(%s:%d, %p, %d, %p) => %d",
+                             frontend, port, serv_addr, n, requests, sockfd);
   return sockfd;
 }
