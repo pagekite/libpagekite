@@ -43,6 +43,7 @@ int pkmanager_test(void)
   char buffer[PK_MANAGER_MINSIZE];
   struct pk_manager* m;
   struct pk_backend_conn* c;
+  struct pk_job j;
   int i;
 
   /* Are too-small buffers handled correctly? */
@@ -60,23 +61,31 @@ int pkmanager_test(void)
   assert(NULL != m);
 
   /* Ensure the right defaults are used. */
-  assert(m->frontend_count == MIN_FE_ALLOC);
-  assert(m->kite_count == MIN_KITE_ALLOC);
-  assert(m->be_conn_count == MIN_CONN_ALLOC);
+  assert(m->frontend_max == MIN_FE_ALLOC);
+  assert(m->kite_max == MIN_KITE_ALLOC);
+  assert(m->be_conn_max == MIN_CONN_ALLOC);
 
   /* Ensure memory regions don't overlap */
-  memset(m->be_conns,  3, sizeof(struct pk_backend_conn) * m->be_conn_count);
-  memset(m->frontends, 2, sizeof(struct pk_frontend)     * m->frontend_count);
-  memset(m->kites,     1, sizeof(struct pk_pagekite)     * m->kite_count);
+  memset(m->be_conns,  3, sizeof(struct pk_backend_conn) * m->be_conn_max);
+  memset(m->frontends, 2, sizeof(struct pk_frontend)     * m->frontend_max);
+  memset(m->kites,     1, sizeof(struct pk_pagekite)     * m->kite_max);
   assert(0 == *((char*) m->buffer));
   assert(1 == *((char*) m->kites));
   assert(2 == *((char*) m->frontends));
   assert(3 == *((char*) m->be_conns));
 
+  /* Test pk_add_job and pk_get_job */
+  assert(0 == m->blocking_jobs.count);
+  assert(0 < pkm_add_job(&(m->blocking_jobs), PK_QUIT, NULL));
+  assert(1 == m->blocking_jobs.count);
+  assert(0 < pkm_get_job(&(m->blocking_jobs), &j));
+  assert(0 == m->blocking_jobs.count);
+  assert(j.job == PK_QUIT);
+
   /* Test pk_add_frontend */
   assert(NULL == pkm_add_frontend(m, "woot", 123, 1));
   assert(ERR_NO_MORE_FRONTENDS == pk_error);
-  memset(m->frontends, 0, sizeof(struct pk_frontend) * m->frontend_count);
+  memset(m->frontends, 0, sizeof(struct pk_frontend) * m->frontend_max);
   for (i = 0; i < MIN_FE_ALLOC; i++)
     assert(NULL != pkm_add_frontend(m, "woot", 123, 1));
   assert(NULL == pkm_add_frontend(m, "woot", 123, 1));
@@ -84,7 +93,7 @@ int pkmanager_test(void)
   /* Test pk_add_kite */
   assert(NULL == pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));
   assert(ERR_NO_MORE_KITES == pk_error);
-  memset(m->kites, 0, sizeof(struct pk_pagekite) * m->kite_count);
+  memset(m->kites, 0, sizeof(struct pk_pagekite) * m->kite_max);
   for (i = 0; i < MIN_KITE_ALLOC; i++)
     assert(NULL != pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));
   assert(NULL == pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));

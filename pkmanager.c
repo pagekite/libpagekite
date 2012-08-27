@@ -438,7 +438,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
       /* This is a tunnel, send EOF to all backends, mark for reconnection. */
       /* FIXME: This is O(n), but rare.  Maybe OK? */
       pk_log(loglevel, "%d: Shutting down tunnel.", pkc->sockfd);
-      for (i = 0; i < pkm->be_conn_count; i++) {
+      for (i = 0; i < pkm->be_conn_max; i++) {
         pkb = (pkm->be_conns+i);
         if ((pkb->frontend == fe) && (pkb->conn.status != CONN_STATUS_UNKNOWN)) {
           pkb->conn.status |= (CONN_STATUS_END_WRITE|CONN_STATUS_END_READ);
@@ -473,7 +473,7 @@ void pkm_flow_control_fe(struct pk_frontend* fe, flow_op op)
   struct pk_backend_conn* pkb;
   struct pk_manager* pkm = fe->manager;
 
-  for (i = 0; i < pkm->be_conn_count; i++) {
+  for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + i);
     if (pkb->frontend == fe) {
       if (pkb->conn.status & CONN_STATUS_TNL_BLOCKED) {
@@ -629,21 +629,21 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   /* Loop through all configured kites:
    *   - if missing a front-end, tear down tunnels and reconnect.
    */
-  for (i = 0; i < pkm->frontend_count; i++) {
+  for (i = 0; i < pkm->frontend_max; i++) {
     fe = (pkm->frontends + i);
     if (fe->fe_hostname == NULL) continue;
 
-    if (fe->requests == NULL || fe->request_count != pkm->kite_count) {
-      fe->request_count = pkm->kite_count;
-      bzero(fe->requests, pkm->kite_count * sizeof(struct pk_kite_request));
-      for (kite_r = fe->requests, j = 0; j < pkm->kite_count; j++, kite_r++) {
+    if (fe->requests == NULL || fe->request_count != pkm->kite_max) {
+      fe->request_count = pkm->kite_max;
+      bzero(fe->requests, pkm->kite_max * sizeof(struct pk_kite_request));
+      for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
         kite_r->kite = (pkm->kites + j);
         kite_r->status = PK_STATUS_UNKNOWN;
       }
     }
 
     reconnect = 0;
-    for (kite_r = fe->requests, j = 0; j < pkm->kite_count; j++, kite_r++) {
+    for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
       if (kite_r->status == PK_STATUS_UNKNOWN) reconnect++;
     }
     if (reconnect) {
@@ -747,7 +747,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->buffer_bytes_free -= sizeof(struct pk_pagekite) * kites;
   if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_KITES);
   pkm->kites = (struct pk_pagekite *) pkm->buffer;
-  pkm->kite_count = kites;
+  pkm->kite_max = kites;
   pkm->buffer += sizeof(struct pk_pagekite) * kites;
 
   /* Allocate space for the frontends */
@@ -755,7 +755,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->buffer_bytes_free -= (sizeof(struct pk_kite_request) * kites * frontends);
   if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_FRONTENDS);
   pkm->frontends = (struct pk_frontend *) pkm->buffer;
-  pkm->frontend_count = frontends;
+  pkm->frontend_max = frontends;
   pkm->buffer += sizeof(struct pk_frontend) * frontends;
   for (i = 0; i < frontends; i++) {
     (pkm->frontends + i)->requests = (struct pk_kite_request*) pkm->buffer;
@@ -766,12 +766,22 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->buffer_bytes_free -= sizeof(struct pk_backend_conn) * conns;
   if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_BE_CONNS);
   pkm->be_conns = (struct pk_backend_conn *) pkm->buffer;
-  pkm->be_conn_count = conns;
+  pkm->be_conn_max = conns;
   for (i = 0; i < conns; i++) {
     (pkm->be_conns+i)->conn.sockfd = -1;
     pkm_reset_conn(&(pkm->be_conns+i)->conn);
   }
   pkm->buffer += sizeof(struct pk_backend_conn) * conns;
+
+  /* Allocate space for the blocking job queue */
+  pkm->buffer_bytes_free -= sizeof(struct pk_job) * (conns+frontends);
+  if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_BE_CONNS);
+  pkm->blocking_jobs.pile = (struct pk_blocking_job *) pkm->buffer;
+  pkm->blocking_jobs.max = (conns+frontends);
+  for (i = 0; i < (conns+frontends); i++) {
+    (pkm->blocking_jobs.pile+i)->job = PK_NO_JOB;
+  }
+  pkm->buffer += sizeof(struct pk_job) * (conns+frontends);
 
   /* Whatever is left, we divide evenly between the protocol parsers... */
   parse_buffer_bytes = (pkm->buffer_bytes_free-1) / frontends;
@@ -792,6 +802,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pkm->buffer += parse_buffer_bytes;
     pkm->buffer_bytes_free -= parse_buffer_bytes;
   }
+  pkm->want_spare_frontends = 0;
 
   /* Set up our event-loop callbacks */
   ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, 0);
@@ -802,6 +813,11 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   ev_async_init(&(pkm->quit), pkm_quit_cb);
   ev_async_start(loop, &(pkm->quit));
 
+  /* Prepare blocking thread structures. */
+  pthread_mutex_init(&(pkm->blocking_jobs.mutex), NULL);
+  pthread_cond_init(&(pkm->blocking_jobs.cond), NULL);
+  pkm->blocking_jobs.count = 0;
+
   return pkm;
 }
 
@@ -809,10 +825,10 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
   int i;
   struct pk_conn* pkc;
 
-  for (i = 0; i < pkm->kite_count; i++) {
+  for (i = 0; i < pkm->kite_max; i++) {
     pk_reset_pagekite(pkm->kites+i);
   }
-  for (i = 0; i < pkm->frontend_count; i++) {
+  for (i = 0; i < pkm->frontend_max; i++) {
     pkc = &((pkm->frontends+i)->conn);
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
@@ -820,7 +836,7 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
       pkm_reset_conn(pkc);
     }
   }
-  for (i = 0; i < pkm->be_conn_count; i++) {
+  for (i = 0; i < pkm->be_conn_max; i++) {
     pkc = &((pkm->be_conns+i)->conn);
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
@@ -842,7 +858,7 @@ struct pk_pagekite* pkm_find_kite(struct pk_manager* pkm,
 
   /* FIXME: This is O(N), we'll need a nicer data structure for frontends */
   found = NULL;
-  for (which = 0; which < pkm->kite_count; which++) {
+  for (which = 0; which < pkm->kite_max; which++) {
     kite = pkm->kites+which;
     if (kite->protocol != NULL) {
       if ((0 == strcasecmp(domain, kite->public_domain)) &&
@@ -867,11 +883,11 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   struct pk_pagekite* kite;
 
   /* FIXME: This is O(N), we'll need a nicer data structure for frontends */
-  for (which = 0; which < pkm->kite_count; which++) {
+  for (which = 0; which < pkm->kite_max; which++) {
     kite = pkm->kites+which;
     if (kite->protocol == NULL) break;
   }
-  if (which >= pkm->kite_count)
+  if (which >= pkm->kite_max)
     return pk_err_null(ERR_NO_MORE_KITES);
 
   kite->protocol = strdup(protocol);
@@ -891,11 +907,11 @@ struct pk_frontend* pkm_add_frontend(struct pk_manager* pkm,
   int which;
   struct pk_frontend* fe;
 
-  for (which = 0; which < pkm->frontend_count; which++) {
+  for (which = 0; which < pkm->frontend_max; which++) {
     fe = pkm->frontends+which;
     if (fe->fe_hostname == NULL) break;
   }
-  if (which >= pkm->frontend_count)
+  if (which >= pkm->frontend_max)
     return pk_err_null(ERR_NO_MORE_FRONTENDS);
 
   fe->fe_hostname = strdup(hostname);
@@ -940,8 +956,8 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
   struct pk_backend_conn* pkb;
 
   shift = pkm_sid_shift(sid);
-  for (i = 0; i < pkm->be_conn_count; i++) {
-    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
+  for (i = 0; i < pkm->be_conn_max; i++) {
+    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
     if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
       pkm_reset_conn(&(pkb->conn));
       pkb->frontend = fe;
@@ -966,8 +982,8 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
   struct pk_backend_conn* pkb;
 
   shift = pkm_sid_shift(sid);
-  for (i = 0; i < pkm->be_conn_count; i++) {
-    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_count));
+  for (i = 0; i < pkm->be_conn_max; i++) {
+    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
     if ((pkb->conn.status & CONN_STATUS_ALLOCATED) &&
         (pkb->frontend == fe) &&
         (0 == strncmp(pkb->sid, sid, BE_MAX_SID_SIZE))) {
@@ -977,9 +993,79 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
   return NULL;
 }
 
+int pkm_add_job(struct pk_job_pile* pkj, pk_job_t job, void* data)
+{
+  int i;
+  pthread_mutex_lock(&(pkj->mutex));
+
+  for (i = 0; i < pkj->max; i++) {
+    if ((pkj->pile+i)->job == PK_NO_JOB) {
+      (pkj->pile+i)->job = job;
+      (pkj->pile+i)->data = data;
+      pkj->count += 1;
+      pthread_cond_signal(&(pkj->cond));
+      pthread_mutex_unlock(&(pkj->mutex));
+      return 1;
+    }
+  }
+  pthread_mutex_unlock(&(pkj->mutex));
+  return -1;
+}
+
+int pkm_get_job(struct pk_job_pile* pkj, struct pk_job* dest)
+{
+  int i;
+  pthread_mutex_lock(&(pkj->mutex));
+  while (pkj->count == 0) 
+    pthread_cond_wait(&(pkj->cond), &(pkj->mutex));
+
+  for (i = 0; i < pkj->max; i++) {
+    if ((pkj->pile+i)->job != PK_NO_JOB) {
+      dest->job = (pkj->pile+i)->job;
+      dest->data = (pkj->pile+i)->data;
+      (pkj->pile+i)->job = PK_NO_JOB;
+      (pkj->pile+i)->data = NULL;
+      pkj->count -= 1;
+      pthread_mutex_unlock(&(pkj->mutex));
+      return 1;
+    }
+  }
+
+  dest->job = PK_NO_JOB;
+  dest->data = NULL;
+  pthread_mutex_unlock(&(pkj->mutex));
+  return -1;
+}
+
+void* pkm_run_blocker(void *void_pkm) {
+  struct pk_manager* pkm = (struct pk_manager*) void_pkm;
+  pk_log(PK_LOG_MANAGER_DEBUG, "Started blocking thread.");
+
+  /* LOOP:
+   *   Block until our condition variable says otherwise
+   *   Remove one job from the queue.
+   *   Just Do It!
+   */
+
+}
+
+
+/*** High level API stuff ****************************************************/
+
 void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
+
+  if (0 > pthread_create(&(pkm->blocking_thread), NULL,
+                         pkm_run_blocker, (void *) pkm)) {
+    pk_log(PK_LOG_MANAGER_ERROR, "Failed to start blocking thread.");
+    pk_error = ERR_NO_THREAD;
+    return NULL;
+  }
+
   ev_loop(pkm->loop, 0);
+
+  pkm_add_job(&(pkm->blocking_jobs), PK_QUIT, NULL);
+  pthread_join(pkm->blocking_thread, NULL);
   pkm_reset_manager(pkm);
   pk_log(PK_LOG_MANAGER_DEBUG, "Event loop exited.");
   return void_pkm;

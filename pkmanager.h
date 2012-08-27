@@ -63,7 +63,7 @@ typedef enum {
 #define CONN_STATUS_BLOCKED    (0x00000008|0x00000004) /* Blocked      */
 #define CONN_STATUS_CLS_READ    0x00000010 /* No more data available   */
 #define CONN_STATUS_CLS_WRITE   0x00000020 /* No more writing possible */
-#define CONN_STATUS_BROKEN      0x00000070 /* Socket is defunct        */
+#define CONN_STATUS_BROKEN     (0x00000040|0x10|0x20) /* ... broken.   */
 #define CONN_STATUS_ALLOCATED   0x00000080
 #define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
 #define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
@@ -86,11 +86,12 @@ struct pk_conn {
 };
 
 /* These are also written to the conn.status field, using the fourth byte. */
-#define FE_STATUS_AUTO      0x00000000
-#define FE_STATUS_WANTED    0x01000000
-#define FE_STATUS_NAILED_UP 0x02000000
-#define FE_STATUS_IN_DNS    0x04000000
-#define FE_STATUS_REJECTED  0x08000000
+#define FE_STATUS_AUTO      0x00000000  /* For use in pkm_add_frontend     */
+#define FE_STATUS_WANTED    0x01000000  /* Algorithm chose this FE         */
+#define FE_STATUS_NAILED_UP 0x02000000  /* User chose this FE              */
+#define FE_STATUS_IN_DNS    0x04000000  /* This FE is in DNS               */
+#define FE_STATUS_REJECTED  0x08000000  /* Front-end rejected connection   */
+#define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
 struct pk_frontend {
   char*                   fe_hostname;
   int                     fe_port;
@@ -115,32 +116,60 @@ struct pk_backend_conn {
   struct pk_conn      conn;
 };
 
+typedef enum {
+  PK_NO_JOB,
+  PK_CHECK_FRONTENDS,
+  PK_CONNECT_BACKEND,
+  PK_QUIT
+} pk_job_t;
+
+struct pk_job {
+  pk_job_t  job;
+  void*     data;
+};
+struct pk_job_pile {
+  pthread_mutex_t  mutex;
+  pthread_cond_t   cond;
+  struct pk_job*   pile; /* A pile is not a queue, order isn't guaranteed. */
+  int              max;
+  int              count;
+};
+
+
 #define MIN_KITE_ALLOC   4
 #define MIN_FE_ALLOC     2
 #define MIN_CONN_ALLOC  16
 #define PK_MANAGER_BUFSIZE(k, f, c, ps) \
-                           (sizeof(struct pk_manager) + \
-                            sizeof(struct pk_pagekite) * k + \
-                            sizeof(struct pk_frontend) * f + \
-                            sizeof(struct pk_kite_request) * f * k + \
-                            ps * f + \
-                            sizeof(struct pk_backend_conn) * c + 1)
+                           (1 + sizeof(struct pk_manager) \
+                            + sizeof(struct pk_pagekite) * k \
+                            + sizeof(struct pk_frontend) * f \
+                            + sizeof(struct pk_kite_request) * f * k \
+                            + ps * f \
+                            + sizeof(struct pk_backend_conn) * c \
+                            + sizeof(struct pk_job) * (c+f))
 #define PK_MANAGER_MINSIZE PK_MANAGER_BUFSIZE(MIN_KITE_ALLOC, MIN_FE_ALLOC, \
                                               MIN_CONN_ALLOC, PARSER_BYTES_MIN)
+
 struct pk_manager {
-  int                      kite_count;
-  struct pk_pagekite*      kites;
-  int                      frontend_count;
-  struct pk_frontend*      frontends;
-  int                      be_conn_count;
-  struct pk_backend_conn*  be_conns;
   int                      buffer_bytes_free;
   char*                    buffer;
   char*                    buffer_base;
-  struct ev_loop*          loop;
+  int                      kite_max;
+  struct pk_pagekite*      kites;
+  int                      frontend_max;
+  struct pk_frontend*      frontends;
+  int                      be_conn_max;
+  struct pk_backend_conn*  be_conns;
+
   pthread_t                main_thread;
+  struct ev_loop*          loop;
+  ev_async                 update_io;
   ev_async                 quit;
   ev_timer                 timer;
+  int                      want_spare_frontends;
+
+  pthread_t                blocking_thread;
+  struct pk_job_pile       blocking_jobs;
 };
 
 void* pkm_run                       (void *);
@@ -171,6 +200,10 @@ int                  pkm_update_io(struct pk_frontend*, struct pk_backend_conn*)
 void                 pkm_flow_control_fe(struct pk_frontend*, flow_op);
 void                 pkm_flow_control_conn(struct pk_conn*, flow_op);
 
+int pkm_add_job(struct pk_job_pile*, pk_job_t, void*);
+int pkm_get_job(struct pk_job_pile*, struct pk_job*);
+
+
 /* Backend connection handling */
 struct pk_backend_conn*  pkm_connect_be(struct pk_frontend*, struct pk_chunk*);
 struct pk_backend_conn*  pkm_alloc_be_conn(struct pk_manager*,
@@ -178,7 +211,6 @@ struct pk_backend_conn*  pkm_alloc_be_conn(struct pk_manager*,
 struct pk_backend_conn*  pkm_find_be_conn(struct pk_manager*,
                                           struct pk_frontend*,  char*);
 void                     pkm_free_be_conn(struct pk_backend_conn*);
-
 
 void pkm_chunk_cb(struct pk_frontend*, struct pk_chunk *);
 void pkm_tunnel_readable_cb(EV_P_ ev_io *, int);

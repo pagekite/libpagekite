@@ -44,6 +44,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define ERR_TOOBIG_FRONTENDS  -60002
 #define ERR_TOOBIG_BE_CONNS   -60003
 #define ERR_TOOBIG_PARSERS    -60004
+#define ERR_NO_THREAD         -60005
 
 
 int    pk_error;
