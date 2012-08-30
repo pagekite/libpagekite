@@ -30,6 +30,54 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 
+
+void pkm_yield(struct pk_manager *pkm)
+{
+  pthread_mutex_unlock(&(pkm->loop_lock));
+  pk_log(PK_LOG_MANAGER_DEBUG, "Yielded loop lock.");
+  pthread_mutex_lock(&(pkm->loop_lock));
+}
+static void pkm_interrupt_cb(EV_P_ ev_async *w, int revents)
+{
+  struct pk_manager* pkm = (struct pk_manager*) w->data;
+  pkm_yield(pkm);
+}
+void pkm_interrupt(struct pk_manager *pkm)
+{
+  ev_async_send(pkm->loop, &(pkm->interrupt));
+}
+
+void pkm_block(struct pk_manager *pkm)
+{
+  if (pthread_self() != pkm->main_thread) {
+/*
+    while (0 != pthread_mutex_trylock(&(pkm->loop_lock))) {
+      pkm_interrupt(pkm);
+    }
+*/
+    pkm_interrupt(pkm);
+    pthread_mutex_trylock(&(pkm->loop_lock));
+    pk_log(PK_LOG_MANAGER_DEBUG, "Blocked main event loop...");
+  }
+}
+void pkm_unblock(struct pk_manager *pkm)
+{
+  if (pthread_self() != pkm->main_thread) {
+    pthread_mutex_unlock(&(pkm->loop_lock));
+    pk_log(PK_LOG_MANAGER_DEBUG, "...unblocked main event loop.");
+  }
+}
+
+static void pkm_quit_cb(EV_P_ ev_async *w, int revents)
+{
+  ev_unloop(EV_A_ EVUNLOOP_ALL);
+}
+void pkm_quit(struct pk_manager* pkm)
+{
+  ev_async_send(pkm->loop, &(pkm->quit));
+}
+
+
 void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
 {
   struct pk_backend_conn* pkb; /* FIXME: What if we are a front-end? */
@@ -452,6 +500,8 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     pk_log(loglevel, "%d: Closed.", pkc->sockfd, eof);
     pkc->sockfd = -1;
   }
+
+  pkm_yield(pkm);
   return flows;
 }
 
@@ -607,6 +657,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
   /* Loop through all configured kites:
    *   - if missing a front-end, tear down tunnels and reconnect.
    */
+  pkm_block(pkm);
   for (i = 0; i < pkm->frontend_max; i++) {
     fe = (pkm->frontends + i);
     if (fe->fe_hostname == NULL) continue;
@@ -624,6 +675,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
     for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
       if (kite_r->status == PK_STATUS_UNKNOWN) reconnect++;
     }
+
     if (reconnect) {
       pk_log(PK_LOG_MANAGER_INFO, "Connecting to %s:%d",
                                   fe->fe_hostname, fe->fe_port);
@@ -635,12 +687,17 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
       }
       pkm_reset_conn(&(fe->conn));
       fe->conn.status = CONN_STATUS_ALLOCATED;
+
+      /* Unblock the event loop while we attempt to connect. */
+      pkm_unblock(pkm);
+
       if ((0 <= (fe->conn.sockfd = pk_connect_ai(fe->ai, 0,
                                                  fe->request_count,
                                                  fe->requests,
                                                  (fe->fe_session)))) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
         pk_log(PK_LOG_MANAGER_INFO, "Connected!");
+        pkm_block(pkm); /* Re-block */
 
         ev_io_init(&(fe->conn.watch_r),
                    pkm_tunnel_readable_cb, fe->conn.sockfd, EV_READ);
@@ -651,6 +708,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
       }
       else {
+        pkm_block(pkm); /* Re-block */
         /* FIXME: Is this the right behavior? */
         pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
         fe->request_count = 0;
@@ -660,6 +718,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
       }
     }
   }
+  pkm_unblock(pkm);
   return partial;
 }
 
@@ -678,9 +737,18 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
    *   - this will force need_timer to nonzero, skip on mobile?
    */
 
+  /* Trigger the frontend check on the blocking thread. */
+  pkm_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
+
+  /* FIXME: what how do we know when the timer is needed??? */
+  need_timer = (pkm->timer.repeat * 2);
+  pkm_yield(pkm);
+
+  /*
   if (0 < pkm_reconnect_all(pkm)) {
     need_timer = (pkm->timer.repeat * 2);
   }
+  */
 
   /* If the timer is no longer needed, turn it off. */
   if (need_timer) {
@@ -699,10 +767,6 @@ void pkm_reset_timer(struct pk_manager* pkm) {
   ev_timer_start(pkm->loop, &(pkm->timer));
 }
 
-
-static void pkm_quit_cb(EV_P_ ev_async *w, int revents) {
-  ev_unloop(EV_A_ EVUNLOOP_ALL);
-}
 
 struct pk_manager* pkm_manager_init(struct ev_loop* loop,
                                     int buffer_size, char* buffer,
@@ -811,7 +875,13 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   ev_async_init(&(pkm->quit), pkm_quit_cb);
   ev_async_start(loop, &(pkm->quit));
 
+  /* Let external threads interrupt the loop */
+  ev_async_init(&(pkm->interrupt), pkm_interrupt_cb);
+  pkm->interrupt.data = (void *) pkm;
+  ev_async_start(loop, &(pkm->interrupt));
+
   /* Prepare blocking thread structures. */
+  pthread_mutex_init(&(pkm->loop_lock), NULL);
   pthread_mutex_init(&(pkm->blocking_jobs.mutex), NULL);
   pthread_cond_init(&(pkm->blocking_jobs.cond), NULL);
   pkm->blocking_jobs.count = 0;
@@ -930,22 +1000,34 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
                                         int flags)
 {
   int which;
-  struct pk_frontend *fe;
+  struct pk_frontend* fe;
+  struct pk_frontend* adding = NULL;
 
+  /* Scan the front-end list to see if we already have this IP or,
+   * if not, find an available slot.
+   */
   for (which = 0; which < pkm->frontend_max; which++) {
     fe = pkm->frontends+which;
-    if (fe->fe_hostname == NULL) break;
+    if (fe->ai == NULL) {
+      adding = fe;
+    }
+    else if ((ai->ai_addrlen) &&
+             (ai->ai_addrlen == fe->ai->ai_addrlen) &&
+             (0 == memcmp(fe->ai->ai_addr, ai->ai_addr, ai->ai_addrlen)))
+    {
+      return NULL;
+    }
   }
-  if (which >= pkm->frontend_max)
+  if (adding == NULL)
     return pk_err_null(ERR_NO_MORE_FRONTENDS);
 
-  fe->fe_hostname = strdup(hostname);
-  fe->fe_port = port;
-  fe->conn.status = flags;
-  fe->ai = ai;
-  fe->request_count = 0;
+  adding->ai = ai;
+  adding->fe_hostname = strdup(hostname);
+  adding->fe_port = port;
+  adding->conn.status = flags;
+  adding->request_count = 0;
 
-  return fe;
+  return adding;
 }
 
 unsigned char pkm_sid_shift(char *sid)
@@ -1020,13 +1102,16 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
 }
 
 
+
 /*** High level API stuff ****************************************************/
 
 void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
   pkm_start_blocker(pkm);
+  pthread_mutex_lock(&(pkm->loop_lock));
   ev_loop(pkm->loop, 0);
+  pthread_mutex_unlock(&(pkm->loop_lock));
 
   pkm_stop_blocker(pkm);
   pkm_reset_manager(pkm);
@@ -1045,6 +1130,6 @@ int pkm_wait_thread(struct pk_manager* pkm) {
 
 int pkm_stop_thread(struct pk_manager* pkm) {
   pk_log(PK_LOG_MANAGER_DEBUG, "Stopping manager...");
-  ev_async_send(pkm->loop, &(pkm->quit));
+  pkm_quit(pkm);
   return pthread_join(pkm->main_thread, NULL);
 }

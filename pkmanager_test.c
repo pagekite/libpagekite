@@ -48,6 +48,7 @@ int pkmanager_test(void)
   struct pk_manager* m;
   struct pk_backend_conn* c;
   struct pk_job j;
+  struct addrinfo ai;
   int i;
 
   /* Are too-small buffers handled correctly? */
@@ -87,12 +88,13 @@ int pkmanager_test(void)
   assert(j.job == PK_QUIT);
 
   /* Test pk_add_frontend_ai */
-  assert(NULL == pkm_add_frontend_ai(m, NULL, "woot", 123, 1));
+  memset(&ai, 0, sizeof(struct addrinfo));
+  assert(NULL == pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
   assert(ERR_NO_MORE_FRONTENDS == pk_error);
   memset(m->frontends, 0, sizeof(struct pk_frontend) * m->frontend_max);
   for (i = 0; i < MIN_FE_ALLOC; i++)
-    assert(NULL != pkm_add_frontend_ai(m, NULL, "woot", 123, 1));
-  assert(NULL == pkm_add_frontend_ai(m, NULL, "woot", 123, 1));
+    assert(NULL != pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
+  assert(NULL == pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
 
   /* Test pk_add_kite */
   assert(NULL == pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));

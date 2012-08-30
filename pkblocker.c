@@ -68,7 +68,7 @@ int pkm_get_job(struct pk_job_pile* pkj, struct pk_job* dest)
 {
   int i;
   pthread_mutex_lock(&(pkj->mutex));
-  while (pkj->count == 0) 
+  while (pkj->count == 0)
     pthread_cond_wait(&(pkj->cond), &(pkj->mutex));
 
   for (i = 0; i < pkj->max; i++) {
@@ -102,6 +102,8 @@ void pkm_check_frontends(struct pk_manager* pkm) {
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking frontends...");
 
   /* FIXME: Connect to all front-ends that are wanted but missing. */
+  pkm_reconnect_all(pkm);
+
   /* FIXME: Disconnect from idle front-ends we don't care about anymore. */
   /* FIXME: Update DNS if anything changed.  */
 }

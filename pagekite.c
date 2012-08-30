@@ -61,10 +61,11 @@ int main(int argc, char **argv) {
   pk_state.log_mask = PK_LOG_NORMAL;
   pk_state.log_mask = PK_LOG_ALL;
 
-  if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 1, 100))) ||
+  if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 10, 100))) ||
       (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
                                 "localhost", lport))) ||
       (0 >= (pkm_add_frontend(m, kitename, pport, FE_STATUS_NAILED_UP))) ||
+      (0 >= (pkm_add_frontend(m, "frontends.b5p.us", 443, FE_STATUS_AUTO))) ||
       (0 > pkm_run_in_thread(m))) {
     pk_perror(argv[0]);
     exit(1);

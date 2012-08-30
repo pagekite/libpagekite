@@ -145,8 +145,9 @@ struct pk_manager {
   struct pk_backend_conn*  be_conns;
 
   pthread_t                main_thread;
+  pthread_mutex_t          loop_lock;
   struct ev_loop*          loop;
-  ev_async                 update_io;
+  ev_async                 interrupt;
   ev_async                 quit;
   ev_timer                 timer;
   int                      want_spare_frontends;
@@ -154,6 +155,7 @@ struct pk_manager {
   pthread_t                blocking_thread;
   struct pk_job_pile       blocking_jobs;
 };
+
 
 void* pkm_run                       (void *);
 int pkm_run_in_thread               (struct pk_manager*);

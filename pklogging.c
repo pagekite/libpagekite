@@ -47,7 +47,7 @@ int pk_log(int level, const char* fmt, ...)
       __android_log_print(ANDROID_LOG_INFO, "libpagekite", "[%d] %.4000s\n",
                           time(0), output);
 #else
-      fprintf(stderr, "%.4000s\n", output);
+      fprintf(stderr, "[%x] %.4000s\n", (int) pthread_self(), output);
 #endif
     }
   }
