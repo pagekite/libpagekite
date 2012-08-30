@@ -38,6 +38,8 @@ struct pk_conn;
 struct pk_frontend;
 struct pk_backend_conn;
 struct pk_manager;
+struct pk_job;
+struct pk_job_pile;
 
 /* These are the controlling parameters for our flow control - in order
  * to minimize buffer bloat, we want to keep the window relatively small
@@ -96,6 +98,7 @@ struct pk_frontend {
   char*                   fe_hostname;
   int                     fe_port;
   char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
+  struct addrinfo*        ai;
   int                     latency;
   struct pk_conn          conn;
   struct pk_parser*       parser;
@@ -115,26 +118,6 @@ struct pk_backend_conn {
   struct pk_pagekite* kite;
   struct pk_conn      conn;
 };
-
-typedef enum {
-  PK_NO_JOB,
-  PK_CHECK_FRONTENDS,
-  PK_CONNECT_BACKEND,
-  PK_QUIT
-} pk_job_t;
-
-struct pk_job {
-  pk_job_t  job;
-  void*     data;
-};
-struct pk_job_pile {
-  pthread_mutex_t  mutex;
-  pthread_cond_t   cond;
-  struct pk_job*   pile; /* A pile is not a queue, order isn't guaranteed. */
-  int              max;
-  int              count;
-};
-
 
 #define MIN_KITE_ALLOC   4
 #define MIN_FE_ALLOC     2
@@ -188,8 +171,10 @@ struct pk_pagekite*  pkm_find_kite(struct pk_manager*,
 ssize_t              pkm_write_chunked(struct pk_frontend*,
                                        struct pk_backend_conn*,
                                        ssize_t, char*);
-struct pk_frontend*  pkm_add_frontend(struct pk_manager*,
+int                  pkm_add_frontend(struct pk_manager*,
                                       const char*, int, int);
+struct pk_frontend*  pkm_add_frontend_ai(struct pk_manager*, struct addrinfo*,
+                                         const char*, int, int);
 void                 pkm_reset_conn(struct pk_conn*);
 
 ssize_t              pkm_write_data(struct pk_conn*, ssize_t, char*);
@@ -199,10 +184,6 @@ void                 pkm_parse_eof(struct pk_backend_conn*, char*);
 int                  pkm_update_io(struct pk_frontend*, struct pk_backend_conn*);
 void                 pkm_flow_control_fe(struct pk_frontend*, flow_op);
 void                 pkm_flow_control_conn(struct pk_conn*, flow_op);
-
-int pkm_add_job(struct pk_job_pile*, pk_job_t, void*);
-int pkm_get_job(struct pk_job_pile*, struct pk_job*);
-
 
 /* Backend connection handling */
 struct pk_backend_conn*  pkm_connect_be(struct pk_frontend*, struct pk_chunk*);

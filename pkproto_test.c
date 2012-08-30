@@ -19,13 +19,8 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <netinet/in.h>
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
 
+#include "includes.h"
 #include "pkerror.h"
 #include "pkproto.h"
 #include "utils.h"

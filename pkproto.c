@@ -19,19 +19,8 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <assert.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <unistd.h>
 
-#include "types.h"
+#include "includes.h"
 #include "sha1.h"
 #include "utils.h"
 #include "pkproto.h"
@@ -416,39 +405,20 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
   return copy;
 }
 
-int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
-               unsigned int n, struct pk_kite_request* requests,
-               char *session_id)
+int pk_connect_ai(struct addrinfo* ai, int reconnecting,
+                  unsigned int n, struct pk_kite_request* requests,
+                  char *session_id)
 {
-  unsigned int i, j, reconnecting;
-  int sockfd, bytes;
-  char buffer[16*1024];
-  char* p;
+  int sockfd;
+  unsigned int i, j, bytes;
+  char buffer[16*1024], *p;
   struct pk_pagekite tkite;
   struct pk_kite_request tkite_r;
-  struct sockaddr_in serv_addr_buf;
-  struct hostent *server;
-
-  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect(%s:%d, %p, %d, %p)",
-                             frontend, port, serv_addr, n, requests);
-
-  reconnecting = (serv_addr != NULL);
-  if (!reconnecting)
-  {
-    if (NULL == (server = gethostbyname(frontend))) return -1;
-
-    serv_addr = &serv_addr_buf;
-    bzero((char *) serv_addr, sizeof(serv_addr));
-    serv_addr->sin_family = AF_INET;
-    bcopy((char*) server->h_addr_list[0],
-          (char*) &(serv_addr->sin_addr.s_addr),
-          server->h_length);
-    serv_addr->sin_port = htons(port);
-  }
 
   pk_log(PK_LOG_TUNNEL_DATA, "socket/connect/write");
-  if ((0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
-      (0 > connect(sockfd, (struct sockaddr*) serv_addr, sizeof(*serv_addr))) ||
+  if ((0 > (sockfd = socket(ai->ai_family, ai->ai_socktype,
+                            ai->ai_protocol))) ||
+      (0 > connect(sockfd, ai->ai_addr, ai->ai_addrlen)) ||
       (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) ||
       (0 > write(sockfd, PK_HANDSHAKE_FEATURES, strlen(PK_HANDSHAKE_FEATURES))))
   {
@@ -542,14 +512,43 @@ int pk_connect(char *frontend, int port, struct sockaddr_in* serv_addr,
     }
     else {
       close(sockfd);
-      return pk_connect(frontend, port, serv_addr, n, requests, session_id);
+      return pk_connect_ai(ai, 1, n, requests, session_id);
     }
   }
 
   for (i = 0; i < n; i++) {
     requests[i].status = PK_STATUS_CONNECTED;
   }
-  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect(%s:%d, %p, %d, %p) => %d",
-                             frontend, port, serv_addr, n, requests, sockfd);
+  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect_ai(%p, %d, %p) => %d",
+                             ai, n, requests, sockfd);
   return sockfd;
+}
+
+int pk_connect(char *frontend, int port,
+               unsigned int n, struct pk_kite_request* requests,
+               char *session_id)
+{
+  int rv;
+  char ports[16];
+  struct addrinfo hints, *result, *rp;
+
+  pk_log(PK_LOG_TUNNEL_CONNS, "pk_connect(%s:%d, %d, %p)",
+                              frontend, port, n, requests);
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  sprintf(ports, "%d", port);
+  if (0 == getaddrinfo(frontend, ports, &hints, &result)) {
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+      rv = pk_connect_ai(rp, 0, n, requests, session_id);
+      if ((rv >= 0) ||
+          (rv != ERR_CONNECT_CONNECT))
+        return rv;
+    }
+  }
+  else {
+    return (pk_error = ERR_CONNECT_LOOKUP);
+  }
+  return (pk_error = ERR_CONNECT_CONNECT);
 }

@@ -21,8 +21,10 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #define _GNU_SOURCE 1
+#include <arpa/inet.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,11 +33,13 @@ Note: For alternate license terms, see the file COPYING.md.
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+
 #include <ev.h>
 
 #include "utils.h"
 #include "pkerror.h"
 #include "pkproto.h"
+#include "pkblocker.h"
 #include "pkmanager.h"
 
 int pkmanager_test(void)
@@ -82,13 +86,13 @@ int pkmanager_test(void)
   assert(0 == m->blocking_jobs.count);
   assert(j.job == PK_QUIT);
 
-  /* Test pk_add_frontend */
-  assert(NULL == pkm_add_frontend(m, "woot", 123, 1));
+  /* Test pk_add_frontend_ai */
+  assert(NULL == pkm_add_frontend_ai(m, NULL, "woot", 123, 1));
   assert(ERR_NO_MORE_FRONTENDS == pk_error);
   memset(m->frontends, 0, sizeof(struct pk_frontend) * m->frontend_max);
   for (i = 0; i < MIN_FE_ALLOC; i++)
-    assert(NULL != pkm_add_frontend(m, "woot", 123, 1));
-  assert(NULL == pkm_add_frontend(m, "woot", 123, 1));
+    assert(NULL != pkm_add_frontend_ai(m, NULL, "woot", 123, 1));
+  assert(NULL == pkm_add_frontend_ai(m, NULL, "woot", 123, 1));
 
   /* Test pk_add_kite */
   assert(NULL == pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));

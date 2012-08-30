@@ -23,16 +23,8 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <time.h>
 
-#include "utils.h"
+#include "includes.h"
 #include "pkstate.h"
 #include "pkerror.h"
 #include "pkproto.h"
@@ -104,7 +96,7 @@ int main(int argc, char **argv) {
   kite_rp = &kite_r;
 
   srand(time(0) ^ getpid());
-  fd = pk_connect(argv[1], 443, NULL, 1, &kite_r, NULL);
+  fd = pk_connect(argv[1], 443, 1, &kite_r, NULL);
   if (fd < 0) {
     pk_perror(argv[1]);
     usage();

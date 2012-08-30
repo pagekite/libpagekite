@@ -20,25 +20,13 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#define _GNU_SOURCE 1
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <pthread.h>
-#include <time.h>
-#include <unistd.h>
+#include "includes.h"
 #include <ev.h>
 
 #include "utils.h"
 #include "pkerror.h"
 #include "pkproto.h"
+#include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
 
@@ -609,22 +597,12 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
   pkm_update_io(pkb->frontend, pkb);
 }
 
-void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
-{
-  struct pk_manager* pkm;
+int pkm_reconnect_all(struct pk_manager *pkm) {
   struct pk_frontend *fe;
   struct pk_kite_request *kite_r;
-  int i, j, reconnect, need_timer;
+  int i, j, reconnect, partial;
 
-  need_timer = 0;
-  pkm = (struct pk_manager*) w->data;
-  pk_log(PK_LOG_MANAGER_DEBUG, "Tick (repeat=%.1f)", w->repeat);
-
-  /* FIXME: Loop through all configured tunnels:
-   *   - if idle, queue a ping.
-   *   - if dead, shut 'em down.
-   *   - this will force need_timer to nonzero, skip on mobile?
-   */
+  partial = 0;
 
   /* Loop through all configured kites:
    *   - if missing a front-end, tear down tunnels and reconnect.
@@ -657,11 +635,10 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
       }
       pkm_reset_conn(&(fe->conn));
       fe->conn.status = CONN_STATUS_ALLOCATED;
-      if ((0 <= (fe->conn.sockfd = pk_connect(fe->fe_hostname,
-                                              fe->fe_port, NULL,
-                                              fe->request_count,
-                                              fe->requests,
-                                              (fe->fe_session)))) &&
+      if ((0 <= (fe->conn.sockfd = pk_connect_ai(fe->ai, 0,
+                                                 fe->request_count,
+                                                 fe->requests,
+                                                 (fe->fe_session)))) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
         pk_log(PK_LOG_MANAGER_INFO, "Connected!");
 
@@ -679,9 +656,30 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
         fe->request_count = 0;
         pkm_reset_conn(&(fe->conn));
         pk_perror("pkmanager.c");
-        if (!need_timer) need_timer = (pkm->timer.repeat * 2);
+        partial++;
       }
     }
+  }
+  return partial;
+}
+
+void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
+{
+  struct pk_manager* pkm;
+  int need_timer;
+
+  pkm = (struct pk_manager*) w->data;
+  pk_log(PK_LOG_MANAGER_DEBUG, "Tick (repeat=%.1f)", w->repeat);
+  need_timer = 0;
+
+  /* FIXME: Loop through all configured tunnels:
+   *   - if idle, queue a ping.
+   *   - if dead, shut 'em down.
+   *   - this will force need_timer to nonzero, skip on mobile?
+   */
+
+  if (0 < pkm_reconnect_all(pkm)) {
+    need_timer = (pkm->timer.repeat * 2);
   }
 
   /* If the timer is no longer needed, turn it off. */
@@ -900,12 +898,39 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   return kite;
 }
 
-struct pk_frontend* pkm_add_frontend(struct pk_manager* pkm,
-                                     const char* hostname,
-                                     int port, int flags)
+int pkm_add_frontend(struct pk_manager* pkm,
+                     const char* hostname, int port, int flags)
+{
+  struct addrinfo hints;
+  struct addrinfo *result, *rp;
+  char ports[10], printip[128];
+  int rv, count;
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+
+  sprintf(ports, "%d", port);
+  rv = getaddrinfo(hostname, ports, &hints, &result);
+  count = 0;
+  if (rv == 0) {
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+      if (NULL != pkm_add_frontend_ai(pkm, rp, hostname, port, flags)) {
+        fprintf(stderr, " + %s\n", in_addr_to_str(rp->ai_addr, printip, 128));
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
+                                        struct addrinfo *ai,
+                                        const char* hostname, int port,
+                                        int flags)
 {
   int which;
-  struct pk_frontend* fe;
+  struct pk_frontend *fe;
 
   for (which = 0; which < pkm->frontend_max; which++) {
     fe = pkm->frontends+which;
@@ -917,6 +942,7 @@ struct pk_frontend* pkm_add_frontend(struct pk_manager* pkm,
   fe->fe_hostname = strdup(hostname);
   fe->fe_port = port;
   fe->conn.status = flags;
+  fe->ai = ai;
   fe->request_count = 0;
 
   return fe;
@@ -993,79 +1019,16 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
   return NULL;
 }
 
-int pkm_add_job(struct pk_job_pile* pkj, pk_job_t job, void* data)
-{
-  int i;
-  pthread_mutex_lock(&(pkj->mutex));
-
-  for (i = 0; i < pkj->max; i++) {
-    if ((pkj->pile+i)->job == PK_NO_JOB) {
-      (pkj->pile+i)->job = job;
-      (pkj->pile+i)->data = data;
-      pkj->count += 1;
-      pthread_cond_signal(&(pkj->cond));
-      pthread_mutex_unlock(&(pkj->mutex));
-      return 1;
-    }
-  }
-  pthread_mutex_unlock(&(pkj->mutex));
-  return -1;
-}
-
-int pkm_get_job(struct pk_job_pile* pkj, struct pk_job* dest)
-{
-  int i;
-  pthread_mutex_lock(&(pkj->mutex));
-  while (pkj->count == 0) 
-    pthread_cond_wait(&(pkj->cond), &(pkj->mutex));
-
-  for (i = 0; i < pkj->max; i++) {
-    if ((pkj->pile+i)->job != PK_NO_JOB) {
-      dest->job = (pkj->pile+i)->job;
-      dest->data = (pkj->pile+i)->data;
-      (pkj->pile+i)->job = PK_NO_JOB;
-      (pkj->pile+i)->data = NULL;
-      pkj->count -= 1;
-      pthread_mutex_unlock(&(pkj->mutex));
-      return 1;
-    }
-  }
-
-  dest->job = PK_NO_JOB;
-  dest->data = NULL;
-  pthread_mutex_unlock(&(pkj->mutex));
-  return -1;
-}
-
-void* pkm_run_blocker(void *void_pkm) {
-  struct pk_manager* pkm = (struct pk_manager*) void_pkm;
-  pk_log(PK_LOG_MANAGER_DEBUG, "Started blocking thread.");
-
-  /* LOOP:
-   *   Block until our condition variable says otherwise
-   *   Remove one job from the queue.
-   *   Just Do It!
-   */
-
-}
-
 
 /*** High level API stuff ****************************************************/
 
 void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
-  if (0 > pthread_create(&(pkm->blocking_thread), NULL,
-                         pkm_run_blocker, (void *) pkm)) {
-    pk_log(PK_LOG_MANAGER_ERROR, "Failed to start blocking thread.");
-    pk_error = ERR_NO_THREAD;
-    return NULL;
-  }
-
+  pkm_start_blocker(pkm);
   ev_loop(pkm->loop, 0);
 
-  pkm_add_job(&(pkm->blocking_jobs), PK_QUIT, NULL);
-  pthread_join(pkm->blocking_thread, NULL);
+  pkm_stop_blocker(pkm);
   pkm_reset_manager(pkm);
   pk_log(PK_LOG_MANAGER_DEBUG, "Event loop exited.");
   return void_pkm;

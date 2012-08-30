@@ -19,14 +19,8 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <assert.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
+
+#include "includes.h"
 
 #ifdef ANDROID
 #include <android/log.h>

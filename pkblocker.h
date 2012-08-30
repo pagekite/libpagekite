@@ -1,5 +1,5 @@
 /******************************************************************************
-utils.c - Utility functions for pagekite.
+pkblocker.h - Blocking tasks handled outside the main event loop.
 
 This file is Copyright 2011, 2012, The Beanstalks Project ehf.
 
@@ -19,27 +19,31 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <arpa/inet.h>
-#include <assert.h>
-#include <string.h>
-#include <unistd.h>
 
-#include "utils.h"
+struct pk_manager;
 
+typedef enum {
+  PK_NO_JOB,
+  PK_CHECK_WORLD,
+  PK_CHECK_FRONTENDS,
+  PK_QUIT
+} pk_job_t;
 
-int utils_test(void)
-{
-  char buffer1[60];
+struct pk_job {
+  pk_job_t  job;
+  void*     data;
+};
 
-  strcpy(buffer1, "\r\n\r\n");
-  assert(2 == zero_first_crlf(4, buffer1));
+struct pk_job_pile {
+  pthread_mutex_t  mutex;
+  pthread_cond_t   cond;
+  struct pk_job*   pile; /* A pile is not a queue, order isn't guaranteed. */
+  int              max;
+  int              count;
+};
 
-  strcpy(buffer1, "abcd\r\n\r\ndefghijklmnop");
-  int length = zero_first_crlf(strlen(buffer1), buffer1);
+int   pkm_add_job      (struct pk_job_pile*, pk_job_t, void*);
+int   pkm_get_job      (struct pk_job_pile*, struct pk_job*);
 
-  assert(length == 6);
-  assert((buffer1[4] == '\0') && (buffer1[5] == '\0') && (buffer1[6] == '\r'));
-  assert(strcmp(buffer1, "abcd") == 0);
-
-  return 1;
-}
+int   pkm_start_blocker(struct pk_manager*);
+void  pkm_stop_blocker (struct pk_manager*);

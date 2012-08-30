@@ -23,22 +23,15 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <time.h>
+
+#include "includes.h"
 #include <ev.h>
 
-#include "utils.h"
 #include "pkstate.h"
 #include "pkerror.h"
 #include "pkproto.h"
 #include "pklogging.h"
+#include "pkblocker.h"
 #include "pkmanager.h"
 
 struct pk_global_state pk_state;
@@ -65,13 +58,13 @@ int main(int argc, char **argv) {
   kitename = argv[3];
   secret = argv[5];
 
-  pk_state.log_mask = PK_LOG_ALL;
   pk_state.log_mask = PK_LOG_NORMAL;
+  pk_state.log_mask = PK_LOG_ALL;
 
-  if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 1, 1, 10))) ||
+  if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 1, 100))) ||
       (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
                                 "localhost", lport))) ||
-      (NULL == (pkm_add_frontend(m, kitename, pport, FE_STATUS_NAILED_UP))) ||
+      (0 >= (pkm_add_frontend(m, kitename, pport, FE_STATUS_NAILED_UP))) ||
       (0 > pkm_run_in_thread(m))) {
     pk_perror(argv[0]);
     exit(1);
