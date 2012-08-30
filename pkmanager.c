@@ -21,8 +21,6 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #include "includes.h"
-#include <ev.h>
-
 #include "utils.h"
 #include "pkerror.h"
 #include "pkproto.h"

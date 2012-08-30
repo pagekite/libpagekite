@@ -15,6 +15,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <ev.h>
+
 #ifndef ANDROID
 typedef signed char               int8_t;
 typedef short int                 int16_t;

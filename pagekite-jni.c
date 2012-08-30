@@ -21,21 +21,11 @@ along with th program.  If not, see: <http://www.gnu.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <assert.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <pthread.h>
-#include <time.h>
 
-#include <ev.h>
 #include <jni.h>
 #include <android/log.h>
 
+#include "includes.h"
 #include "utils.h"
 #include "pkstate.h"
 #include "pkerror.h"
