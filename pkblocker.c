@@ -105,13 +105,12 @@ void pkb_choose_frontends(struct pk_manager* pkm)
 
   wanted = 0;
   for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
-    /* If it's in DNS, nailed up or just plain fast: we want it. */
+    /* If it's nailed up or fast: we want it. */
     if ((fe->conn.status & FE_STATUS_NAILED_UP) ||
-        (fe->conn.status & FE_STATUS_IN_DNS) ||
         (fe->conn.status & FE_STATUS_IS_FAST)) {
       fe->conn.status |= FE_STATUS_WANTED;
     }
-    /* Otherwise, we don't. */
+    /* Otherwise, we don't! */
     else
       fe->conn.status &= ~FE_STATUS_WANTED;
 
@@ -122,11 +121,11 @@ void pkb_choose_frontends(struct pk_manager* pkm)
     }
 
     /* Count how many we're aiming for. */
-    if (fe->conn.status & FE_STATUS_WANTED) wanted++;
+    if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) wanted++;
   }
 
   if (wanted == 0) {
-    /* None?  Uh oh, best accept anything at this point... */
+    /* None?  Uh oh, best accept anything non-broken at this point... */
     for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
       if ((fe->ai != NULL) &&
           !(fe->conn.status & (FE_STATUS_REJECTED|FE_STATUS_LAME))) {
@@ -239,7 +238,6 @@ void pkb_check_frontends(struct pk_manager* pkm)
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking frontends...");
   pkb_choose_frontends(pkm);
   pkm_reconnect_all(pkm);
-
   /* FIXME: Disconnect from idle front-ends we don't care about anymore. */
   /* FIXME: Update DNS if anything changed.  */
 }

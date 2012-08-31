@@ -660,7 +660,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
     fe = (pkm->frontends + i);
 
     if (fe->fe_hostname == NULL) continue;
-    if (!(fe->conn.status & FE_STATUS_WANTED)) continue;
+    if (!(fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS))) continue;
 
     if (fe->requests == NULL || fe->request_count != pkm->kite_max) {
       fe->request_count = pkm->kite_max;
