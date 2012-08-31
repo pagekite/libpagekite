@@ -24,14 +24,15 @@ These are Things TO DO for libpagekite.
    * pkproto.c: Use session IDs for replacing old/dead connections.
    * pkmanager.c: added flow control for individual streams
    * pkmanager.c: added flow control for tunnels
+   * pkblocker.c: choose best front-end automatically.
 
 ### Ahead ###
 
-   * pkmanager.c: choose best front-end automatically.
+   * pkproto.c: add SSL support
+   * pkblocker.c: Update DNS records
    * libpagekite: create simple fork/thread/anonymous-pipe based API for
                   easily adding PageKite support to existing TCP/IP servers.
    * pkproto.c: add ZChunk support
-   * pkproto.c: add SSL support
    * pkmanager.c: SOCKS and HTTP proxy support for outgoing connections
    * pagekite.c: truly non-blocking pagekite proxy, suitable for front-end
    * PageKiteAPI.java: Turn on/off pagekite thread depending on network state.

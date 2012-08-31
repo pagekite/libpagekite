@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
                                 "localhost", lport))) ||
       (0 >= (pkm_add_frontend(m, kitename, pport, FE_STATUS_AUTO))) ||
       (0 >= (pkm_add_frontend(m, "frontends.b5p.us", 443, FE_STATUS_AUTO))) ||
+      (0 >= (pkm_add_frontend(m, "v6frontends.b5p.us", 443, FE_STATUS_AUTO))) ||
       (0 > pkm_run_in_thread(m))) {
     pk_perror(argv[0]);
     exit(1);
