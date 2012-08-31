@@ -99,9 +99,9 @@ int sha1_test()
     char output[80];
 
     for (k = 0; k < 2; k++){
-        SHA1_Init(&context);
-        SHA1_Update(&context, (uint8_t*)test_data[k], strlen(test_data[k]));
-        SHA1_Final(&context, digest);
+        sha1_init(&context);
+        sha1_update(&context, (uint8_t*)test_data[k], strlen(test_data[k]));
+        sha1_final(&context, digest);
 	digest_to_hex(digest, output);
 
         if (strcmp(output, test_results[k])) {
@@ -113,10 +113,10 @@ int sha1_test()
         }
     }
     /* million 'a' vector we feed separately */
-    SHA1_Init(&context);
+    sha1_init(&context);
     for (k = 0; k < 1000000; k++)
-        SHA1_Update(&context, (uint8_t*)"a", 1);
-    SHA1_Final(&context, digest);
+        sha1_update(&context, (uint8_t*)"a", 1);
+    sha1_final(&context, digest);
     digest_to_hex(digest, output);
     if (strcmp(output, test_results[2])) {
         fprintf(stdout, "FAIL\n");

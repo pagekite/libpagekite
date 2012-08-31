@@ -319,9 +319,9 @@ int pk_make_bsalt(struct pk_kite_request* kite_r) {
   sprintf((char*) buffer, "%x %x %x %x",
                           rand(), getpid(), getppid(), (int) time(0));
 
-  SHA1_Init(&context);
-  SHA1_Update(&context, buffer, strlen((const char*) buffer));
-  SHA1_Final(&context, buffer);
+  sha1_init(&context);
+  sha1_update(&context, buffer, strlen((const char*) buffer));
+  sha1_final(&context, buffer);
   digest_to_hex(buffer, kite_r->bsalt);
   kite_r->bsalt[36] = '\0';
 
@@ -357,9 +357,9 @@ int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt)
   sprintf(request_salted_s, "%8.8x", salt);
   sprintf(request_s, "%s%s%s", kite->auth_secret, request, request_salted_s);
 
-  SHA1_Init(&context);
-  SHA1_Update(&context, (uint8_t*) request_s, strlen(request_s));
-  SHA1_Final(&context, signature);
+  sha1_init(&context);
+  sha1_update(&context, (uint8_t*) request_s, strlen(request_s));
+  sha1_final(&context, signature);
   digest_to_hex(signature, request_salted_s+8);
   request_salted_s[36] = '\0';
 
