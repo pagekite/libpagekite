@@ -519,8 +519,9 @@ int pk_connect_ai(struct addrinfo* ai, int reconnecting,
   for (i = 0; i < n; i++) {
     requests[i].status = PK_STATUS_CONNECTED;
   }
-  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect_ai(%p, %d, %p) => %d",
-                             ai, n, requests, sockfd);
+  pk_log(PK_LOG_TUNNEL_DATA, "pk_connect_ai(%s, %d, %p) => %d",
+                             in_addr_to_str(ai->ai_addr, buffer, 1024),
+                             n, requests, sockfd);
   return sockfd;
 }
 

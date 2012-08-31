@@ -66,9 +66,9 @@ int pkmanager_test(void)
 
   /* Test pk_add_job and pk_get_job */
   assert(0 == m->blocking_jobs.count);
-  assert(0 < pkm_add_job(&(m->blocking_jobs), PK_QUIT, NULL));
+  assert(0 < pkb_add_job(&(m->blocking_jobs), PK_QUIT, NULL));
   assert(1 == m->blocking_jobs.count);
-  assert(0 < pkm_get_job(&(m->blocking_jobs), &j));
+  assert(0 < pkb_get_job(&(m->blocking_jobs), &j));
   assert(0 == m->blocking_jobs.count);
   assert(j.job == PK_QUIT);
 

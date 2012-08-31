@@ -42,8 +42,8 @@ struct pk_job_pile {
   int              count;
 };
 
-int   pkm_add_job      (struct pk_job_pile*, pk_job_t, void*);
-int   pkm_get_job      (struct pk_job_pile*, struct pk_job*);
+int   pkb_add_job      (struct pk_job_pile*, pk_job_t, void*);
+int   pkb_get_job      (struct pk_job_pile*, struct pk_job*);
 
-int   pkm_start_blocker(struct pk_manager*);
-void  pkm_stop_blocker (struct pk_manager*);
+int   pkb_start_blocker(struct pk_manager*);
+void  pkb_stop_blocker (struct pk_manager*);

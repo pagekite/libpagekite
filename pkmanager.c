@@ -653,12 +653,14 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
   partial = 0;
 
   /* Loop through all configured kites:
-   *   - if missing a front-end, tear down tunnels and reconnect.
+   *   - if missing a desired front-end, tear down tunnels and reconnect.
    */
   pkm_block(pkm);
   for (i = 0; i < pkm->frontend_max; i++) {
     fe = (pkm->frontends + i);
+
     if (fe->fe_hostname == NULL) continue;
+    if (!(fe->conn.status & FE_STATUS_WANTED)) continue;
 
     if (fe->requests == NULL || fe->request_count != pkm->kite_max) {
       fe->request_count = pkm->kite_max;
@@ -736,7 +738,12 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
    */
 
   /* Trigger the frontend check on the blocking thread. */
-  pkm_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
+  if (pkm->last_world_update + PK_CHECK_WORLD_INTERVAL < time(0)) {
+    pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_WORLD, pkm);
+  }
+  else {
+    pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
+  }
 
   /* FIXME: what how do we know when the timer is needed??? */
   need_timer = (pkm->timer.repeat * 2);
@@ -863,6 +870,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pkm->buffer_bytes_free -= parse_buffer_bytes;
   }
   pkm->want_spare_frontends = 0;
+  pkm->last_world_update = (time_t) 0;
 
   /* Set up our event-loop callbacks */
   ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, 0);
@@ -971,20 +979,21 @@ int pkm_add_frontend(struct pk_manager* pkm,
 {
   struct addrinfo hints;
   struct addrinfo *result, *rp;
-  char ports[10], printip[128];
+  char printip[128], sport[128];
   int rv, count;
 
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
+  sprintf(sport, "%d", port);
 
-  sprintf(ports, "%d", port);
-  rv = getaddrinfo(hostname, ports, &hints, &result);
+  rv = getaddrinfo(hostname, sport, &hints, &result);
   count = 0;
   if (rv == 0) {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
       if (NULL != pkm_add_frontend_ai(pkm, rp, hostname, port, flags)) {
-        fprintf(stderr, " + %s\n", in_addr_to_str(rp->ai_addr, printip, 128));
+        pk_log(PK_LOG_MANAGER_DEBUG, "Front-end IP: %s",
+               in_addr_to_str(rp->ai_addr, printip, 128));
         count++;
       }
     }
@@ -1007,7 +1016,7 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
   for (which = 0; which < pkm->frontend_max; which++) {
     fe = pkm->frontends+which;
     if (fe->ai == NULL) {
-      adding = fe;
+      if (adding == NULL) adding = fe;
     }
     else if ((ai->ai_addrlen) &&
              (ai->ai_addrlen == fe->ai->ai_addrlen) &&
@@ -1024,6 +1033,7 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
   adding->fe_port = port;
   adding->conn.status = flags;
   adding->request_count = 0;
+  adding->priority = 0;
 
   return adding;
 }
@@ -1106,12 +1116,12 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
 void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
-  pkm_start_blocker(pkm);
+  pkb_start_blocker(pkm);
   pthread_mutex_lock(&(pkm->loop_lock));
   ev_loop(pkm->loop, 0);
   pthread_mutex_unlock(&(pkm->loop_lock));
 
-  pkm_stop_blocker(pkm);
+  pkb_stop_blocker(pkm);
   pkm_reset_manager(pkm);
   pk_log(PK_LOG_MANAGER_DEBUG, "Event loop exited.");
   return void_pkm;

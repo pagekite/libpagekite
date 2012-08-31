@@ -33,6 +33,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #else
 #define PK_HOUSEKEEPING_INTERVAL_MAX 240.0  /* 4 minutes on mobile */
 #endif
+#define PK_CHECK_WORLD_INTERVAL       3600  /* 1 hour */
 
 struct pk_conn;
 struct pk_frontend;
@@ -94,12 +95,13 @@ struct pk_conn {
 #define FE_STATUS_IN_DNS    0x04000000  /* This FE is in DNS               */
 #define FE_STATUS_REJECTED  0x08000000  /* Front-end rejected connection   */
 #define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
+#define FE_STATUS_IS_FAST   0x20000000  /* This is a fast front-end        */
 struct pk_frontend {
   char*                   fe_hostname;
   int                     fe_port;
   char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
   struct addrinfo*        ai;
-  int                     latency;
+  int                     priority;
   struct pk_conn          conn;
   struct pk_parser*       parser;
   struct pk_manager*      manager;
@@ -151,6 +153,7 @@ struct pk_manager {
   ev_async                 quit;
   ev_timer                 timer;
   int                      want_spare_frontends;
+  time_t                   last_world_update;
 
   pthread_t                blocking_thread;
   struct pk_job_pile       blocking_jobs;
@@ -161,6 +164,7 @@ void* pkm_run                       (void *);
 int pkm_run_in_thread               (struct pk_manager*);
 int pkm_wait_thread                 (struct pk_manager*);
 int pkm_stop_thread                 (struct pk_manager*);
+int pkm_reconnect_all               (struct pk_manager*);
 
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
                                       int, char*, int, int, int);

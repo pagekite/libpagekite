@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
   if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 10, 100))) ||
       (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
                                 "localhost", lport))) ||
-      (0 >= (pkm_add_frontend(m, kitename, pport, FE_STATUS_NAILED_UP))) ||
+      (0 >= (pkm_add_frontend(m, kitename, pport, FE_STATUS_AUTO))) ||
       (0 >= (pkm_add_frontend(m, "frontends.b5p.us", 443, FE_STATUS_AUTO))) ||
       (0 > pkm_run_in_thread(m))) {
     pk_perror(argv[0]);

@@ -27,6 +27,9 @@ Note: For alternate license terms, see the file COPYING.md.
  */
 #define PROTO_OVERHEAD_PER_KB  64
 
+#define PK_FRONTEND_PING "GET /ping HTTP/1.1\r\nHost: ping.pagekite\r\n\r\n"
+#define PK_FRONTEND_PONG "HTTP/1.1 503 Unavailable"
+
 #define PK_HANDSHAKE_CONNECT "CONNECT PageKite:1 HTTP/1.0\r\n"
 #ifdef ANDROID
 #define PK_HANDSHAKE_FEATURES ("X-PageKite-Features: Mobile\r\n" \
