@@ -648,9 +648,10 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
 int pkm_reconnect_all(struct pk_manager *pkm) {
   struct pk_frontend *fe;
   struct pk_kite_request *kite_r;
-  int i, j, reconnect, partial;
+  unsigned int status;
+  int i, j, reconnect, tried, connected;
 
-  partial = 0;
+  tried = connected = 0;
 
   /* Loop through all configured kites:
    *   - if missing a desired front-end, tear down tunnels and reconnect.
@@ -677,6 +678,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
     }
 
     if (reconnect) {
+      tried++;
       pk_log(PK_LOG_MANAGER_INFO, "Connecting to %s:%d",
                                   fe->fe_hostname, fe->fe_port);
       if (0 <= fe->conn.sockfd) {
@@ -685,8 +687,9 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         close(fe->conn.sockfd);
         fe->conn.sockfd = -1;
       }
+      status = fe->conn.status;
       pkm_reset_conn(&(fe->conn));
-      fe->conn.status = CONN_STATUS_ALLOCATED;
+      fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
       /* Unblock the event loop while we attempt to connect. */
       pkm_unblock(pkm);
@@ -706,6 +709,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
 
         ev_io_start(pkm->loop, &(fe->conn.watch_r));
         fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
+        connected++;
       }
       else {
         pkm_block(pkm); /* Re-block */
@@ -714,12 +718,11 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         fe->request_count = 0;
         pkm_reset_conn(&(fe->conn));
         pk_perror("pkmanager.c");
-        partial++;
       }
     }
   }
   pkm_unblock(pkm);
-  return partial;
+  return tried;
 }
 
 void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
@@ -1031,7 +1034,7 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
   adding->ai = ai;
   adding->fe_hostname = strdup(hostname);
   adding->fe_port = port;
-  adding->conn.status = flags;
+  adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
   adding->request_count = 0;
   adding->priority = 0;
 

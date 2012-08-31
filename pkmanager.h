@@ -96,6 +96,7 @@ struct pk_conn {
 #define FE_STATUS_REJECTED  0x08000000  /* Front-end rejected connection   */
 #define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
 #define FE_STATUS_IS_FAST   0x20000000  /* This is a fast front-end        */
+#define FE_STATUS_BITS      0xff000000
 struct pk_frontend {
   char*                   fe_hostname;
   int                     fe_port;
