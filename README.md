@@ -84,3 +84,7 @@ on which license applies to you.
 Commercial support for this code, as well as managed front-end relay service,
 are available from <https://pagekite.net/>.
 
+Development of this code was partially sponsored by
+[SurfNet](http://www.surfnet.nl) and the [Icelandic Technology Development
+fund](http://www.rannis.is/).
+
