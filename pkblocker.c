@@ -240,7 +240,7 @@ void pkb_check_frontend_pingtimes(struct pk_manager* pkm)
 
 void pkb_update_dns(struct pk_manager* pkm)
 {
-  int j, len, missing, rlen;
+  int j, len, bogus, rlen;
   struct pk_frontend* fe;
   struct pk_pagekite* kite;
   char printip[128], get_result[10240];
@@ -249,23 +249,25 @@ void pkb_update_dns(struct pk_manager* pkm)
   address_list[0] = '\0';
   alp = address_list;
 
-  missing = 0;
+  bogus = 0;
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
-    if ((fe->ai) &&
-        (fe->conn.sockfd >= 0) &&
-        (fe->conn.status & FE_STATUS_WANTED)) {
-      if (NULL != in_addr_to_str(fe->ai->ai_addr, printip, 128)) {
-        len = strlen(printip);
-        if (len < 1000-(alp-address_list)) {
-          if (alp != address_list) *alp++ = ',';
-          strcpy(alp, printip);
-          alp += len;
+    if ((fe->ai) && (fe->conn.sockfd >= 0)) {
+      if (fe->conn.status & FE_STATUS_WANTED) {
+        if (NULL != in_addr_to_str(fe->ai->ai_addr, printip, 128)) {
+          len = strlen(printip);
+          if (len < 1000-(alp-address_list)) {
+            if (alp != address_list) *alp++ = ',';
+            strcpy(alp, printip);
+            alp += len;
+          }
         }
+        if (!(fe->conn.status & FE_STATUS_IN_DNS)) bogus++;
       }
-      if (!(fe->conn.status & FE_STATUS_IN_DNS)) missing++;
+      else /* Stuff in DNS that shouldn't be also triggers updates */
+        if (fe->conn.status & FE_STATUS_IN_DNS) bogus++;
     }
   }
-  if (!missing) return;
+  if (!bogus) return;
 
   for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
     if (kite->protocol != NULL) {
