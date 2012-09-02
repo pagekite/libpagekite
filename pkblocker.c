@@ -157,8 +157,7 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
       for (rp = result; rp != NULL; rp = rp->ai_next) {
         for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
           if ((fe->ai) &&
-              (fe->ai->ai_addrlen == rp->ai_addrlen) &&
-              (0 == memcmp(fe->ai->ai_addr, rp->ai_addr, rp->ai_addrlen))) {
+              (0 == addrcmp(fe->ai->ai_addr, rp->ai_addr))) {
             pk_log(PK_LOG_MANAGER_DEBUG, "In DNS for %s: %s",
                                          kite->public_domain,
                                          in_addr_to_str(fe->ai->ai_addr,
@@ -167,6 +166,7 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
           }
         }
       }
+      freeaddrinfo(result);
     }
   }
 }
@@ -189,6 +189,7 @@ void* pkb_frontend_ping(void* void_fe) {
     if (sockfd >= 0)
       close(sockfd);
     pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (connect)", printip);
+    sleep(2); /* We don't want to return first! */
     return NULL;
   }
   want = strlen(PK_FRONTEND_PONG);
@@ -196,6 +197,7 @@ void* pkb_frontend_ping(void* void_fe) {
   if ((bytes != want) ||
       (0 != strncmp(buffer, PK_FRONTEND_PONG, want))) {
     pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (read=%d)", printip, bytes);
+    sleep(2); /* We don't want to return first! */
     return NULL;
   }
   close(sockfd);
@@ -224,12 +226,71 @@ void pkb_check_frontend_pingtimes(struct pk_manager* pkm)
   }
 }
 
+void pkb_update_dns(struct pk_manager* pkm)
+{
+  int j, len, missing, rlen;
+  struct pk_frontend* fe;
+  struct pk_pagekite* kite;
+  char printip[128], get_result[10240];
+  char address_list[1024], payload[2048], signature[2048], url[2048], *alp;
+
+  address_list[0] = '\0';
+  alp = address_list;
+
+  missing = 0;
+  for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
+    if ((fe->ai) &&
+        (fe->conn.sockfd >= 0) &&
+        (fe->conn.status & FE_STATUS_WANTED)) {
+      if (NULL != in_addr_to_str(fe->ai->ai_addr, printip, 128)) {
+        len = strlen(printip);
+        if (len < 1000-(alp-address_list)) {
+          if (alp != address_list) *alp++ = ',';
+          strcpy(alp, printip);
+          alp += len;
+        }
+      }
+      if (!(fe->conn.status & FE_STATUS_IN_DNS)) missing++;
+    }
+  }
+  if (!missing) return;
+
+  for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
+    if (kite->protocol != NULL) {
+      sprintf(payload, "%s:%s", kite->public_domain, address_list);
+      pk_sign(NULL, kite->auth_secret, payload, 100, signature);
+
+      sprintf(url, pkm->dynamic_dns_url,
+              kite->public_domain, address_list, signature);
+      rlen = http_get(url, get_result, 10240);
+
+      pk_log(PK_LOG_MANAGER_DEBUG, "*** DDNS UP: %s", url);
+      pk_log(PK_LOG_MANAGER_DEBUG, "*** RESULT(%d): %s", rlen, get_result);
+    }
+  }
+}
+
+void pkb_log_fe_status(struct pk_manager* pkm)
+{
+  int j;
+  struct pk_frontend* fe;
+  char printip[128];
+  for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
+    if (fe->ai) {
+      if (NULL != in_addr_to_str(fe->ai->ai_addr, printip, 128)) {
+        pk_log(PK_LOG_MANAGER_DEBUG, "  0x%8.8x %s", fe->conn.status, printip);
+      }
+    }
+  }
+}
+
 void pkb_check_world(struct pk_manager* pkm)
 {
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking state of world...");
   pkb_clear_transient_flags(pkm);
   pkb_check_frontend_pingtimes(pkm);
   pkb_check_kites_dns(pkm);
+  pkb_log_fe_status(pkm);
   pkm->last_world_update = time(0);
 }
 
@@ -237,9 +298,10 @@ void pkb_check_frontends(struct pk_manager* pkm)
 {
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking frontends...");
   pkb_choose_frontends(pkm);
+  pkb_log_fe_status(pkm);
   pkm_reconnect_all(pkm);
   /* FIXME: Disconnect from idle front-ends we don't care about anymore. */
-  /* FIXME: Update DNS if anything changed.  */
+  if (pkm->dynamic_dns_url) pkb_update_dns(pkm);
 }
 
 void* pkb_run_blocker(void *void_pkm)

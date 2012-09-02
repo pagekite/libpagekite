@@ -713,10 +713,16 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
       }
       else {
         pkm_block(pkm); /* Re-block */
+
         /* FIXME: Is this the right behavior? */
         pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
         fe->request_count = 0;
+
+        status = fe->conn.status;
+        if (pk_error == ERR_CONNECT_REJECTED) status |= FE_STATUS_REJECTED;
         pkm_reset_conn(&(fe->conn));
+        fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
+
         pk_perror("pkmanager.c");
       }
     }
@@ -778,7 +784,8 @@ void pkm_reset_timer(struct pk_manager* pkm) {
 
 struct pk_manager* pkm_manager_init(struct ev_loop* loop,
                                     int buffer_size, char* buffer,
-                                    int kites, int frontends, int conns)
+                                    int kites, int frontends, int conns,
+                                    char *dynamic_dns_url)
 {
   struct pk_manager* pkm;
   int i;
@@ -846,7 +853,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   /* Allocate space for the blocking job queue */
   pkm->buffer_bytes_free -= sizeof(struct pk_job) * (conns+frontends);
   if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_BE_CONNS);
-  pkm->blocking_jobs.pile = (struct pk_blocking_job *) pkm->buffer;
+  pkm->blocking_jobs.pile = (struct pk_job *) pkm->buffer;
   pkm->blocking_jobs.max = (conns+frontends);
   for (i = 0; i < (conns+frontends); i++) {
     (pkm->blocking_jobs.pile+i)->job = PK_NO_JOB;
@@ -874,6 +881,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   }
   pkm->want_spare_frontends = 0;
   pkm->last_world_update = (time_t) 0;
+  pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
 
   /* Set up our event-loop callbacks */
   ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, 0);
@@ -1022,8 +1030,7 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
       if (adding == NULL) adding = fe;
     }
     else if ((ai->ai_addrlen) &&
-             (ai->ai_addrlen == fe->ai->ai_addrlen) &&
-             (0 == memcmp(fe->ai->ai_addr, ai->ai_addr, ai->ai_addrlen)))
+             (0 == addrcmp(fe->ai->ai_addr, ai->ai_addr)))
     {
       return NULL;
     }

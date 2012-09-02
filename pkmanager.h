@@ -156,6 +156,8 @@ struct pk_manager {
   int                      want_spare_frontends;
   time_t                   last_world_update;
 
+  char*                    dynamic_dns_url;
+
   pthread_t                blocking_thread;
   struct pk_job_pile       blocking_jobs;
 };
@@ -168,7 +170,7 @@ int pkm_stop_thread                 (struct pk_manager*);
 int pkm_reconnect_all               (struct pk_manager*);
 
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
-                                      int, char*, int, int, int);
+                                      int, char*, int, int, int, char*);
 void                 pkm_reset_timer(struct pk_manager*);
 struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
                                   const char*, const char*, int, const char*,

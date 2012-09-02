@@ -37,17 +37,17 @@ int pkmanager_test(void)
   int i;
 
   /* Are too-small buffers handled correctly? */
-  assert(NULL == pkm_manager_init(NULL, 1000, buffer, 1000, -1, -1));
-  assert(NULL == pkm_manager_init(NULL, 1000, buffer, -1, 1000, -1));
-  assert(NULL == pkm_manager_init(NULL, 1000, buffer, -1, -1, 1000));
+  assert(NULL == pkm_manager_init(NULL, 1000, buffer, 1000, -1, -1, NULL));
+  assert(NULL == pkm_manager_init(NULL, 1000, buffer, -1, 1000, -1, NULL));
+  assert(NULL == pkm_manager_init(NULL, 1000, buffer, -1, -1, 1000, NULL));
 
   /* Create a real one */
-  m = pkm_manager_init(NULL, PK_MANAGER_MINSIZE, buffer, -1, -1, -1);
+  m = pkm_manager_init(NULL, PK_MANAGER_MINSIZE, buffer, -1, -1, -1, NULL);
   if (m == NULL) pk_perror("pkmanager.c");
   assert(NULL != m);
 
   /* Create a real one from heap */
-  m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1);
+  m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1, NULL);
   assert(NULL != m);
 
   /* Ensure the right defaults are used. */

@@ -328,14 +328,41 @@ int pk_make_bsalt(struct pk_kite_request* kite_r) {
   return 1;
 }
 
+char* pk_sign(const char* token, const char* secret, const char* payload,
+              int length, char *buffer)
+{
+  SHA1_CTX context;
+  char *p, tbuffer[128], scratch[10240];
+
+  if (token == NULL) {
+    sprintf(scratch, "%8.8x", rand());
+    sha1_init(&context);
+    sha1_update(&context, (uint8_t*) secret, strlen(secret));
+    sha1_update(&context, (uint8_t*) scratch, strlen(scratch));
+    sha1_final(&context, (uint8_t*) scratch);
+    digest_to_hex((uint8_t*) scratch, tbuffer);
+    token = tbuffer;
+  }
+
+  strncpy(buffer, token, 8);
+  p = buffer+8;
+  sha1_init(&context);
+  sha1_update(&context, (uint8_t*) secret, strlen(secret));
+  if (payload) sha1_update(&context, (uint8_t*) payload, strlen(payload));
+  sha1_update(&context, (uint8_t*) token, 8);
+  sha1_final(&context, (uint8_t*) scratch);
+  digest_to_hex((uint8_t*) scratch, p);
+  buffer[length] = '\0';
+
+  return buffer;
+}
+
 int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt) {
   char request[1024];
-  char request_s[1024];
-  char request_salted_s[1024];
+  char request_sign[1024];
+  char request_salt[1024];
   char proto[64];
   char* fsalt;
-  SHA1_CTX context;
-  uint8_t signature[64];
   struct pk_pagekite* kite;
 
   kite = kite_r->kite;
@@ -354,17 +381,11 @@ int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt)
     fsalt = "";
 
   sprintf(request, "%s:%s:%s:%s", proto, kite->public_domain, kite_r->bsalt, fsalt);
-  sprintf(request_salted_s, "%8.8x", salt);
-  sprintf(request_s, "%s%s%s", kite->auth_secret, request, request_salted_s);
-
-  sha1_init(&context);
-  sha1_update(&context, (uint8_t*) request_s, strlen(request_s));
-  sha1_final(&context, signature);
-  digest_to_hex(signature, request_salted_s+8);
-  request_salted_s[36] = '\0';
+  sprintf(request_salt, "%8.8x", salt);
+  pk_sign(request_salt, kite->auth_secret, request, 36, request_sign);
 
   strcat(request, ":");
-  strcat(request, request_salted_s);
+  strcat(request, request_sign);
 
   return sprintf(buffer, PK_HANDSHAKE_KITE, request);
 }

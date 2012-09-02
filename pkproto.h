@@ -123,6 +123,7 @@ size_t            pk_format_eof(char*, const char*, int);
 size_t            pk_format_pong(char*);
 
 int               pk_make_bsalt(struct pk_kite_request*);
+char*             pk_sign(const char*, const char*, const char*, int, char *);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);
 char*             pk_parse_kite_request(struct pk_kite_request*, const char*);
 int               pk_connect_ai(struct addrinfo*, int,

@@ -25,11 +25,11 @@ These are Things TO DO for libpagekite.
    * pkmanager.c: added flow control for individual streams
    * pkmanager.c: added flow control for tunnels
    * pkblocker.c: choose best front-end automatically.
+   * pkblocker.c: Update DNS records
 
 ### Ahead ###
 
    * pkproto.c: add SSL support
-   * pkblocker.c: Update DNS records
    * libpagekite: create simple fork/thread/anonymous-pipe based API for
                   easily adding PageKite support to existing TCP/IP servers.
    * pkproto.c: add ZChunk support

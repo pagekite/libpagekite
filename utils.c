@@ -19,14 +19,10 @@ along with this program.  If not, see: <http://www.gnu.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <arpa/inet.h>
-#include <errno.h>
+
+#include "includes.h"
 #include <fcntl.h>
 #include <poll.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 int zero_first_crlf(int length, char* data)
 {
@@ -84,21 +80,102 @@ ssize_t timed_read(int sockfd, void* buf, size_t count, int timeout)
 /* http://www.beej.us/guide/bgnet/output/html/multipage/inet_ntopman.html */
 char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
 {
-    switch (sa->sa_family) {
-        case AF_INET:
-            inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
-                    s, maxlen);
-            break;
+  switch (sa->sa_family) {
+    case AF_INET:
+      inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
+                s, maxlen);
+      break;
 
-        case AF_INET6:
-            inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
-                    s, maxlen);
-            break;
+    case AF_INET6:
+      inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
+                s, maxlen);
+      break;
 
-        default:
-            strncpy(s, "Unknown AF", maxlen);
-            return NULL;
+    default:
+      strncpy(s, "Unknown AF", maxlen);
+      return NULL;
+  }
+  return s;
+}
+
+int addrcmp(const struct sockaddr *a, const struct sockaddr *b)
+{
+  if (a->sa_family != b->sa_family) return 1;
+  switch (a->sa_family) {
+    case AF_INET:
+      return memcmp(&(((struct sockaddr_in*) a)->sin_addr),
+                    &(((struct sockaddr_in*) b)->sin_addr),
+                    sizeof(struct in_addr));
+    case AF_INET6:
+      return memcmp(&(((struct sockaddr_in6*) a)->sin6_addr),
+                    &(((struct sockaddr_in6*) b)->sin6_addr),
+                    sizeof(struct in6_addr));
+  }
+  return 2;
+}
+
+int http_get(const char* url, char* result_buffer, size_t maxlen)
+{
+  char *urlparse, *hostname, *port, *path;
+  struct addrinfo hints, *result, *rp;
+  char request[10240], *bp;
+  int sockfd, rlen, bytes, total_bytes;
+
+  /* http://hostname:port/foo */
+  urlparse = strdup(url);
+  hostname = urlparse+7;
+  while (*hostname && *hostname == '/') hostname++;
+  port = hostname;
+  while (*port && *port != '/' && *port != ':') port++;
+  if (*port == '/') {
+    path = port;
+    *path++ = '\0';
+    port = (url[5] == 's') ? "443" : "80";
+  }
+  else {
+    *port++ = '\0';
+    path = port;
+    while (*path && *path != '/') path++;
+    *path++ = '\0';
+  }
+
+  rlen = snprintf(request, 10240,
+                  "GET /%s HTTP/1.1\r\nHost: %s\r\n\r\n", path, hostname);
+  if (10240 == rlen)
+  {
+    free(urlparse);
+    return -1;
+  }
+
+  total_bytes = 0;
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  if (0 == getaddrinfo(hostname, port, &hints, &result)) {
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+      if ((0 > (sockfd = socket(rp->ai_family, rp->ai_socktype,
+                                rp->ai_protocol))) ||
+          (0 > connect(sockfd, rp->ai_addr, rp->ai_addrlen)) ||
+          (0 > write(sockfd, request, rlen)))
+      {
+        if (sockfd >= 0) close(sockfd);
+      }
+      else {
+        total_bytes = 0;
+        bp = result_buffer;
+        do {
+          bytes = timed_read(sockfd, bp, maxlen-(1+total_bytes), 1000);
+          if (bytes > 0) {
+            bp += bytes;
+            total_bytes += bytes;
+          }
+        } while (bytes > 0);
+        *bp = '\0';
+        break;
+      }
     }
-
-    return s;
+    freeaddrinfo(result);
+  }
+  free(urlparse);
+  return total_bytes;
 }
