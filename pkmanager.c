@@ -39,6 +39,7 @@ static void pkm_interrupt_cb(EV_P_ ev_async *w, int revents)
 {
   struct pk_manager* pkm = (struct pk_manager*) w->data;
   pkm_yield(pkm);
+  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 void pkm_interrupt(struct pk_manager *pkm)
 {
@@ -69,6 +70,7 @@ void pkm_unblock(struct pk_manager *pkm)
 static void pkm_quit_cb(EV_P_ ev_async *w, int revents)
 {
   ev_unloop(EV_A_ EVUNLOOP_ALL);
+  w = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 void pkm_quit(struct pk_manager* pkm)
 {
@@ -180,7 +182,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   }
 
   /* Try to connect and set non-blocking. */
-  errno = 0;
+  errno = sockfd = 0;
   if ((NULL == addr) ||
       (0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
       (0 > connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))) ||
@@ -298,9 +300,7 @@ ssize_t pkm_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
                   char* where)
 {
   ssize_t flushed, wrote, bytes;
-  flushed = 0;
-  wrote = 0;
-  errno = 0;
+  flushed = wrote = errno = bytes = 0;
 
   if (pkc->sockfd < 0) {
     pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Bogus flush?",
@@ -593,6 +593,7 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
     fe->conn.status |= CONN_STATUS_CLS_READ;
   }
   pkm_update_io(fe, NULL);
+  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 
 void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
@@ -600,13 +601,13 @@ void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
   pkm_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
   pkm_update_io(fe, NULL);
+  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 
 void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_backend_conn* pkb;
   size_t bytes;
-  char eof[64];
 
   pkb = (struct pk_backend_conn*) w->data;
   bytes = pkm_read_data(&(pkb->conn));
@@ -625,6 +626,7 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
     pkb->conn.status |= CONN_STATUS_BROKEN;
   }
   pkm_update_io(pkb->frontend, pkb);
+  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 
 void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
@@ -643,6 +645,7 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
             pkb->kite->local_domain, pkb->kite->local_port);
   }
   pkm_update_io(pkb->frontend, pkb);
+  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 
 int pkm_reconnect_all(struct pk_manager *pkm) {
@@ -774,6 +777,8 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   else {
     ev_timer_stop(pkm->loop, &(pkm->timer));
   }
+
+  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 
 void pkm_reset_timer(struct pk_manager* pkm) {

@@ -171,6 +171,7 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
           }
         } while (bytes > 0);
         *bp = '\0';
+        close(sockfd);
         break;
       }
     }
