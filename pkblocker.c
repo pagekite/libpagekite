@@ -89,19 +89,31 @@ void pkb_clear_transient_flags(struct pk_manager* pkm)
 
 void pkb_choose_frontends(struct pk_manager* pkm)
 {
-  int i, wanted;
+  int i, wanted, wantn;
   struct pk_frontend* fe;
-  struct pk_frontend* highpri = NULL;
+  struct pk_frontend* highpri;
 
+  /* Clear WANTED flag... */
   for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
-    if ((fe->ai) &&
-        (fe->priority) &&
-        ((highpri == NULL) || (highpri->priority > fe->priority)) &&
-        (!(fe->conn.status & (FE_STATUS_REJECTED|FE_STATUS_LAME))))
-      highpri = fe;
+    if (fe->ai) fe->conn.status &= ~(FE_STATUS_WANTED|FE_STATUS_IS_FAST);
   }
-  if (highpri != NULL)
-    highpri->conn.status |= FE_STATUS_IS_FAST;
+
+  /* Choose N fastest: this is inefficient, but trivially correct. */
+  for (wantn = 0; wantn < pkm->want_spare_frontends+1; wantn++) {
+    highpri = NULL;
+    for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
+      if ((fe->ai) &&
+          (fe->priority) &&
+          ((highpri == NULL) || (highpri->priority > fe->priority)) &&
+          (!(fe->conn.status & (FE_STATUS_WANTED
+                               |FE_STATUS_REJECTED
+                               |FE_STATUS_IS_FAST
+                               |FE_STATUS_LAME))))
+        highpri = fe;
+    }
+    if (highpri != NULL)
+      highpri->conn.status |= FE_STATUS_IS_FAST;
+  }
 
   wanted = 0;
   for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
