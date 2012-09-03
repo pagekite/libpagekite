@@ -40,7 +40,7 @@ Note: For alternate license terms, see the file COPYING.md.
 struct pk_global_state pk_state;
 
 void usage(void) {
-  printf("Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET\n");
+  fprintf(stderr, "Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET\n");
 }
 
 int main(int argc, char **argv) {
@@ -48,6 +48,7 @@ int main(int argc, char **argv) {
   char* proto;
   char* kitename;
   char* secret;
+  int ac;
   int pport;
   int lport;
   SSL_CTX* ssl_ctx;
@@ -55,31 +56,43 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  if ((argc != 6) ||
-      (1 != sscanf(argv[1], "%d", &lport)) ||
-      (1 != sscanf(argv[4], "%d", &pport))) {
+  if ((argc-1) < 5 || ((argc-1) % 5) != 0) {
     usage();
     exit(1);
   }
-  proto = argv[2];
-  kitename = argv[3];
-  secret = argv[5];
 
   pk_state.log_mask = PK_LOG_NORMAL;
   pk_state.log_mask = PK_LOG_ALL;
 
   INIT_PAGEKITE_SSL(ssl_ctx);
-
-  if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 10, 100,
-                                     PK_DDNS, ssl_ctx))) ||
-      (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
-                                "localhost", lport))) ||
-      (0 >= (pkm_add_frontend(m, kitename, pport, FE_STATUS_AUTO))) ||
-      (0 >= (pkm_add_frontend(m, PK_V4FRONTENDS, 443, FE_STATUS_AUTO))) ||
-      (0 >= (pkm_add_frontend(m, PK_V6FRONTENDS, 443, FE_STATUS_AUTO))) ||
-      (0 > pkm_run_in_thread(m))) {
+  if (NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 10, 50,
+                                    PK_DDNS, ssl_ctx))) {
     pk_perror(argv[0]);
     exit(1);
+  }
+
+  for (ac = 0; ac+5 < argc; ac += 5) {
+    if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
+        (1 != sscanf(argv[ac+4], "%d", &pport))) {
+      usage();
+      exit(2);
+    }
+    proto = argv[ac+2];
+    kitename = argv[ac+3];
+    secret = argv[ac+5];
+    if ((NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
+                               "localhost", lport))) ||
+        (0 > (pkm_add_frontend(m, kitename, pport, FE_STATUS_AUTO)))) {
+      pk_perror(argv[0]);
+      exit(3);
+    }
+  }
+
+  if ((0 > (pkm_add_frontend(m, PK_V4FRONTENDS, 443, FE_STATUS_AUTO))) ||
+      (0 > (pkm_add_frontend(m, PK_V6FRONTENDS, 443, FE_STATUS_AUTO))) ||
+      (0 > pkm_run_in_thread(m))) {
+    pk_perror(argv[0]);
+    exit(4);
   }
 
   pkm_wait_thread(m);
