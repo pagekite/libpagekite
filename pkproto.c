@@ -429,7 +429,7 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
 
 int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
                   unsigned int n, struct pk_kite_request* requests,
-                  char *session_id)
+                  char *session_id, SSL_CTX *ctx)
 {
   unsigned int i, j, bytes;
   char buffer[16*1024], *p;
@@ -437,8 +437,14 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   struct pk_kite_request tkite_r;
 
   pk_log(PK_LOG_TUNNEL_DATA, "Connecting to front-end");
+
   if (0 > pkc_connect(pkc, ai))
     return (pk_error = ERR_CONNECT_CONNECT);
+
+  set_blocking(pkc->sockfd);
+#ifdef HAVE_OPENSSL
+  if (ctx != NULL) pkc_start_ssl(pkc, ctx);
+#endif
 
   pkc_write(pkc, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT));
   pkc_write(pkc, PK_HANDSHAKE_FEATURES, strlen(PK_HANDSHAKE_FEATURES));
@@ -531,7 +537,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
     }
     else {
       pkc_reset_conn(pkc);
-      return pk_connect_ai(pkc, ai, 1, n, requests, session_id);
+      return pk_connect_ai(pkc, ai, 1, n, requests, session_id, ctx);
     }
   }
 
@@ -546,7 +552,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
 
 int pk_connect(struct pk_conn* pkc, char *frontend, int port,
                unsigned int n, struct pk_kite_request* requests,
-               char *session_id)
+               char *session_id, SSL_CTX *ctx)
 {
   int rv;
   char ports[16];
@@ -561,7 +567,7 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
   sprintf(ports, "%d", port);
   if (0 == getaddrinfo(frontend, ports, &hints, &result)) {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-      rv = pk_connect_ai(pkc, rp, 0, n, requests, session_id);
+      rv = pk_connect_ai(pkc, rp, 0, n, requests, session_id, ctx);
       if ((rv >= 0) ||
           (rv != ERR_CONNECT_CONNECT))
         return rv;

@@ -22,6 +22,14 @@
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
+#define INIT_PAGEKITE_SSL(ctx)    SSL_load_error_strings(); \
+                                  ERR_load_BIO_strings(); \
+                                  OpenSSL_add_all_algorithms(); \
+                                  SSL_library_init(); \
+                                  ctx = SSL_CTX_new(TLSv1_method());
+#else
+#define SSL_CTX                   void
+#define INIT_PAGEKITE_SSL(ctx)    ctx = NULL
 #endif
 
 #ifndef ANDROID

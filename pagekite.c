@@ -50,6 +50,10 @@ int main(int argc, char **argv) {
   char* secret;
   int pport;
   int lport;
+  SSL_CTX* ssl_ctx;
+
+  /* FIXME: Is this too lame? */
+  srand(time(0) ^ getpid());
 
   if ((argc != 6) ||
       (1 != sscanf(argv[1], "%d", &lport)) ||
@@ -64,7 +68,10 @@ int main(int argc, char **argv) {
   pk_state.log_mask = PK_LOG_NORMAL;
   pk_state.log_mask = PK_LOG_ALL;
 
-  if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 10, 100, PK_DDNS))) ||
+  INIT_PAGEKITE_SSL(ssl_ctx);
+
+  if ((NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 10, 100,
+                                     PK_DDNS, ssl_ctx))) ||
       (NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
                                 "localhost", lport))) ||
       (0 >= (pkm_add_frontend(m, kitename, pport, FE_STATUS_AUTO))) ||

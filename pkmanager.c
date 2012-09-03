@@ -320,7 +320,8 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     }
   }
   else {
-    if (pkc->status & CONN_STATUS_BLOCKED) {
+    if ((pkc->status & CONN_STATUS_BLOCKED) &&
+        !(pkc->status & CONN_STATUS_WANT_READ)) {
       pk_log(loglevel, "%d: Throttled.", pkc->sockfd);
       ev_io_stop(pkm->loop, &(pkc->watch_r));
     }
@@ -346,7 +347,8 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     flows -= 1;
     pk_log(loglevel, "%d: Closed for writing.", pkc->sockfd);
   }
-  else if (0 < pkc->out_buffer_pos) {
+  else if ((0 < pkc->out_buffer_pos) ||
+           (pkc->status & CONN_STATUS_WANT_WRITE)) {
     /* Blocked: activate write listener */
     ev_io_start(pkm->loop, &(pkc->watch_w));
     pk_log(loglevel, "%d: Blocked!", pkc->sockfd);
@@ -397,7 +399,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     }
     else {
       /* FIXME: Is this the right way to clean up dead tunnels? */
-      pkm_reset_conn(&(fe->conn));
+      pkc_reset_conn(&(fe->conn));
       fe->request_count = 0;
       pkm_reset_timer(pkm);
     }
@@ -481,6 +483,7 @@ void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
 void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
+  fe->conn.status &= ~CONN_STATUS_WANT_READ;
   if (0 < pkc_read(&(fe->conn))) {
     if (0 > pk_parser_parse(fe->parser,
                             fe->conn.in_buffer_pos,
@@ -499,17 +502,25 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
+
+  /* This is necessary for SSL handshakes and the like. */
+  if (fe->conn.status & CONN_STATUS_WANT_WRITE) {
+    fe->conn.status &= ~CONN_STATUS_WANT_WRITE;
+    if (0 == fe->conn.out_buffer_pos)
+      pkc_raw_write(&(fe->conn), NULL, 0);
+  }
   pkc_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
+
   pkm_update_io(fe, NULL);
   loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 
 void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
 {
-  struct pk_backend_conn* pkb;
+  struct pk_backend_conn* pkb = (struct pk_backend_conn*) w->data;
   size_t bytes;
 
-  pkb = (struct pk_backend_conn*) w->data;
+  pkb->conn.status &= ~CONN_STATUS_WANT_READ;
   bytes = pkc_read(&(pkb->conn));
   if ((0 < bytes) &&
       (0 <= pkm_write_chunked(pkb->frontend, pkb,
@@ -527,9 +538,15 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
 
 void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
 {
-  struct pk_backend_conn* pkb;
+  struct pk_backend_conn* pkb = (struct pk_backend_conn*) w->data;
 
-  pkb = (struct pk_backend_conn*) w->data;
+  /* This is necessary for SSL handshakes and the like. */
+  if (pkb->conn.status & CONN_STATUS_WANT_WRITE) {
+    pkb->conn.status &= ~CONN_STATUS_WANT_WRITE;
+    if (0 == pkb->conn.out_buffer_pos)
+      pkc_raw_write(&(pkb->conn), NULL, 0);
+  }
+
   pkc_flush(&(pkb->conn), NULL, 0, NON_BLOCKING_FLUSH, "be_conn");
   if (pkb->conn.out_buffer_pos == 0)
   {
@@ -587,7 +604,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         fe->conn.sockfd = -1;
       }
       status = fe->conn.status;
-      pkm_reset_conn(&(fe->conn));
+      pkc_reset_conn(&(fe->conn));
       fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
       /* Unblock the event loop while we attempt to connect. */
@@ -595,7 +612,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
 
       if ((0 <= pk_connect_ai(&(fe->conn), fe->ai, 0,
                               fe->request_count, fe->requests,
-                              (fe->fe_session))) &&
+                              (fe->fe_session), fe->manager->ssl_ctx)) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
         pk_log(PK_LOG_MANAGER_INFO, "Connected!");
         pkm_block(pkm); /* Re-block */
@@ -618,7 +635,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
 
         status = fe->conn.status;
         if (pk_error == ERR_CONNECT_REJECTED) status |= FE_STATUS_REJECTED;
-        pkm_reset_conn(&(fe->conn));
+        pkc_reset_conn(&(fe->conn));
         fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
         pk_perror("pkmanager.c");
@@ -685,7 +702,7 @@ void pkm_reset_timer(struct pk_manager* pkm) {
 struct pk_manager* pkm_manager_init(struct ev_loop* loop,
                                     int buffer_size, char* buffer,
                                     int kites, int frontends, int conns,
-                                    char *dynamic_dns_url)
+                                    char *dynamic_dns_url, SSL_CTX* ctx)
 {
   struct pk_manager* pkm;
   int i;
@@ -736,6 +753,9 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->buffer += sizeof(struct pk_frontend) * frontends;
   for (i = 0; i < frontends; i++) {
     (pkm->frontends + i)->requests = (struct pk_kite_request*) pkm->buffer;
+#ifdef HAVE_OPENSSL
+    (pkm->frontends + i)->conn.ssl = NULL;
+#endif
     pkm->buffer += (sizeof(struct pk_kite_request) * kites);
   }
 
@@ -746,7 +766,10 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->be_conn_max = conns;
   for (i = 0; i < conns; i++) {
     (pkm->be_conns+i)->conn.sockfd = -1;
-    pkm_reset_conn(&(pkm->be_conns+i)->conn);
+#ifdef HAVE_OPENSSL
+    (pkm->be_conns+i)->conn.ssl = NULL;
+#endif
+    pkc_reset_conn(&(pkm->be_conns+i)->conn);
   }
   pkm->buffer += sizeof(struct pk_backend_conn) * conns;
 
@@ -772,6 +795,9 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   for (i = 0; i < frontends; i++) {
     (pkm->frontends+i)->manager = pkm;
     (pkm->frontends+i)->conn.sockfd = -1;
+#ifdef HAVE_OPENSSL
+    (pkm->frontends+i)->conn.ssl = NULL;
+#endif
     (pkm->frontends+i)->parser = pk_parser_init(parse_buffer_bytes,
                                                 (char *) pkm->buffer,
                                                (pkChunkCallback*) &pkm_chunk_cb,
@@ -782,6 +808,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->want_spare_frontends = 0;
   pkm->last_world_update = (time_t) 0;
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
+  pkm->ssl_ctx = ctx;
 
   /* Set up our event-loop callbacks */
   ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, 0);
@@ -818,7 +845,7 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
       ev_io_stop(pkm->loop, &(pkc->watch_w));
-      pkm_reset_conn(pkc);
+      pkc_reset_conn(pkc);
     }
   }
   for (i = 0; i < pkm->be_conn_max; i++) {
@@ -826,7 +853,7 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
       ev_io_stop(pkm->loop, &(pkc->watch_w));
-      pkm_reset_conn(pkc);
+      pkc_reset_conn(pkc);
     }
   }
   ev_async_stop(pkm->loop, &(pkm->quit));
@@ -960,20 +987,6 @@ unsigned char pkm_sid_shift(char *sid)
   return shift;
 }
 
-void pkm_reset_conn(struct pk_conn* pkc)
-{
-  pkc->status = CONN_STATUS_UNKNOWN;
-  pkc->activity = time(0);
-  pkc->out_buffer_pos = 0;
-  pkc->in_buffer_pos = 0;
-  pkc->send_window_kb = CONN_WINDOW_SIZE_KB_MAXIMUM/2;
-  pkc->read_bytes = 0;
-  pkc->read_kb = 0;
-  pkc->sent_kb = 0;
-  if (pkc->sockfd >= 0) close(pkc->sockfd);
-  pkc->sockfd = -1;
-}
-
 struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
                                           struct pk_frontend* fe, char *sid)
 {
@@ -985,7 +998,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
   for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
     if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
-      pkm_reset_conn(&(pkb->conn));
+      pkc_reset_conn(&(pkb->conn));
       pkb->frontend = fe;
       pkb->conn.status = CONN_STATUS_ALLOCATED;
       strncpy(pkb->sid, sid, BE_MAX_SID_SIZE);

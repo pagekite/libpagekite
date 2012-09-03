@@ -42,8 +42,7 @@ void pkc_reset_conn(struct pk_conn* pkc)
   pkc->sent_kb = 0;
   if (pkc->sockfd >= 0) close(pkc->sockfd);
   pkc->sockfd = -1;
-  pkc->state_r = CONN_CLEAR_DATA;
-  pkc->state_w = CONN_CLEAR_DATA;
+  pkc->state = CONN_CLEAR_DATA;
 #ifdef HAVE_OPENSSL
   if (pkc->ssl) SSL_free(pkc->ssl);
   pkc->ssl = NULL;
@@ -63,13 +62,75 @@ int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
 
   /* FIXME: Add support for chaining through socks or HTTP proxies */
 
-  set_non_blocking(pkc->sockfd);
   return (pkc->sockfd = fd);
 }
 
 #ifdef HAVE_OPENSSL
-int pkc_start_ssl(struct pk_conn* pkc)
+static void pkc_start_handshake(struct pk_conn* pkc, int err)
 {
+  pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+         "%d: Started SSL handshake", pkc->sockfd);
+
+  pkc->state = CONN_SSL_HANDSHAKE;
+  if (err == SSL_ERROR_WANT_READ) {
+    pkc->status |= CONN_STATUS_WANT_READ;
+  }
+  else if (err == SSL_ERROR_WANT_WRITE) {
+    pkc->status |= CONN_STATUS_WANT_WRITE;
+  }
+}
+
+static void pkc_end_handshake(struct pk_conn *pkc)
+{
+  pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+         "%d: Finished SSL handshake", pkc->sockfd);
+  pkc->status &= ~(CONN_STATUS_WANT_WRITE|CONN_STATUS_WANT_READ);
+  pkc->state = CONN_SSL_DATA;
+}
+
+static void pkc_do_handshake(struct pk_conn *pkc)
+{
+  int rv = SSL_do_handshake(pkc->ssl);
+  if (rv == 1) {
+    pkc_end_handshake(pkc);
+  }
+  else {
+    int err = SSL_get_error(pkc->ssl, rv);
+    switch (err) {
+      case SSL_ERROR_WANT_READ:
+        pkc->status |= CONN_STATUS_WANT_READ;
+        break;
+      case SSL_ERROR_WANT_WRITE:
+        pkc->status |= CONN_STATUS_WANT_WRITE;
+        break;
+      case SSL_ERROR_ZERO_RETURN:
+        pkc->status |= CONN_STATUS_BROKEN;
+        break;
+      default:
+        pkc->status |= CONN_STATUS_BROKEN;
+        break;
+    }
+  }
+}
+
+int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx)
+{
+  long mode;
+  pkc->ssl = SSL_new(ctx);
+  /* FIXME: Error checking? */
+
+  mode = SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
+#ifdef SSL_MODE_RELEASE_BUFFERS
+  mode |= SSL_MODE_RELEASE_BUFFERS;
+#endif
+  SSL_set_mode(pkc->ssl, mode);
+  SSL_set_connect_state(pkc->ssl);
+  SSL_set_app_data(pkc->ssl, pkc);
+  SSL_set_fd(pkc->ssl, pkc->sockfd);
+
+  pkc_start_handshake(pkc, SSL_ERROR_WANT_WRITE);
+  pkc_do_handshake(pkc);
+
   return -1;
 }
 #endif
@@ -78,6 +139,7 @@ int pkc_wait(struct pk_conn* pkc, int timeout)
 {
   int rv;
   struct pollfd pfd;
+  set_non_blocking(pkc->sockfd);
   pfd.fd = pkc->sockfd;
   pfd.events = (POLLIN | POLLPRI | POLLHUP);
   do {
@@ -89,7 +151,19 @@ int pkc_wait(struct pk_conn* pkc, int timeout)
 ssize_t pkc_read(struct pk_conn* pkc)
 {
   ssize_t bytes, delta;
-  bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
+
+  switch (pkc->state) {
+#ifdef HAVE_OPENSSL
+    case CONN_SSL_DATA:
+      bytes = SSL_read(pkc->ssl, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
+      break;
+    case CONN_SSL_HANDSHAKE:
+      pkc_do_handshake(pkc);
+      return 0;
+#endif
+    default:
+      bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
+  }
 
   if (bytes > 0) {
     pkc->in_buffer_pos += bytes;
@@ -120,6 +194,43 @@ ssize_t pkc_read(struct pk_conn* pkc)
   return bytes;
 }
 
+ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
+  ssize_t wrote = 0;
+  switch (pkc->state) {
+#ifdef HAVE_OPENSSL
+    case CONN_SSL_DATA:
+      if (length) {
+        wrote = SSL_write(pkc->ssl, data, length);
+        if (wrote < 0) {
+          int err = SSL_get_error(pkc->ssl, wrote);
+          switch (err) {
+            case SSL_ERROR_NONE:
+              break;
+            case SSL_ERROR_WANT_WRITE:
+              pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+                     "%d: %p/%d/%d/WANT_WRITE", pkc->sockfd, data, wrote, length);
+              pkc->status |= CONN_STATUS_WANT_WRITE;
+              break;
+            default:
+              pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+                     "%d: SSL_ERROR=%d: %p/%d/%d", pkc->sockfd, err, data, wrote, length);
+          }
+        }
+      }
+      break;
+
+    case CONN_SSL_HANDSHAKE:
+      pkc_do_handshake(pkc);
+      return 0;
+#endif
+
+    default:
+      if (length)
+        wrote = write(pkc->sockfd, data, length);
+  }
+  return wrote;
+}
+
 ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
                   char* where)
 {
@@ -140,7 +251,7 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
 
   /* First, flush whatever was in the conn buffers */
   do {
-    wrote = write(pkc->sockfd, pkc->out_buffer, pkc->out_buffer_pos);
+    wrote = pkc_raw_write(pkc, pkc->out_buffer, pkc->out_buffer_pos);
     if (wrote > 0) {
       if (pkc->out_buffer_pos > wrote) {
         memmove(pkc->out_buffer,
@@ -166,7 +277,7 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
     /* So far so good, everything has been flushed. Write the new data! */
     flushed = wrote = 0;
     while ((length > wrote) || (errno == EINTR)) {
-      bytes = write(pkc->sockfd, data+wrote, length-wrote);
+      bytes = pkc_raw_write(pkc, data+wrote, length-wrote);
       if (bytes > 0) {
         wrote += bytes;
         flushed += bytes;
@@ -202,7 +313,7 @@ ssize_t pkc_write(struct pk_conn* pkc, char* data, ssize_t length)
   if (0 == pkc->out_buffer_pos) {
     errno = 0;
     do {
-      wrote = write(pkc->sockfd, data, length);
+      wrote = pkc_raw_write(pkc, data, length);
     } while ((wrote < 0) && (errno == EINTR));
   }
 

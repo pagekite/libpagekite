@@ -47,6 +47,7 @@ typedef enum {
 } io_state_t;
 
 #define CONN_IO_BUFFER_SIZE     PARSER_BYTES_MAX
+#define CONN_STATUS_BITS        0x0000FFFF
 #define CONN_STATUS_UNKNOWN     0x00000000
 #define CONN_STATUS_END_READ    0x00000001 /* Don't want more data     */
 #define CONN_STATUS_END_WRITE   0x00000002 /* Won't receive more data  */
@@ -57,7 +58,8 @@ typedef enum {
 #define CONN_STATUS_CLS_WRITE   0x00000020 /* No more writing possible */
 #define CONN_STATUS_BROKEN     (0x00000040|0x10|0x20) /* ... broken.   */
 #define CONN_STATUS_ALLOCATED   0x00000080
-#define CONN_STATUS_BITS        0x000000FF
+#define CONN_STATUS_WANT_READ   0x00000100 /* Want null reads when available  */
+#define CONN_STATUS_WANT_WRITE  0x00000200 /* Want null writes when available */
 #define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
 #define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
 #define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
@@ -76,8 +78,7 @@ struct pk_conn {
   char       out_buffer[CONN_IO_BUFFER_SIZE];
   ev_io      watch_r;
   ev_io      watch_w;
-  io_state_t state_r;
-  io_state_t state_w;
+  io_state_t state;
 #ifdef HAVE_OPENSSL
   SSL*       ssl;
 #endif
@@ -86,10 +87,11 @@ struct pk_conn {
 void    pkc_reset_conn(struct pk_conn*);
 int     pkc_connect(struct pk_conn*, struct addrinfo*);
 #ifdef HAVE_OPENSSL
-int     pkc_start_ssl(struct pk_conn*);
+int     pkc_start_ssl(struct pk_conn*, SSL_CTX*);
 #endif
 int     pkc_wait(struct pk_conn*, int);
 ssize_t pkc_read(struct pk_conn*);
+ssize_t pkc_raw_write(struct pk_conn*, char*, ssize_t);
 ssize_t pkc_flush(struct pk_conn*, char*, ssize_t, int, char*);
 ssize_t pkc_write(struct pk_conn*, char*, ssize_t);
 

@@ -30,6 +30,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 int pkmanager_test(void)
 {
+  void *N = NULL;
   char buffer[PK_MANAGER_MINSIZE];
   struct pk_manager* m;
   struct pk_backend_conn* c;
@@ -38,17 +39,17 @@ int pkmanager_test(void)
   int i;
 
   /* Are too-small buffers handled correctly? */
-  assert(NULL == pkm_manager_init(NULL, 1000, buffer, 1000, -1, -1, NULL));
-  assert(NULL == pkm_manager_init(NULL, 1000, buffer, -1, 1000, -1, NULL));
-  assert(NULL == pkm_manager_init(NULL, 1000, buffer, -1, -1, 1000, NULL));
+  assert(NULL == pkm_manager_init(N, 1000, buffer, 1000, -1, -1, N, N));
+  assert(NULL == pkm_manager_init(N, 1000, buffer, -1, 1000, -1, N, N));
+  assert(NULL == pkm_manager_init(N, 1000, buffer, -1, -1, 1000, N, N));
 
   /* Create a real one */
-  m = pkm_manager_init(NULL, PK_MANAGER_MINSIZE, buffer, -1, -1, -1, NULL);
+  m = pkm_manager_init(N, PK_MANAGER_MINSIZE, buffer, -1, -1, -1, N, N);
   if (m == NULL) pk_perror("pkmanager.c");
   assert(NULL != m);
 
   /* Create a real one from heap */
-  m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1, NULL);
+  m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1, NULL, NULL);
   assert(NULL != m);
 
   /* Ensure the right defaults are used. */
@@ -66,7 +67,7 @@ int pkmanager_test(void)
   assert(3 == *((char*) m->be_conns));
 
   /* Recreate, because those memsets broke things. */
-  m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1, NULL);
+  m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1, NULL, NULL);
   assert(NULL != m);
 
   /* Test pk_add_job and pk_get_job */

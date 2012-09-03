@@ -35,6 +35,7 @@ struct pk_job;
 struct pk_job_pile;
 
 /* These are also written to the conn.status field, using the fourth byte. */
+#define FE_STATUS_BITS      0xFF000000
 #define FE_STATUS_AUTO      0x00000000  /* For use in pkm_add_frontend     */
 #define FE_STATUS_WANTED    0x01000000  /* Algorithm chose this FE         */
 #define FE_STATUS_NAILED_UP 0x02000000  /* User chose this FE              */
@@ -42,7 +43,6 @@ struct pk_job_pile;
 #define FE_STATUS_REJECTED  0x08000000  /* Front-end rejected connection   */
 #define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
 #define FE_STATUS_IS_FAST   0x20000000  /* This is a fast front-end        */
-#define FE_STATUS_BITS      0xff000000
 struct pk_frontend {
   char*                   fe_hostname;
   int                     fe_port;
@@ -57,6 +57,7 @@ struct pk_frontend {
 };
 
 /* These are also written to the conn.status field, using the third byte. */
+#define BE_STATUS_BITS           0x00FF0000
 #define BE_STATUS_EOF_READ       0x00010000
 #define BE_STATUS_EOF_WRITE      0x00020000
 #define BE_STATUS_EOF_THROTTLED  0x00040000
@@ -99,10 +100,11 @@ struct pk_manager {
   ev_async                 interrupt;
   ev_async                 quit;
   ev_timer                 timer;
-  int                      want_spare_frontends;
   time_t                   last_world_update;
 
+  int                      want_spare_frontends;
   char*                    dynamic_dns_url;
+  SSL_CTX*                 ssl_ctx;
 
   pthread_t                blocking_thread;
   struct pk_job_pile       blocking_jobs;
@@ -116,7 +118,8 @@ int pkm_stop_thread                 (struct pk_manager*);
 int pkm_reconnect_all               (struct pk_manager*);
 
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
-                                      int, char*, int, int, int, char*);
+                                      int, char*, int, int, int,
+                                      char*, SSL_CTX*);
 void                 pkm_reset_timer(struct pk_manager*);
 struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
                                   const char*, const char*, int, const char*,

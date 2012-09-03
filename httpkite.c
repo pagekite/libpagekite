@@ -78,6 +78,7 @@ int main(int argc, char **argv) {
   struct pk_pagekite kite;
   struct pk_kite_request kite_r;
   struct pk_kite_request* kite_rp;
+  SSL_CTX* ctx;
 
   if (argc < 3) {
     usage();
@@ -96,8 +97,10 @@ int main(int argc, char **argv) {
   kite_r.fsalt = NULL;
   kite_rp = &kite_r;
 
+  INIT_PAGEKITE_SSL(ctx);
+
   srand(time(0) ^ getpid());
-  if (0 > pk_connect(&pkc, argv[1], 443, 1, &kite_r, NULL)) {
+  if (0 > pk_connect(&pkc, argv[1], 443, 1, &kite_r, NULL, ctx)) {
     pk_perror(argv[1]);
     usage();
     return 1;
