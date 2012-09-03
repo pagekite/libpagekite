@@ -23,6 +23,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "common.h"
 #include "sha1.h"
 #include "utils.h"
+#include "pkconn.h"
 #include "pkproto.h"
 #include "pklogging.h"
 #include "pkerror.h"
@@ -426,65 +427,62 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
   return copy;
 }
 
-int pk_connect_ai(struct addrinfo* ai, int reconnecting,
+int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
                   unsigned int n, struct pk_kite_request* requests,
                   char *session_id)
 {
-  int sockfd;
   unsigned int i, j, bytes;
   char buffer[16*1024], *p;
   struct pk_pagekite tkite;
   struct pk_kite_request tkite_r;
 
-  pk_log(PK_LOG_TUNNEL_DATA, "socket/connect/write");
-  if ((0 > (sockfd = socket(ai->ai_family, ai->ai_socktype,
-                            ai->ai_protocol))) ||
-      (0 > connect(sockfd, ai->ai_addr, ai->ai_addrlen)) ||
-      (0 > write(sockfd, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT))) ||
-      (0 > write(sockfd, PK_HANDSHAKE_FEATURES, strlen(PK_HANDSHAKE_FEATURES))))
-  {
-    if (sockfd >= 0)
-      close(sockfd);
+  pk_log(PK_LOG_TUNNEL_DATA, "Connecting to front-end");
+  if (0 > pkc_connect(pkc, ai))
     return (pk_error = ERR_CONNECT_CONNECT);
-  }
 
+  pkc_write(pkc, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT));
+  pkc_write(pkc, PK_HANDSHAKE_FEATURES, strlen(PK_HANDSHAKE_FEATURES));
   if (session_id && *session_id) {
-    pk_log(PK_LOG_TUNNEL_DATA, "Replacing Session ID: %s", session_id);
+    pk_log(PK_LOG_TUNNEL_DATA, " - Session ID: %s", session_id);
     sprintf(buffer, PK_HANDSHAKE_SESSION, session_id);
-    if (0 > write(sockfd, buffer, strlen(buffer))) {
-      close(sockfd);
-      return (pk_error = ERR_CONNECT_CONNECT);
-    }
+    pkc_write(pkc, buffer, strlen(buffer));
   }
 
   for (i = 0; i < n; i++) {
     if (requests[i].kite->protocol != NULL) {
       requests[i].status = PK_STATUS_UNKNOWN;
       bytes = pk_sign_kite_request(buffer, &(requests[i]), rand());
-      pk_log(PK_LOG_TUNNEL_DATA, "request(%s)", requests[i].kite->public_domain);
-      if ((0 >= bytes) || (0 > write(sockfd, buffer, bytes))) {
-        close(sockfd);
-        return (pk_error = ERR_CONNECT_REQUEST);
-      }
+      pk_log(PK_LOG_TUNNEL_DATA, " * %s", requests[i].kite->public_domain);
+      pkc_write(pkc, buffer, bytes);
     }
   }
 
-  pk_log(PK_LOG_TUNNEL_DATA, "end handshake");
-  if (0 > write(sockfd, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END))) {
-    close(sockfd);
-    return (pk_error = ERR_CONNECT_REQ_END);
+  pk_log(PK_LOG_TUNNEL_DATA, " - End handshake, flushing.");
+  pkc_write(pkc, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END));
+  if (0 > pkc_flush(pkc, NULL, 0, BLOCKING_FLUSH, "pk_connect_ai")) {
+    pkc_reset_conn(pkc);
+    return (pk_error = ERR_CONNECT_REQUEST);
   }
 
   /* Gather response from server */
-  pk_log(PK_LOG_TUNNEL_DATA, "read response...");
-  for (i = 0; i < sizeof(buffer)-1; i++) {
-    if (1 > timed_read(sockfd, buffer+i, 1, 2000)) break;
-    if (i > 4) {
-      if (0 == strcmp(buffer+i-2, "\n\r\n")) break;
-      if (0 == strcmp(buffer+i-1, "\n\n")) break;
+  pk_log(PK_LOG_TUNNEL_DATA, " - Read response ...");
+  for (i = 0; i < sizeof(buffer)-1; ) {
+    if (0 > pkc_wait(pkc, 2000)) break;
+    pkc_read(pkc);
+    if (pkc->in_buffer_pos > 0) {
+      memcpy(buffer+i, pkc->in_buffer, pkc->in_buffer_pos);
+
+      i += pkc->in_buffer_pos;
+      pkc->in_buffer_pos = 0;
+      buffer[i] = '\0';
+
+      if (i > 4) {
+        if (0 == strcmp(buffer+i-3, "\n\r\n")) break;
+        if (0 == strcmp(buffer+i-2, "\n\n")) break;
+      }
+      fprintf(stderr, "buffer: %s", buffer);
     }
   }
-  buffer[i] = '\0';
 
   /* OK, let's walk through the response header line-by-line and parse. */
   i = 0;
@@ -496,7 +494,7 @@ int pk_connect_ai(struct addrinfo* ai, int reconnecting,
     if ((strncasecmp(p, "X-PageKite-Duplicate:", 21) == 0) ||
         (strncasecmp(p, "X-PageKite-Invalid:", 19) == 0)) {
       pk_log(PK_LOG_TUNNEL_CONNS, "%s", p);
-      close(sockfd);
+      pkc_reset_conn(pkc);
       /* FIXME: Should update the status of each individual request. */
       return (pk_error = (p[13] == 'u') ? ERR_CONNECT_DUPLICATE
                                         : ERR_CONNECT_REJECTED);
@@ -528,12 +526,12 @@ int pk_connect_ai(struct addrinfo* ai, int reconnecting,
 
   if (i) {
     if (reconnecting) {
-      close(sockfd);
+      pkc_reset_conn(pkc);
       return (pk_error = ERR_CONNECT_REJECTED);
     }
     else {
-      close(sockfd);
-      return pk_connect_ai(ai, 1, n, requests, session_id);
+      pkc_reset_conn(pkc);
+      return pk_connect_ai(pkc, ai, 1, n, requests, session_id);
     }
   }
 
@@ -542,11 +540,11 @@ int pk_connect_ai(struct addrinfo* ai, int reconnecting,
   }
   pk_log(PK_LOG_TUNNEL_DATA, "pk_connect_ai(%s, %d, %p) => %d",
                              in_addr_to_str(ai->ai_addr, buffer, 1024),
-                             n, requests, sockfd);
-  return sockfd;
+                             n, requests, pkc->sockfd);
+  return 1;
 }
 
-int pk_connect(char *frontend, int port,
+int pk_connect(struct pk_conn* pkc, char *frontend, int port,
                unsigned int n, struct pk_kite_request* requests,
                char *session_id)
 {
@@ -563,7 +561,7 @@ int pk_connect(char *frontend, int port,
   sprintf(ports, "%d", port);
   if (0 == getaddrinfo(frontend, ports, &hints, &result)) {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-      rv = pk_connect_ai(rp, 0, n, requests, session_id);
+      rv = pk_connect_ai(pkc, rp, 0, n, requests, session_id);
       if ((rv >= 0) ||
           (rv != ERR_CONNECT_CONNECT))
         return rv;

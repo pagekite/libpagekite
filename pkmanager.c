@@ -98,7 +98,7 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
     else {
       /* FIXME: Send back a nicer error */
       bytes = pk_format_eof(reply, chunk->sid, PK_EOF);
-      pkc_write_data(&(fe->conn), bytes, reply);
+      pkc_write(&(fe->conn), reply, bytes);
       pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s (sent EOF)", chunk->sid);
     }
   }
@@ -106,13 +106,13 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
   if (NULL != chunk->noop) {
     if (NULL != chunk->ping) {
       bytes = pk_format_pong(reply);
-      pkc_write_data(&(fe->conn), bytes, reply);
+      pkc_write(&(fe->conn), reply, bytes);
       pk_log(PK_LOG_TUNNEL_DATA, "> --- > Pong!");
     }
   }
   else if (NULL != pkb) {
     if (NULL == chunk->eof) {
-      pkc_write_data(&(pkb->conn), chunk->length, chunk->data);
+      pkc_write(&(pkb->conn), chunk->data, chunk->length);
     }
     else {
       pkm_parse_eof(pkb, chunk->eof);
@@ -236,7 +236,7 @@ ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
   pkc->out_buffer_pos += pk_format_reply(PKC_OUT(*pkc), pkb->sid, length, NULL);
 
   /* Write the data (will pick up the header automatically) */
-  return pkc_write_data(pkc, length, data);
+  return pkc_write(pkc, data, length);
 }
 
 int pkm_post_read(struct pk_conn* pkc, int bytes, int err)
@@ -371,7 +371,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     if (pkb != NULL) {
       /* This is a backend conn, send EOF to over tunnel. */
       bytes = pk_format_eof(buffer, pkb->sid, eof);
-      pkc_write_data(&(fe->conn), bytes, buffer);
+      pkc_write(&(fe->conn), buffer, bytes);
       pk_log(loglevel, "%d: Sent EOF (0x%x)", pkc->sockfd, eof);
     }
     else {
@@ -481,7 +481,7 @@ void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
 void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
-  if (0 < pkc_read_data(&(fe->conn))) {
+  if (0 < pkc_read(&(fe->conn))) {
     if (0 > pk_parser_parse(fe->parser,
                             fe->conn.in_buffer_pos,
                             (char *) fe->conn.in_buffer))
@@ -510,7 +510,7 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
   size_t bytes;
 
   pkb = (struct pk_backend_conn*) w->data;
-  bytes = pkc_read_data(&(pkb->conn));
+  bytes = pkc_read(&(pkb->conn));
   if ((0 < bytes) &&
       (0 <= pkm_write_chunked(pkb->frontend, pkb,
                               pkb->conn.in_buffer_pos,
@@ -593,10 +593,9 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
       /* Unblock the event loop while we attempt to connect. */
       pkm_unblock(pkm);
 
-      if ((0 <= (fe->conn.sockfd = pk_connect_ai(fe->ai, 0,
-                                                 fe->request_count,
-                                                 fe->requests,
-                                                 (fe->fe_session)))) &&
+      if ((0 <= pk_connect_ai(&(fe->conn), fe->ai, 0,
+                              fe->request_count, fe->requests,
+                              (fe->fe_session))) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
         pk_log(PK_LOG_MANAGER_INFO, "Connected!");
         pkm_block(pkm); /* Re-block */

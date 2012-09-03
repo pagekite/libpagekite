@@ -126,8 +126,8 @@ int               pk_make_bsalt(struct pk_kite_request*);
 char*             pk_sign(const char*, const char*, const char*, int, char *);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);
 char*             pk_parse_kite_request(struct pk_kite_request*, const char*);
-int               pk_connect_ai(struct addrinfo*, int,
+int               pk_connect_ai(struct pk_conn*, struct addrinfo*, int,
                                 unsigned int, struct pk_kite_request*, char*);
-int               pk_connect(char*, int,
+int               pk_connect(struct pk_conn*, char*, int,
                              unsigned int, struct pk_kite_request*, char*);
 

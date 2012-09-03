@@ -42,11 +42,11 @@ pagekite-jni.o: $(HDRS)
 pkblocker.o: $(HDRS)
 pkconn.o: common.h utils.h pkerror.h pklogging.h
 pkerror.o: common.h utils.h pkerror.h pklogging.h
-pklogging.o: common.h pkstate.h pkproto.h pklogging.h
+pklogging.o: common.h pkstate.h pkconn.h pkproto.h pklogging.h
 pkmanager.o: $(HDRS)
 pkmanager_test.o: $(HDRS)
-pkproto.o: common.h sha1.h utils.h pkproto.h pklogging.h pkerror.h
-pkproto_test.o: common.h pkerror.h pkproto.h utils.h
+pkproto.o: common.h sha1.h utils.h pkconn.h pkproto.h pklogging.h pkerror.h
+pkproto_test.o: common.h pkerror.h pkconn.h pkproto.h utils.h
 sha1.o: common.h sha1.h
 sha1_test.o: common.h sha1.h
 tests.o: pkstate.h

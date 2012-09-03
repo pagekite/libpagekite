@@ -27,6 +27,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #endif
 
 #include "pkstate.h"
+#include "pkconn.h"
 #include "pkproto.h"
 #include "pklogging.h"
 

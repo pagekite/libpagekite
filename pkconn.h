@@ -57,6 +57,7 @@ typedef enum {
 #define CONN_STATUS_CLS_WRITE   0x00000020 /* No more writing possible */
 #define CONN_STATUS_BROKEN     (0x00000040|0x10|0x20) /* ... broken.   */
 #define CONN_STATUS_ALLOCATED   0x00000080
+#define CONN_STATUS_BITS        0x000000FF
 #define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
 #define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
 #define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
@@ -82,8 +83,13 @@ struct pk_conn {
 #endif
 };
 
-void    pkm_reset_conn(struct pk_conn*);
-ssize_t pkm_write_data(struct pk_conn*, ssize_t, char*);
-ssize_t pkm_read_data(struct pk_conn*);
-ssize_t pkm_flush(struct pk_conn*, char*, ssize_t, int, char*);
+void    pkc_reset_conn(struct pk_conn*);
+int     pkc_connect(struct pk_conn*, struct addrinfo*);
+#ifdef HAVE_OPENSSL
+int     pkc_start_ssl(struct pk_conn*);
+#endif
+int     pkc_wait(struct pk_conn*, int);
+ssize_t pkc_read(struct pk_conn*);
+ssize_t pkc_flush(struct pk_conn*, char*, ssize_t, int, char*);
+ssize_t pkc_write(struct pk_conn*, char*, ssize_t);
 

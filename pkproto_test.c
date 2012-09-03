@@ -22,6 +22,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #include "common.h"
 #include "pkerror.h"
+#include "pkconn.h"
 #include "pkproto.h"
 #include "utils.h"
 

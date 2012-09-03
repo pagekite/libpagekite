@@ -27,6 +27,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "common.h"
 #include "pkstate.h"
 #include "pkerror.h"
+#include "pkconn.h"
 #include "pkproto.h"
 #include "pklogging.h"
 
@@ -43,13 +44,13 @@ void usage(void) {
 void handle_request(void* data, struct pk_chunk *chunk) {
   char buffer[4096];
   char *hi = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello World\n";
-  int *fd = data;
+  struct pk_conn* pkc = data;
   int bytes;
 
   pk_log_chunk(chunk);
   if (chunk->ping) {
     bytes = pk_format_pong(buffer);
-    write(*fd, buffer, bytes);
+    pkc_write(pkc, buffer, bytes);
   }
   else if (chunk->sid) {
     if (chunk->eof) {
@@ -59,10 +60,10 @@ void handle_request(void* data, struct pk_chunk *chunk) {
 
       /* Send a reply, and close this channel right away */
       bytes = pk_format_reply(buffer, chunk->sid, strlen(hi), hi);
-      write(*fd, buffer, bytes);
+      pkc_write(pkc, buffer, bytes);
 
       bytes = pk_format_eof(buffer, chunk->sid, PK_EOF);
-      write(*fd, buffer, bytes);
+      pkc_write(pkc, buffer, bytes);
     }
   }
   else {
@@ -71,8 +72,8 @@ void handle_request(void* data, struct pk_chunk *chunk) {
 }
 
 int main(int argc, char **argv) {
-  int fd;
-  char pbuffer[64000], rbuffer[8192];
+  char pbuffer[64000];
+  struct pk_conn pkc;
   struct pk_parser* pkp;
   struct pk_pagekite kite;
   struct pk_kite_request kite_r;
@@ -96,14 +97,13 @@ int main(int argc, char **argv) {
   kite_rp = &kite_r;
 
   srand(time(0) ^ getpid());
-  fd = pk_connect(argv[1], 443, 1, &kite_r, NULL);
-  if (fd < 0) {
+  if (0 > pk_connect(&pkc, argv[1], 443, 1, &kite_r, NULL)) {
     pk_perror(argv[1]);
     usage();
     return 1;
   }
 
-  pkp = pk_parser_init(sizeof(pbuffer), pbuffer, &handle_request, &fd);
+  pkp = pk_parser_init(sizeof(pbuffer), pbuffer, &handle_request, &pkc);
   if (NULL == pkp) {
     pk_perror(argv[1]);
     usage();
@@ -111,10 +111,12 @@ int main(int argc, char **argv) {
   }
 
   fprintf(stderr, "*** Connected! ***\n");
-  while (read(fd, rbuffer, 1) == 1) {
-    pk_parser_parse(pkp, 1, rbuffer);
+  while (pkc_wait(&pkc, -1)) {
+    pkc_read(&pkc);
+    pk_parser_parse(pkp, pkc.in_buffer_pos, (char *) pkc.in_buffer);
+    pkc.in_buffer_pos = 0;
   }
-  close(fd);
+  pkc_reset_conn(&pkc);
 
   return 0;
 }

@@ -21,6 +21,8 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #include "common.h"
+#include <poll.h>
+
 #include "utils.h"
 #include "pkerror.h"
 #include "pkconn.h"
@@ -30,7 +32,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 void pkc_reset_conn(struct pk_conn* pkc)
 {
-  pkc->status = CONN_STATUS_UNKNOWN;
+  pkc->status &= ~CONN_STATUS_BITS;
   pkc->activity = time(0);
   pkc->out_buffer_pos = 0;
   pkc->in_buffer_pos = 0;
@@ -44,10 +46,47 @@ void pkc_reset_conn(struct pk_conn* pkc)
   pkc->state_w = CONN_CLEAR_DATA;
 #ifdef HAVE_OPENSSL
   if (pkc->ssl) SSL_free(pkc->ssl);
+  pkc->ssl = NULL;
 #endif
 }
 
-ssize_t pkc_read_data(struct pk_conn* pkc)
+int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
+{
+  int fd;
+  pkc_reset_conn(pkc);
+  if ((0 > (fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol))) ||
+      (0 > connect(fd, ai->ai_addr, ai->ai_addrlen))) {
+    pkc->sockfd = -1;
+    if (fd >= 0) close(fd);
+    return (pk_error = ERR_CONNECT_CONNECT);
+  }
+
+  /* FIXME: Add support for chaining through socks or HTTP proxies */
+
+  set_non_blocking(pkc->sockfd);
+  return (pkc->sockfd = fd);
+}
+
+#ifdef HAVE_OPENSSL
+int pkc_start_ssl(struct pk_conn* pkc)
+{
+  return -1;
+}
+#endif
+
+int pkc_wait(struct pk_conn* pkc, int timeout)
+{
+  int rv;
+  struct pollfd pfd;
+  pfd.fd = pkc->sockfd;
+  pfd.events = (POLLIN | POLLPRI | POLLHUP);
+  do {
+    rv = poll(&pfd, 1, timeout);
+  } while ((rv < 0) && (errno == EINTR));
+  return rv;
+}
+
+ssize_t pkc_read(struct pk_conn* pkc)
 {
   ssize_t bytes, delta;
   bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
@@ -150,14 +189,14 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
   return flushed;
 }
 
-ssize_t pkc_write_data(struct pk_conn* pkc, ssize_t length, char* data)
+ssize_t pkc_write(struct pk_conn* pkc, char* data, ssize_t length)
 {
   ssize_t wleft;
   ssize_t wrote = 0;
 
   /* 1. Try to flush already buffered data. */
   if (pkc->out_buffer_pos)
-    pkc_flush(pkc, NULL, 0, NON_BLOCKING_FLUSH, "pkc_write_data/1");
+    pkc_flush(pkc, NULL, 0, NON_BLOCKING_FLUSH, "pkc_write/1");
 
   /* 2. If successful, try to write new data (0 copies!) */
   if (0 == pkc->out_buffer_pos) {
@@ -179,8 +218,7 @@ ssize_t pkc_write_data(struct pk_conn* pkc, ssize_t length, char* data)
     }
     else {
       /* 2b. If new+old data > buffer size, do a blocking write. */
-      pkc_flush(pkc, data+wrote, length-wrote, BLOCKING_FLUSH,
-                "pkc_write_data/2");
+      pkc_flush(pkc, data+wrote, length-wrote, BLOCKING_FLUSH, "pkc_write/2");
     }
   }
 
