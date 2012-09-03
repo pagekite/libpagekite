@@ -20,13 +20,6 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#define PARSER_BYTES_MIN   1 * 1024
-#define PARSER_BYTES_AVG   2 * 1024
-#define PARSER_BYTES_MAX   4 * 1024  /* <= CONN_IO_BUFFER_SIZE */
-
-#define BLOCKING_FLUSH 1
-#define NON_BLOCKING_FLUSH 0
-
 #define PK_HOUSEKEEPING_INTERVAL_MIN   2.0  /* Seconds */
 #ifndef ANDROID
 #define PK_HOUSEKEEPING_INTERVAL_MAX  60.0  /* 1 minute */
@@ -35,58 +28,11 @@ Note: For alternate license terms, see the file COPYING.md.
 #endif
 #define PK_CHECK_WORLD_INTERVAL       3600  /* 1 hour */
 
-struct pk_conn;
 struct pk_frontend;
 struct pk_backend_conn;
 struct pk_manager;
 struct pk_job;
 struct pk_job_pile;
-
-/* These are the controlling parameters for our flow control - in order
- * to minimize buffer bloat, we want to keep the window relatively small
- * and assume that selecting a nearby front-end will keep this from
- * becoming too big a bottleneck on transfer speeds. */
-#define CONN_WINDOW_SIZE_KB_MAXIMUM 256
-#define CONN_WINDOW_SIZE_KB_MINIMUM  16
-#define CONN_WINDOW_SIZE_STEPFACTOR  16 /* Lower: more aggressive/volatile */
-
-typedef enum {
-  CONN_TUNNEL_BLOCKED,
-  CONN_TUNNEL_UNBLOCKED,
-  CONN_DEST_BLOCKED,
-  CONN_DEST_UNBLOCKED
-} flow_op;
-
-#define CONN_IO_BUFFER_SIZE     PARSER_BYTES_MAX
-#define CONN_STATUS_UNKNOWN     0x00000000
-#define CONN_STATUS_END_READ    0x00000001 /* Don't want more data     */
-#define CONN_STATUS_END_WRITE   0x00000002 /* Won't receive more data  */
-#define CONN_STATUS_DST_BLOCKED 0x00000004 /* Destination blocked      */
-#define CONN_STATUS_TNL_BLOCKED 0x00000008 /* Tunnel blocked           */
-#define CONN_STATUS_BLOCKED    (0x00000008|0x00000004) /* Blocked      */
-#define CONN_STATUS_CLS_READ    0x00000010 /* No more data available   */
-#define CONN_STATUS_CLS_WRITE   0x00000020 /* No more writing possible */
-#define CONN_STATUS_BROKEN     (0x00000040|0x10|0x20) /* ... broken.   */
-#define CONN_STATUS_ALLOCATED   0x00000080
-#define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
-#define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
-#define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
-#define PKC_IN_FREE(c)  (CONN_IO_BUFFER_SIZE - (c).in_buffer_pos)
-struct pk_conn {
-  int      status;
-  int      sockfd;
-  time_t   activity;
-  size_t   read_bytes;
-  size_t   read_kb;
-  size_t   sent_kb;
-  size_t   send_window_kb;
-  int      in_buffer_pos;
-  char     in_buffer[CONN_IO_BUFFER_SIZE];
-  int      out_buffer_pos;
-  char     out_buffer[CONN_IO_BUFFER_SIZE];
-  ev_io    watch_r;
-  ev_io    watch_w;
-};
 
 /* These are also written to the conn.status field, using the fourth byte. */
 #define FE_STATUS_AUTO      0x00000000  /* For use in pkm_add_frontend     */

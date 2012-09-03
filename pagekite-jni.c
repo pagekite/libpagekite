@@ -25,7 +25,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include <jni.h>
 #include <android/log.h>
 
-#include "includes.h"
+#include "common.h"
 #include "utils.h"
 #include "pkstate.h"
 #include "pkerror.h"

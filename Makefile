@@ -6,8 +6,10 @@ CFLAGS ?= -std=c99 -pedantic -Wall -W $(OPT)
 CLINK ?= -lpthread -lm -lev
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
-OBJ = pkerror.o pkproto.o pkblocker.o pkmanager.o \
+OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
       pklogging.o utils.o sha1.o
+HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
+       pkmanager.h sha1.h
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
@@ -34,12 +36,19 @@ clean:
 .c.o:
 	$(CC) $(CFLAGS) -c $<
 
-pkmanager_test.o: pkmanager.o
-pkproto_test.o: pkproto.o
-pkblocker.o: pkblocker.h pkmanager.h
-pkmanager.o: pkmanager.h pkblocker.o pkproto.o utils.o pkerror.o pklogging.o
-pkproto.o: pkproto.h utils.o pkerror.o pklogging.o
-pklogging.o: pklogging.h pkproto.h includes.h
-pkerror.o: pkerror.h includes.h
-utils.o: utils.h includes.h
-sha1.o: sha1.h includes.h
+httpkite.o: $(HDRS)
+pagekite.o: $(HDRS)
+pagekite-jni.o: $(HDRS)
+pkblocker.o: $(HDRS)
+pkconn.o: common.h utils.h pkerror.h pklogging.h
+pkerror.o: common.h utils.h pkerror.h pklogging.h
+pklogging.o: common.h pkstate.h pkproto.h pklogging.h
+pkmanager.o: $(HDRS)
+pkmanager_test.o: $(HDRS)
+pkproto.o: common.h sha1.h utils.h pkproto.h pklogging.h pkerror.h
+pkproto_test.o: common.h pkerror.h pkproto.h utils.h
+sha1.o: common.h sha1.h
+sha1_test.o: common.h sha1.h
+tests.o: pkstate.h
+utils.o: common.h
+utils_test.o: utils.h

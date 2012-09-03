@@ -20,9 +20,10 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "includes.h"
+#include "common.h"
 #include "utils.h"
 #include "pkerror.h"
+#include "pkconn.h"
 #include "pkproto.h"
 #include "pkblocker.h"
 #include "pkmanager.h"

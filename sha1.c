@@ -73,7 +73,7 @@ move public api to sha1.h
 #include "config.h"
 #endif
 
-#include "includes.h"
+#include "common.h"
 #include "sha1.h"
 
 void sha1_transform(uint32_t state[5], const uint8_t buffer[64]);

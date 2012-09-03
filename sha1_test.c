@@ -78,7 +78,7 @@ A million repetitions of "a"
 
 /* #define SHA1HANDSOFF  */
 
-#include "includes.h"
+#include "common.h"
 #include "sha1.h"
 
 static char *test_data[] = {

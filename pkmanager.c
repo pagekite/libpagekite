@@ -20,9 +20,10 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "includes.h"
+#include "common.h"
 #include "utils.h"
 #include "pkerror.h"
+#include "pkconn.h"
 #include "pkproto.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
@@ -97,7 +98,7 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
     else {
       /* FIXME: Send back a nicer error */
       bytes = pk_format_eof(reply, chunk->sid, PK_EOF);
-      pkm_write_data(&(fe->conn), bytes, reply);
+      pkc_write_data(&(fe->conn), bytes, reply);
       pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s (sent EOF)", chunk->sid);
     }
   }
@@ -105,13 +106,13 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
   if (NULL != chunk->noop) {
     if (NULL != chunk->ping) {
       bytes = pk_format_pong(reply);
-      pkm_write_data(&(fe->conn), bytes, reply);
+      pkc_write_data(&(fe->conn), bytes, reply);
       pk_log(PK_LOG_TUNNEL_DATA, "> --- > Pong!");
     }
   }
   else if (NULL != pkb) {
     if (NULL == chunk->eof) {
-      pkm_write_data(&(pkb->conn), chunk->length, chunk->data);
+      pkc_write_data(&(pkb->conn), chunk->length, chunk->data);
     }
     else {
       pkm_parse_eof(pkb, chunk->eof);
@@ -217,43 +218,6 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   return pkb;
 }
 
-ssize_t pkm_write_data(struct pk_conn* pkc, ssize_t length, char* data)
-{
-  ssize_t wleft;
-  ssize_t wrote = 0;
-
-  /* 1. Try to flush already buffered data. */
-  if (pkc->out_buffer_pos)
-    pkm_flush(pkc, NULL, 0, NON_BLOCKING_FLUSH, "pkm_write_data/1");
-
-  /* 2. If successful, try to write new data (0 copies!) */
-  if (0 == pkc->out_buffer_pos) {
-    errno = 0;
-    do {
-      wrote = write(pkc->sockfd, data, length);
-    } while ((wrote < 0) && (errno == EINTR));
-  }
-
-  if (wrote < length) {
-    if (wrote < 0) /* Ignore errors, for now */
-      wrote = 0;
-
-    wleft = length-wrote;
-    if (wleft <= PKC_OUT_FREE(*pkc)) {
-      /* 2a. Have data left, there is space in our buffer: buffer it! */
-      memcpy(PKC_OUT(*pkc), data+wrote, wleft);
-      pkc->out_buffer_pos += wleft;
-    }
-    else {
-      /* 2b. If new+old data > buffer size, do a blocking write. */
-      pkm_flush(pkc, data+wrote, length-wrote, BLOCKING_FLUSH,
-                "pkm_write_data/2");
-    }
-  }
-
-  return length;
-}
-
 ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
                           ssize_t length, char* data)
 {
@@ -265,104 +229,46 @@ ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
   /* Make sure there is space in our output buffer for the header. */
   overhead = pk_reply_overhead(pkb->sid, length);
   if (PKC_OUT_FREE(*pkc) < overhead)
-    if (0 > pkm_flush(pkc, NULL, 0, BLOCKING_FLUSH, "pkm_write_chunked"))
+    if (0 > pkc_flush(pkc, NULL, 0, BLOCKING_FLUSH, "pkm_write_chunked"))
       return -1;
 
   /* Write the chunk header to the output buffer */
   pkc->out_buffer_pos += pk_format_reply(PKC_OUT(*pkc), pkb->sid, length, NULL);
 
   /* Write the data (will pick up the header automatically) */
-  return pkm_write_data(pkc, length, data);
+  return pkc_write_data(pkc, length, data);
 }
 
-ssize_t pkm_read_data(struct pk_conn* pkc)
+int pkm_post_read(struct pk_conn* pkc, int bytes, int err)
 {
-  ssize_t bytes, delta;
-  bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
-  pkc->in_buffer_pos += bytes;
+  ssize_t delta;
+  if (bytes > 0) {
+    pkc->in_buffer_pos += bytes;
 
-  /* Update KB counter and window... this is a bit messy. */
-  pkc->read_bytes += bytes;
-  while (pkc->read_bytes > 1024) {
-    pkc->read_kb += 1;
-    pkc->read_bytes -= 1024;
-    if ((pkc->read_kb & 0x1f) == 0x00) {
-      delta = (CONN_WINDOW_SIZE_KB_MAXIMUM - pkc->send_window_kb);
-      if (delta < 0) delta = 0;
-      pkc->send_window_kb += (delta/CONN_WINDOW_SIZE_STEPFACTOR);
+    /* Update KB counter and window... this is a bit messy. */
+    pkc->read_bytes += bytes;
+    while (pkc->read_bytes > 1024) {
+      pkc->read_kb += 1;
+      pkc->read_bytes -= 1024;
+      if ((pkc->read_kb & 0x1f) == 0x00) {
+        delta = (CONN_WINDOW_SIZE_KB_MAXIMUM - pkc->send_window_kb);
+        if (delta < 0) delta = 0;
+        pkc->send_window_kb += (delta/CONN_WINDOW_SIZE_STEPFACTOR);
+      }
     }
   }
-
+  else if (bytes == 0) {
+    pkc->status |= CONN_STATUS_CLS_READ;
+  }
+  else switch (err) {
+    case EINTR:
+    case EAGAIN:
+      break;
+    default:
+      pkc->status |= CONN_STATUS_BROKEN;
+      break;
+  }
   return bytes;
-}
-
-ssize_t pkm_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
-                  char* where)
-{
-  ssize_t flushed, wrote, bytes;
-  flushed = wrote = errno = bytes = 0;
-
-  if (pkc->sockfd < 0) {
-    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Bogus flush?",
-                                              pkc->sockfd, where);
-    return -1;
-  }
-
-  if (mode == BLOCKING_FLUSH) {
-    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Attempting blocking flush",
-                                              pkc->sockfd, where);
-    set_blocking(pkc->sockfd);
-  }
-
-  /* First, flush whatever was in the conn buffers */
-  do {
-    wrote = write(pkc->sockfd, pkc->out_buffer, pkc->out_buffer_pos);
-    if (wrote > 0) {
-      if (pkc->out_buffer_pos > wrote) {
-        memmove(pkc->out_buffer,
-                pkc->out_buffer + wrote,
-                pkc->out_buffer_pos - wrote);
-      }
-      pkc->out_buffer_pos -= wrote;
-      flushed += wrote;
-    }
-  } while ((errno == EINTR) ||
-           ((mode == BLOCKING_FLUSH) && (pkc->out_buffer_pos > 0)));
-
-  /* At this point we either have a non-EINTR error, or we've flushed
-   * everything.  Return errors, else continue. */
-  if (wrote < 0) {
-    flushed = wrote;
-    if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
-      pkc->status |= CONN_STATUS_CLS_WRITE;
-  }
-  else if ((NULL != data) &&
-           (mode == BLOCKING_FLUSH) &&
-           (pkc->out_buffer_pos == 0)) {
-    /* So far so good, everything has been flushed. Write the new data! */
-    flushed = wrote = 0;
-    while ((length > wrote) || (errno == EINTR)) {
-      bytes = write(pkc->sockfd, data+wrote, length-wrote);
-      if (bytes > 0) {
-        wrote += bytes;
-        flushed += bytes;
-      }
-    }
-    /* At this point, if we have a non-EINTR error, bytes is < 0 and we
-     * want to return that.  Otherwise, return how much got written. */
-    if (bytes < 0) {
-      flushed = bytes;
-      if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
-        pkc->status |= CONN_STATUS_CLS_WRITE;
-    }
-  }
-
-  if (mode == BLOCKING_FLUSH) {
-    set_non_blocking(pkc->sockfd);
-    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Blocking flush complete.",
-                                              pkc->sockfd, where);
-  }
-  return flushed;
 }
 
 int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
@@ -465,7 +371,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     if (pkb != NULL) {
       /* This is a backend conn, send EOF to over tunnel. */
       bytes = pk_format_eof(buffer, pkb->sid, eof);
-      pkm_write_data(&(fe->conn), bytes, buffer);
+      pkc_write_data(&(fe->conn), bytes, buffer);
       pk_log(loglevel, "%d: Sent EOF (0x%x)", pkc->sockfd, eof);
     }
     else {
@@ -574,10 +480,8 @@ void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
 
 void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 {
-  struct pk_frontend* fe;
-
-  fe = (struct pk_frontend*) w->data;
-  if (0 < pkm_read_data(&(fe->conn))) {
+  struct pk_frontend* fe = (struct pk_frontend*) w->data;
+  if (0 < pkc_read_data(&(fe->conn))) {
     if (0 > pk_parser_parse(fe->parser,
                             fe->conn.in_buffer_pos,
                             (char *) fe->conn.in_buffer))
@@ -588,10 +492,6 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
     }
     fe->conn.in_buffer_pos = 0;
   }
-  else {
-    /* EOF on read */
-    fe->conn.status |= CONN_STATUS_CLS_READ;
-  }
   pkm_update_io(fe, NULL);
   loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
@@ -599,7 +499,7 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
-  pkm_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
+  pkc_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
   pkm_update_io(fe, NULL);
   loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
@@ -610,7 +510,7 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
   size_t bytes;
 
   pkb = (struct pk_backend_conn*) w->data;
-  bytes = pkm_read_data(&(pkb->conn));
+  bytes = pkc_read_data(&(pkb->conn));
   if ((0 < bytes) &&
       (0 <= pkm_write_chunked(pkb->frontend, pkb,
                               pkb->conn.in_buffer_pos,
@@ -620,10 +520,6 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
   }
   else if (bytes == 0) {
     pk_log(PK_LOG_BE_DATA, ">%5.5s> EOF: read", pkb->sid);
-    pkb->conn.status |= CONN_STATUS_CLS_READ;
-  }
-  else {
-    pkb->conn.status |= CONN_STATUS_BROKEN;
   }
   pkm_update_io(pkb->frontend, pkb);
   loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
@@ -634,15 +530,15 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
   struct pk_backend_conn* pkb;
 
   pkb = (struct pk_backend_conn*) w->data;
-  pkm_flush(&(pkb->conn), NULL, 0, NON_BLOCKING_FLUSH, "be_conn");
+  pkc_flush(&(pkb->conn), NULL, 0, NON_BLOCKING_FLUSH, "be_conn");
   if (pkb->conn.out_buffer_pos == 0)
   {
     pk_log(PK_LOG_BE_DATA, "Flushed: %s:%d (done)",
-            pkb->kite->local_domain, pkb->kite->local_port);
+           pkb->kite->local_domain, pkb->kite->local_port);
   }
   else {
     pk_log(PK_LOG_BE_DATA, "Flushed: %s:%d\n",
-            pkb->kite->local_domain, pkb->kite->local_port);
+           pkb->kite->local_domain, pkb->kite->local_port);
   }
   pkm_update_io(pkb->frontend, pkb);
   loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
