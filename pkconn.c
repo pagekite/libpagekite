@@ -120,6 +120,7 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx)
   /* FIXME: Error checking? */
 
   mode = SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
+  mode |= SSL_MODE_ENABLE_PARTIAL_WRITE;
 #ifdef SSL_MODE_RELEASE_BUFFERS
   mode |= SSL_MODE_RELEASE_BUFFERS;
 #endif
