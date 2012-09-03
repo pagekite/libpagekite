@@ -64,6 +64,10 @@ int pkmanager_test(void)
   assert(2 == *((char*) m->frontends));
   assert(3 == *((char*) m->be_conns));
 
+  /* Recreate, because those memsets broke things. */
+  m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1, NULL);
+  assert(NULL != m);
+
   /* Test pk_add_job and pk_get_job */
   assert(0 == m->blocking_jobs.count);
   assert(0 < pkb_add_job(&(m->blocking_jobs), PK_QUIT, NULL));
@@ -73,21 +77,16 @@ int pkmanager_test(void)
   assert(j.job == PK_QUIT);
 
   /* Test pk_add_frontend_ai */
-  memset(&ai, 0, sizeof(struct addrinfo));
-  assert(NULL == pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
-  assert(ERR_NO_MORE_FRONTENDS == pk_error);
-  memset(m->frontends, 0, sizeof(struct pk_frontend) * m->frontend_max);
   for (i = 0; i < MIN_FE_ALLOC; i++)
     assert(NULL != pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
   assert(NULL == pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
+  assert(ERR_NO_MORE_FRONTENDS == pk_error);
 
   /* Test pk_add_kite */
-  assert(NULL == pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));
-  assert(ERR_NO_MORE_KITES == pk_error);
-  memset(m->kites, 0, sizeof(struct pk_pagekite) * m->kite_max);
   for (i = 0; i < MIN_KITE_ALLOC; i++)
     assert(NULL != pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));
   assert(NULL == pkm_add_kite(m, "http", "foo", 80, "sec", "localhost", 80));
+  assert(ERR_NO_MORE_KITES == pk_error);
   assert(NULL != pkm_find_kite(m, "http", "foo", 80));
   assert(NULL == pkm_find_kite(m, "http", "bar", 80));
 
