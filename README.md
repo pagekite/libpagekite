@@ -55,15 +55,15 @@ If PageKite is the only native package you are using, the quickest way to get
 it to build as part of your project is by adding the following symbolic links
 to your project tree:
 
-   cd /path/to/YourApp/
-   ln -s /path/to/libpagekite/ jni
-   mkdir -p src/net/pagekite
-   ln -s /path/to/libpagekite/net.pagekite.lib src/net/pagekite/lib
+    cd /path/to/YourApp/
+    ln -s /path/to/libpagekite/ jni
+    mkdir -p src/net/pagekite
+    ln -s /path/to/libpagekite/net.pagekite.lib src/net/pagekite/lib
 
 The JNI interface can then be built using the commands:
 
-   export NDK_PROJECT_PATH=/path/to/android-ndk
-   make -f jni/Makefile android
+    export NDK_PROJECT_PATH=/path/to/android-ndk
+    make -f jni/Makefile android
 
 Once this is done, you should be able to import net.pagekite.lib and use
 the methods of the PageKiteAPI class.
