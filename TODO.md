@@ -29,14 +29,16 @@ These are Things TO DO for libpagekite.
 
 ### Ahead ###
 
-   * pkproto.c: add SSL support
+   * pkproto.c: add SSL support - finish cert checking code
+   * pkmanager.c: make update/reconnect schedule tweakable
    * libpagekite: create simple fork/thread/anonymous-pipe based API for
                   easily adding PageKite support to existing TCP/IP servers.
+
    * pkproto.c: add ZChunk support
    * pkmanager.c: SOCKS and HTTP proxy support for outgoing connections
    * pagekite.c: truly non-blocking pagekite proxy, suitable for front-end
    * PageKiteAPI.java: Turn on/off pagekite thread depending on network state.
-   * PageKiteAPI.java: Use imprecise timers for opportunistic pings.
+   * PageKiteAPI.java: Use imprecise timers for update/reconnect.
 
 ### External ###
 

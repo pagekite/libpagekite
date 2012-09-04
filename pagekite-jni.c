@@ -29,9 +29,13 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "utils.h"
 #include "pkstate.h"
 #include "pkerror.h"
+#include "pkconn.h"
 #include "pkproto.h"
 #include "pklogging.h"
+#include "pkblocker.h"
 #include "pkmanager.h"
+
+#include "pagekite_net.h"
 
 
 #define BUFFER_SIZE 256 * 1024
@@ -47,13 +51,17 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
   int frontends = jFrontends;
   int conns = jConns;
   char *buffer;
+  SSL_CTX* ssl_ctx;
 
   if (pk_manager_global != NULL) return JNI_FALSE;
+
+  INIT_PAGEKITE_SSL(ssl_ctx);
 
   pk_state.log_mask = PK_LOG_ALL;
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
-                                       kites, frontends, conns);
+                                       kites, frontends, conns,
+                                       PAGEKITE_NET_DDNS, ssl_ctx);
   if (NULL == pk_manager_global) {
     return JNI_FALSE;
   }
@@ -103,7 +111,7 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addFrontend(JNIEnv* env, jclass cl,
 
   if (pk_manager_global == NULL) return JNI_FALSE;
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add frontend: %s:%d", domain, port);
-  int rv = (pkm_add_frontend(pk_manager_global, domain, port, prio) != NULL); 
+  int rv = (pkm_add_frontend(pk_manager_global, domain, port, prio) > 0);
 
   (*env)->ReleaseStringUTFChars(env, jDomain, domain);
   return rv;

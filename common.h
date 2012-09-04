@@ -16,7 +16,17 @@
 #include <unistd.h>
 
 #include <ev.h>
+
+#ifndef ANDROID
 #define HAVE_OPENSSL 1
+typedef signed char               int8_t;
+typedef short int                 int16_t;
+typedef int                       int32_t;
+
+typedef unsigned char             uint8_t;
+typedef unsigned short int        uint16_t;
+typedef unsigned int              uint32_t;
+#endif
 
 #ifdef HAVE_OPENSSL
 #include <openssl/ssl.h>
@@ -30,16 +40,6 @@
 #else
 #define SSL_CTX                   void
 #define INIT_PAGEKITE_SSL(ctx)    ctx = NULL
-#endif
-
-#ifndef ANDROID
-typedef signed char               int8_t;
-typedef short int                 int16_t;
-typedef int                       int32_t;
-
-typedef unsigned char             uint8_t;
-typedef unsigned short int        uint16_t;
-typedef unsigned int              uint32_t;
 #endif
 
 #define PARSER_BYTES_MIN   1 * 1024

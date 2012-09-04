@@ -33,9 +33,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkblocker.h"
 #include "pkmanager.h"
 
-#define PK_DDNS        "http://up.pagekite.net/?hostname=%s&myip=%s&sign=%s"
-#define PK_V4FRONTENDS "frontends.b5p.us"
-#define PK_V6FRONTENDS "v6frontends.b5p.us"
+#include "pagekite_net.h"
+
 
 struct pk_global_state pk_state;
 
@@ -66,7 +65,7 @@ int main(int argc, char **argv) {
 
   INIT_PAGEKITE_SSL(ssl_ctx);
   if (NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 10, 50,
-                                    PK_DDNS, ssl_ctx))) {
+                                    PAGEKITE_NET_DDNS, ssl_ctx))) {
     pk_perror(argv[0]);
     exit(1);
   }
@@ -88,8 +87,8 @@ int main(int argc, char **argv) {
     }
   }
 
-  if ((0 > (pkm_add_frontend(m, PK_V4FRONTENDS, 443, FE_STATUS_AUTO))) ||
-      (0 > (pkm_add_frontend(m, PK_V6FRONTENDS, 443, FE_STATUS_AUTO))) ||
+  if ((0 > (pkm_add_frontend(m, PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO))) ||
+      (0 > (pkm_add_frontend(m, PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO))) ||
       (0 > pkm_run_in_thread(m))) {
     pk_perror(argv[0]);
     exit(4);
