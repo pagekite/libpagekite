@@ -18,7 +18,8 @@ runtests: tests
 
 all: runtests pagekite httpkite
 
-android: clean
+#android: clean
+android:
 	@$(NDK_PROJECT_PATH)/ndk-build
 
 tests: tests.o $(OBJ) $(TOBJ)
@@ -31,7 +32,10 @@ pagekite: runtests pagekite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
 
 clean:
-	rm -f tests pagekite httpkite *.o
+	rm -vf tests pagekite httpkite *.o
+
+allclean: clean
+	find . -name '*.o' |xargs rm -vf
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<

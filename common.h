@@ -17,8 +17,9 @@
 
 #include <ev.h>
 
-#ifndef ANDROID
 #define HAVE_OPENSSL 1
+
+#ifndef ANDROID
 typedef signed char               int8_t;
 typedef short int                 int16_t;
 typedef int                       int32_t;
