@@ -24,6 +24,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "utils.h"
 #include "pkerror.h"
 #include "pkconn.h"
+#include "pkstate.h"
 #include "pkproto.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
@@ -215,6 +216,8 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   ev_io_start(fe->manager->loop, &(pkb->conn.watch_w));
   pkb->conn.watch_r.data = pkb->conn.watch_w.data = (void *) pkb;
 
+  PKS_STATE(pk_state.live_streams += 1);
+
   return pkb;
 }
 
@@ -396,9 +399,11 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     if (0 <= pkc->sockfd) close(pkc->sockfd);
     if (pkb != NULL) {
       pkm_free_be_conn(pkb);
+      PKS_STATE(pk_state.live_streams -= 1);
     }
     else {
       /* FIXME: Is this the right way to clean up dead tunnels? */
+      PKS_STATE(pk_state.live_frontends -= 1);
       pkc_reset_conn(&(fe->conn));
       fe->request_count = 0;
       pkm_reset_timer(pkm);
@@ -621,9 +626,10 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
                    pkm_tunnel_readable_cb, fe->conn.sockfd, EV_READ);
         ev_io_init(&(fe->conn.watch_w),
                    pkm_tunnel_writable_cb, fe->conn.sockfd, EV_WRITE);
-
         ev_io_start(pkm->loop, &(fe->conn.watch_r));
         fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
+
+        PKS_STATE(pk_state.live_frontends += 1);
         connected++;
       }
       else {
@@ -808,7 +814,9 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->want_spare_frontends = 0;
   pkm->last_world_update = (time_t) 0;
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
+
   pkm->ssl_ctx = ctx;
+  PKS_STATE(pk_state.have_ssl = (ctx != NULL));
 
   /* Set up our event-loop callbacks */
   ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, 0);

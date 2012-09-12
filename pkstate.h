@@ -20,8 +20,34 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#define PKS_LOG_DATA_MAX     64*1024
+
 struct pk_global_state {
-  int log_mask;
+  /* Synchronization */
+  pthread_mutex_t lock;
+  pthread_cond_t  cond;
+
+  /* Global logging state */
+  FILE*           log_file;
+  unsigned int    log_mask;
+  char            log_ring_buffer[PKS_LOG_DATA_MAX+1];
+  char*           log_ring_start;
+  char*           log_ring_end;
+
+  /* Global program state */
+  unsigned int    live_streams;
+  unsigned int    live_frontends;
+  int             have_ssl:1;
 };
 
 extern struct pk_global_state pk_state;
+
+#define PKS_STATE(change) { pthread_mutex_lock(&(pk_state.lock)); \
+                            change; \
+                            pthread_cond_broadcast(&(pk_state.cond)); \
+                            pthread_mutex_unlock(&(pk_state.lock)); } 
+
+void pks_global_init(unsigned int log_level);
+int pks_logcopy(const char*, size_t len);
+void pks_copylog(char*);
+void pks_printlog(FILE *dest);

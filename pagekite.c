@@ -60,11 +60,9 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  pk_state.log_mask = PK_LOG_NORMAL;
-  pk_state.log_mask = PK_LOG_ALL;
-
-  INIT_PAGEKITE_SSL(ssl_ctx);
-  if (NULL == (m = pkm_manager_init(NULL, 0, NULL, 10, 10, 50,
+  pks_global_init(PK_LOG_ALL);
+  PKS_SSL_INIT(ssl_ctx);
+  if (NULL == (m = pkm_manager_init(NULL, 0, NULL, 15, 5, 15,
                                     PAGEKITE_NET_DDNS, ssl_ctx))) {
     pk_perror(argv[0]);
     exit(1);

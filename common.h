@@ -33,14 +33,14 @@ typedef unsigned int              uint32_t;
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
-#define INIT_PAGEKITE_SSL(ctx)    SSL_load_error_strings(); \
+#define PKS_SSL_INIT(ctx)       { SSL_load_error_strings(); \
                                   ERR_load_BIO_strings(); \
                                   OpenSSL_add_all_algorithms(); \
                                   SSL_library_init(); \
-                                  ctx = SSL_CTX_new(TLSv1_method());
+                                  ctx = SSL_CTX_new(TLSv1_method()); }
 #else
 #define SSL_CTX                   void
-#define INIT_PAGEKITE_SSL(ctx)    ctx = NULL
+#define pks_ssl_init(ctx)       { ctx = NULL; }
 #endif
 
 #define PARSER_BYTES_MIN   1 * 1024

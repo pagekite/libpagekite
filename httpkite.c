@@ -85,7 +85,9 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  pk_state.log_mask = PK_LOG_ALL;
+  pks_global_init(PK_LOG_ALL);
+  pk_state.log_file = NULL;
+  PKS_SSL_INIT(ctx);
 
   kite_r.kite = &kite;
   kite.protocol = "http";
@@ -96,8 +98,6 @@ int main(int argc, char **argv) {
   kite_r.bsalt = NULL;
   kite_r.fsalt = NULL;
   kite_rp = &kite_r;
-
-  INIT_PAGEKITE_SSL(ctx);
 
   srand(time(0) ^ getpid());
   if (0 > pk_connect(&pkc, argv[1], 443, 1, &kite_r, NULL, ctx)) {

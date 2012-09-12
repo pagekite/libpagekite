@@ -36,20 +36,29 @@ int pk_log(int level, const char* fmt, ...)
 {
   va_list args;
   char output[4000];
-  int r;
+  int r, len;
 
   if (level & pk_state.log_mask) {
+    len = sprintf(output, "ts=%x; tid=%x; lm=%x; msg=",
+                          (int) time(0), (int) pthread_self(), level);
     va_start(args, fmt);
-    r = vsnprintf(output, 4000, fmt, args); 
+    len += (r = vsnprintf(output + len, 4000 - len, fmt, args));
     va_end(args);
+
     if (r > 0) {
+      pks_logcopy(output, len);
+      if (pk_state.log_file != NULL) {
 #ifdef ANDROID
-#warning Logging uses Android __android_log_print.
-      __android_log_print(ANDROID_LOG_INFO, "libpagekite", "[%d] %.4000s\n",
-                          time(0), output);
-#else
-      fprintf(stderr, "[%x] %.4000s\n", (int) pthread_self(), output);
+#warning Default logging uses __android_log_print instead of stderr.
+        if (pk_state.log_file == stderr) {
+          __android_log_print(ANDROID_LOG_INFO,
+                              "libpagekite", "%.4000s\n", output);
+        } else
 #endif
+          fprintf(pk_state.log_file, "%.4000s\n", output);
+      }
+      else {
+      }
     }
   }
   else {

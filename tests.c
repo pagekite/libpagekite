@@ -20,8 +20,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 #include <assert.h>
-#include <time.h>
-
+#include "common.h"
 #include "pkstate.h"
 
 struct pk_global_state pk_state;

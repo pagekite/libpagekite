@@ -7,7 +7,7 @@ CLINK ?= -lpthread -lssl -lm -lev
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
-      pklogging.o utils.o sha1.o
+      pklogging.o pkstate.o utils.o sha1.o
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
        pkmanager.h sha1.h
 
