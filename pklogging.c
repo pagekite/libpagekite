@@ -37,6 +37,7 @@ int pk_log(int level, const char* fmt, ...)
   va_list args;
   char output[4000];
   int r, len;
+  FILE* log_file;
 
   if (level & pk_state.log_mask) {
     len = sprintf(output, "ts=%x; tid=%x; lm=%x; msg=",
@@ -47,17 +48,16 @@ int pk_log(int level, const char* fmt, ...)
 
     if (r > 0) {
       pks_logcopy(output, len);
-      if (pk_state.log_file != NULL) {
+      log_file = pk_state.log_file; /* Avoid race conditions if it changes. */
+      if (log_file != NULL) {
 #ifdef ANDROID
 #warning Default logging uses __android_log_print instead of stderr.
-        if (pk_state.log_file == stderr) {
+        if (log_file == stderr) {
           __android_log_print(ANDROID_LOG_INFO,
                               "libpagekite", "%.4000s\n", output);
         } else
 #endif
-          fprintf(pk_state.log_file, "%.4000s\n", output);
-      }
-      else {
+          fprintf(log_file, "%.4000s\n", output);
       }
     }
   }
