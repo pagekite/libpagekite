@@ -24,6 +24,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "utils.h"
 #include "pkerror.h"
 #include "pkconn.h"
+#include "pkstate.h"
 #include "pkproto.h"
 #include "pkblocker.h"
 #include "pkmanager.h"

@@ -84,6 +84,8 @@ struct pk_backend_conn {
                                               MIN_CONN_ALLOC, PARSER_BYTES_MIN)
 
 struct pk_manager {
+  pk_status_t              status;
+
   int                      buffer_bytes_free;
   char*                    buffer;
   char*                    buffer_base;
@@ -102,7 +104,7 @@ struct pk_manager {
   ev_timer                 timer;
   time_t                   last_world_update;
 
-  int                      want_spare_frontends;
+  int                      want_spare_frontends:1;
   char*                    dynamic_dns_url;
   SSL_CTX*                 ssl_ctx;
 
@@ -119,7 +121,7 @@ int pkm_reconnect_all               (struct pk_manager*);
 
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
                                       int, char*, int, int, int,
-                                      char*, SSL_CTX*);
+                                      const char*, SSL_CTX*);
 void                 pkm_reset_timer(struct pk_manager*);
 struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
                                   const char*, const char*, int, const char*,

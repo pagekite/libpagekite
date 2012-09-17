@@ -38,44 +38,72 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pagekite_net.h"
 
 
-#define BUFFER_SIZE 256 * 1024
+#define BUFFER_SIZE 384 * 1024
 struct pk_global_state pk_state;
 struct pk_manager *pk_manager_global = NULL;
 char pk_manager_buffer[BUFFER_SIZE];
 
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
-  jint jKites, jint jFrontends, jint jConns)
+  jint jKites, jint jFrontends, jint jConns, jstring jDynDns)
 {
   int kites = jKites;
-  int frontends = jFrontends;
+  int fe_max = jFrontends;
   int conns = jConns;
   char *buffer;
   SSL_CTX* ssl_ctx;
 
   if (pk_manager_global != NULL) return JNI_FALSE;
 
-  INIT_PAGEKITE_SSL(ssl_ctx);
+  const jbyte* dyndns = (*env)->GetStringUTFChars(env, jDynDns, NULL);
 
-  pk_state.log_mask = PK_LOG_ALL;
+  pks_global_init(PK_LOG_ALL);
+  PKS_SSL_INIT(ssl_ctx);
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
-                                       kites, frontends, conns,
-                                       PAGEKITE_NET_DDNS, ssl_ctx);
+                                       kites, fe_max, conns, dyndns, ssl_ctx);
+
+  (*env)->ReleaseStringUTFChars(env, jDynDns, dyndns);
   if (NULL == pk_manager_global) {
     return JNI_FALSE;
   }
   return JNI_TRUE;
 }
 
-jboolean Java_net_pagekite_lib_PageKiteAPI_free(JNIEnv* env, jclass cl)
+jboolean Java_net_pagekite_lib_PageKiteAPI_initPagekiteNet(JNIEnv* env, jclass cl,
+  jint jKites, jint jConns)
 {
-  if (pk_manager_global != NULL) {
-    pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Cleaning up");
-    pk_manager_global = NULL;
-    return JNI_TRUE;
+  int kites = jKites;
+  int conns = jConns;
+  char *buffer;
+  SSL_CTX* ssl_ctx;
+
+  if (pk_manager_global != NULL) return JNI_FALSE;
+
+  pks_global_init(PK_LOG_ALL);
+  PKS_SSL_INIT(ssl_ctx);
+  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
+  pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
+                                       kites,
+                                       PAGEKITE_NET_FE_MAX,
+                                       conns,
+                                       PAGEKITE_NET_DDNS, ssl_ctx);
+  if (NULL == pk_manager_global) {
+    pk_perror("pagekite-jni");
+    return JNI_FALSE;
   }
-  return JNI_FALSE;
+
+  if ((0 > (pkm_add_frontend(pk_manager_global,
+                             PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO))) ||
+      (0 > (pkm_add_frontend(pk_manager_global,
+                             PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO))))
+  {
+    pk_manager_global = NULL;
+    pk_perror("pagekite-jni");
+    return JNI_FALSE;
+  }
+
+  return JNI_TRUE;
 }
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_addKite(JNIEnv* env, jclass cl,
@@ -99,22 +127,22 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addKite(JNIEnv* env, jclass cl,
   (*env)->ReleaseStringUTFChars(env, jKitename, kitename);
   (*env)->ReleaseStringUTFChars(env, jSecret, secret);
   (*env)->ReleaseStringUTFChars(env, jBackend, backend);
-  return rv;
+  return (rv) ? JNI_TRUE : JNI_FALSE;
 }
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_addFrontend(JNIEnv* env, jclass cl,
-   jstring jDomain, jint jPort, jint jPrio)
+   jstring jDomain, jint jPort)
 {
   const jbyte *domain = (*env)->GetStringUTFChars(env, jDomain, NULL);
   int port = jPort;
-  int prio = jPrio;
 
   if (pk_manager_global == NULL) return JNI_FALSE;
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add frontend: %s:%d", domain, port);
-  int rv = (pkm_add_frontend(pk_manager_global, domain, port, prio) > 0);
+  int rv = (pkm_add_frontend(pk_manager_global,
+                             domain, port, FE_STATUS_AUTO) > 0);
 
   (*env)->ReleaseStringUTFChars(env, jDomain, domain);
-  return rv;
+  return (rv) ? JNI_TRUE : JNI_FALSE;
 }
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_start(JNIEnv* env, jclass cl)
@@ -131,6 +159,45 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_stop(JNIEnv* env, jclass cl)
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Stopping worker thread.");
   rv = pkm_stop_thread(pk_manager_global);
   pk_manager_global = NULL;
-  return (0 == rv);
+  return (0 == rv) ? JNI_TRUE : JNI_FALSE;
+}
+
+jboolean Java_net_pagekite_lib_PageKiteAPI_poll(JNIEnv* env, jclass cl,
+  jint jTimeout)
+{
+  int timeout = jTimeout;
+  if (pk_manager_global == NULL) return JNI_FALSE;
+
+  pthread_mutex_lock(&(pk_state.lock));
+  /* FIXME: Obey the timeout */
+  pthread_cond_wait(&(pk_state.cond), &(pk_state.lock));
+  pthread_mutex_unlock(&(pk_state.lock));
+
+  return JNI_TRUE;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_getStatus(JNIEnv* env, jclass cl)
+{
+  if (pk_manager_global == NULL) return -1;
+  return pk_manager_global->status;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_getLiveFrontends(JNIEnv* env, jclass cl)
+{
+  if (pk_manager_global == NULL) return -1;
+  return pk_state.live_frontends;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_getLiveStreams(JNIEnv* env, jclass cl)
+{
+  if (pk_manager_global == NULL) return -1;
+  return pk_state.live_streams;
+}
+
+jstring Java_net_pagekite_lib_PageKiteAPI_getLog(JNIEnv* env, jclass cl)
+{
+  char buffer[PKS_LOG_DATA_MAX];
+  pks_copylog(buffer);
+  return (*env)->NewStringUTF(env, buffer);
 }
 

@@ -25,6 +25,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #include "utils.h"
 #include "pkerror.h"
+#include "pkstate.h"
 #include "pkconn.h"
 #include "pkproto.h"
 #include "pkblocker.h"
@@ -239,7 +240,7 @@ void pkb_check_frontend_pingtimes(struct pk_manager* pkm)
   }
 }
 
-void pkb_update_dns(struct pk_manager* pkm)
+int pkb_update_dns(struct pk_manager* pkm)
 {
   int j, len, bogus, rlen;
   struct pk_frontend* fe;
@@ -268,10 +269,11 @@ void pkb_update_dns(struct pk_manager* pkm)
         if (fe->conn.status & FE_STATUS_IN_DNS) bogus++;
     }
   }
-  if (!bogus) return;
+  if (!bogus) return 0;
 
   for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
     if (kite->protocol != NULL) {
+      PKS_STATE(pkm->status = PK_STATUS_DYNDNS);
       sprintf(payload, "%s:%s", kite->public_domain, address_list);
       pk_sign(NULL, kite->auth_secret, payload, 100, signature);
 
@@ -279,10 +281,12 @@ void pkb_update_dns(struct pk_manager* pkm)
               kite->public_domain, address_list, signature);
       rlen = http_get(url, get_result, 10240);
 
-      pk_log(PK_LOG_MANAGER_DEBUG, "*** DDNS UP: %s", url);
-      pk_log(PK_LOG_MANAGER_DEBUG, "*** RESULT(%d): %s", rlen, get_result);
+      /* FIXME: Did we get an ack or a nack from the server?  Or an error? */
+      pk_log(PK_LOG_MANAGER_DEBUG, "FIXME! DDNS result(%d): %s", rlen, get_result);
     }
   }
+
+  return 0;
 }
 
 void pkb_log_fe_status(struct pk_manager* pkm)
@@ -293,7 +297,7 @@ void pkb_log_fe_status(struct pk_manager* pkm)
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
     if (fe->ai) {
       if (NULL != in_addr_to_str(fe->ai->ai_addr, printip, 128)) {
-        pk_log(PK_LOG_MANAGER_DEBUG, "  0x%8.8x %s", fe->conn.status, printip);
+        pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x %s", fe->conn.status, printip);
       }
     }
   }
@@ -311,12 +315,25 @@ void pkb_check_world(struct pk_manager* pkm)
 
 void pkb_check_frontends(struct pk_manager* pkm)
 {
+  int problems = 0;
+
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking frontends...");
   pkb_choose_frontends(pkm);
   pkb_log_fe_status(pkm);
-  pkm_reconnect_all(pkm);
+
+  problems += pkm_reconnect_all(pkm);
+
   /* FIXME: Disconnect from idle front-ends we don't care about anymore. */
-  if (pkm->dynamic_dns_url) pkb_update_dns(pkm);
+  if (pkm->dynamic_dns_url && (pkm->status != PK_STATUS_REJECTED)) {
+    problems += pkb_update_dns(pkm);
+  }
+
+  if (problems == 0) {
+    PKS_STATE(pkm->status = PK_STATUS_FLYING);
+  }
+  else if (pkm->status != PK_STATUS_REJECTED) {
+    PKS_STATE(pkm->status = PK_STATUS_PROBLEMS);
+  }
 }
 
 void* pkb_run_blocker(void *void_pkm)

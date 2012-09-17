@@ -403,7 +403,8 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     }
     else {
       /* FIXME: Is this the right way to clean up dead tunnels? */
-      PKS_STATE(pk_state.live_frontends -= 1);
+      PKS_STATE(pk_state.live_frontends -= 1;
+                pkm->status = PK_STATUS_PROBLEMS);
       pkc_reset_conn(&(fe->conn));
       fe->request_count = 0;
       pkm_reset_timer(pkm);
@@ -589,17 +590,18 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
       bzero(fe->requests, pkm->kite_max * sizeof(struct pk_kite_request));
       for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
         kite_r->kite = (pkm->kites + j);
-        kite_r->status = PK_STATUS_UNKNOWN;
+        kite_r->status = PK_KITE_UNKNOWN;
       }
     }
 
     reconnect = 0;
     for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
-      if (kite_r->status == PK_STATUS_UNKNOWN) reconnect++;
+      if (kite_r->status == PK_KITE_UNKNOWN) reconnect++;
     }
 
     if (reconnect) {
       tried++;
+      PKS_STATE(pkm->status = PK_STATUS_CONNECT);
       pk_log(PK_LOG_MANAGER_INFO, "Connecting to %s:%d",
                                   fe->fe_hostname, fe->fe_port);
       if (0 <= fe->conn.sockfd) {
@@ -640,7 +642,10 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         fe->request_count = 0;
 
         status = fe->conn.status;
-        if (pk_error == ERR_CONNECT_REJECTED) status |= FE_STATUS_REJECTED;
+        if (pk_error == ERR_CONNECT_REJECTED) {
+          status |= FE_STATUS_REJECTED;
+          PKS_STATE(pkm->status = PK_STATUS_REJECTED);
+        }
         pkc_reset_conn(&(fe->conn));
         fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
@@ -649,7 +654,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
     }
   }
   pkm_unblock(pkm);
-  return tried;
+  return (tried - connected);
 }
 
 void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
@@ -670,20 +675,16 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   /* Trigger the frontend check on the blocking thread. */
   if (pkm->last_world_update + PK_CHECK_WORLD_INTERVAL < time(0)) {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_WORLD, pkm);
+    need_timer = (pkm->timer.repeat * 2);
   }
   else {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
+    if (pkm->status != PK_STATUS_FLYING) {
+      need_timer = (pkm->timer.repeat * 2);
+    }
   }
 
-  /* FIXME: what how do we know when the timer is needed??? */
-  need_timer = (pkm->timer.repeat * 2);
   pkm_yield(pkm);
-
-  /*
-  if (0 < pkm_reconnect_all(pkm)) {
-    need_timer = (pkm->timer.repeat * 2);
-  }
-  */
 
   /* If the timer is no longer needed, turn it off. */
   if (need_timer) {
@@ -708,7 +709,7 @@ void pkm_reset_timer(struct pk_manager* pkm) {
 struct pk_manager* pkm_manager_init(struct ev_loop* loop,
                                     int buffer_size, char* buffer,
                                     int kites, int frontends, int conns,
-                                    char *dynamic_dns_url, SSL_CTX* ctx)
+                                    const char* dynamic_dns_url, SSL_CTX* ctx)
 {
   struct pk_manager* pkm;
   int i;
@@ -724,6 +725,15 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pk_log(PK_LOG_TUNNEL_DATA,
            "pkm_manager_init: Allocating %d bytes", buffer_size);
   }
+  else {
+    i = PK_MANAGER_BUFSIZE(kites, frontends, conns, PARSER_BYTES_MIN);
+    if (buffer_size < i) {
+      pk_log(PK_LOG_MANAGER_ERROR,
+             "pkm_manager_init: Buffer (%d bytes) too small, need %d.",
+             buffer_size, i);
+      return pk_err_null(ERR_TOOBIG_PARSERS);
+    }
+  }
   if (buffer == NULL) {
     pk_log(PK_LOG_MANAGER_ERROR,
            "pkm_manager_init: No buffer! Malloc failed?");
@@ -735,6 +745,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   memset(buffer, 0, buffer_size);
 
   pkm = (struct pk_manager*) buffer;
+  pkm->status = PK_STATUS_STARTUP;
   pkm->buffer_bytes_free = buffer_size;
 
   pkm->buffer = buffer + sizeof(struct pk_manager);

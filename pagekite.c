@@ -62,7 +62,10 @@ int main(int argc, char **argv) {
 
   pks_global_init(PK_LOG_ALL);
   PKS_SSL_INIT(ssl_ctx);
-  if (NULL == (m = pkm_manager_init(NULL, 0, NULL, 15, 5, 15,
+  if (NULL == (m = pkm_manager_init(NULL, 0, NULL,
+                                    10, /* Kites */
+                                    PAGEKITE_NET_FE_MAX,
+                                    25, /* Simultaneous connections */
                                     PAGEKITE_NET_DDNS, ssl_ctx))) {
     pk_perror(argv[0]);
     exit(1);

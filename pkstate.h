@@ -22,6 +22,17 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #define PKS_LOG_DATA_MAX     64*1024
 
+/* Note: This list is replicated in PageKiteAPI.java */
+typedef enum {
+  PK_STATUS_STARTUP     = 10,
+  PK_STATUS_CONNECT     = 20,
+  PK_STATUS_DYNDNS      = 30,
+  PK_STATUS_FLYING      = 40,
+  PK_STATUS_PROBLEMS    = 50,
+  PK_STATUS_REJECTED    = 60,
+  PK_STATUS_NO_NETWORK  = 90
+} pk_status_t;
+
 struct pk_global_state {
   /* Synchronization */
   pthread_mutex_t lock;

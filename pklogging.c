@@ -31,6 +31,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkproto.h"
 #include "pklogging.h"
 
+static int logged_lines = 0;
+
 
 int pk_log(int level, const char* fmt, ...)
 {
@@ -40,8 +42,9 @@ int pk_log(int level, const char* fmt, ...)
   FILE* log_file;
 
   if (level & pk_state.log_mask) {
-    len = sprintf(output, "ts=%x; tid=%x; lm=%x; msg=",
-                          (int) time(0), (int) pthread_self(), level);
+    len = sprintf(output, "ts=%x; tid=%x; ll=%x; lm=%x; msg=",
+                          (int) time(0), (int) pthread_self(),
+                          logged_lines++, level);
     va_start(args, fmt);
     len += (r = vsnprintf(output + len, 4000 - len, fmt, args));
     va_end(args);

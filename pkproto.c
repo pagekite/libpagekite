@@ -456,7 +456,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
 
   for (i = 0; i < n; i++) {
     if (requests[i].kite->protocol != NULL) {
-      requests[i].status = PK_STATUS_UNKNOWN;
+      requests[i].status = PK_KITE_UNKNOWN;
       bytes = pk_sign_kite_request(buffer, &(requests[i]), rand());
       pk_log(PK_LOG_TUNNEL_DATA, " * %s", requests[i].kite->public_domain);
       pkc_write(pkc, buffer, bytes);
@@ -542,7 +542,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   }
 
   for (i = 0; i < n; i++) {
-    requests[i].status = PK_STATUS_CONNECTED;
+    requests[i].status = PK_KITE_FLYING;
   }
   pk_log(PK_LOG_TUNNEL_DATA, "pk_connect_ai(%s, %d, %p) => %d",
                              in_addr_to_str(ai->ai_addr, buffer, 1024),

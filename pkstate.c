@@ -96,14 +96,18 @@ int pks_logcopy(const char *src, size_t len)
 /* WARNING: dest must be of size PKS_LOG_DATA_MAX or bigger */
 void pks_copylog(char *dest)
 {
+  pthread_mutex_lock(&(pk_state.lock));
   strcpy(dest, pk_state.log_ring_start);
   if (pk_state.log_ring_end < pk_state.log_ring_start)
     strcat(dest, pk_state.log_ring_buffer);
+  pthread_mutex_unlock(&(pk_state.lock));
 }
 
 void pks_printlog(FILE* dest)
 {
+  pthread_mutex_lock(&(pk_state.lock));
   fprintf(dest, "%s", pk_state.log_ring_start);
   if (pk_state.log_ring_end < pk_state.log_ring_start)
     fprintf(dest, "%s", pk_state.log_ring_buffer);
+  pthread_mutex_unlock(&(pk_state.lock));
 }

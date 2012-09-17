@@ -57,9 +57,9 @@ struct pk_pagekite {
 };
 
 /* Data structure describing a kite request */
-#define PK_STATUS_UNKNOWN   0x0000
-#define PK_STATUS_CONNECTED 0x0001
-#define PK_STATUS_REJECTED  0x0002
+#define PK_KITE_UNKNOWN   0x0000
+#define PK_KITE_FLYING    0x0001
+#define PK_KITE_REJECTED  0x0002
 struct pk_kite_request {
   struct pk_pagekite* kite;
   char* bsalt;
