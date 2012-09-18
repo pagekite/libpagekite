@@ -209,6 +209,7 @@ jint Java_net_pagekite_lib_PageKiteAPI_getLiveStreams(JNIEnv* env, jclass cl)
 jstring Java_net_pagekite_lib_PageKiteAPI_getLog(JNIEnv* env, jclass cl)
 {
   char buffer[PKS_LOG_DATA_MAX];
+  if (pk_manager_global == NULL) return (*env)->NewStringUTF(env, "Not running.");
   pks_copylog(buffer);
   return (*env)->NewStringUTF(env, buffer);
 }
