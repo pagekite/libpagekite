@@ -45,7 +45,7 @@ char pk_manager_buffer[BUFFER_SIZE];
 
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
-  jint jKites, jint jFrontends, jint jConns, jstring jDynDns)
+  jint jKites, jint jFrontends, jint jConns, jstring jDynDns, jboolean jDebug)
 {
   int kites = jKites;
   int fe_max = jFrontends;
@@ -57,7 +57,13 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
 
   const jbyte* dyndns = (*env)->GetStringUTFChars(env, jDynDns, NULL);
 
-  pks_global_init(PK_LOG_ALL);
+  if (jDebug) {
+    pks_global_init(PK_LOG_ALL);
+  }
+  else {
+    pks_global_init(PK_LOG_NORMAL);
+    pk_state.log_file = NULL;
+  }
   PKS_SSL_INIT(ssl_ctx);
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
@@ -71,7 +77,7 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
 }
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_initPagekiteNet(JNIEnv* env, jclass cl,
-  jint jKites, jint jConns)
+  jint jKites, jint jConns, jboolean jDebug)
 {
   int kites = jKites;
   int conns = jConns;
@@ -80,7 +86,13 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_initPagekiteNet(JNIEnv* env, jclass c
 
   if (pk_manager_global != NULL) return JNI_FALSE;
 
-  pks_global_init(PK_LOG_ALL);
+  if (jDebug) {
+    pks_global_init(PK_LOG_ALL);
+  }
+  else {
+    pks_global_init(PK_LOG_NORMAL);
+    pk_state.log_file = NULL;
+  }
   PKS_SSL_INIT(ssl_ctx);
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,

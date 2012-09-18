@@ -33,10 +33,10 @@ public class PageKiteAPI extends Object
 
     /* Direct wrapper around library init function. */
     public static native boolean init(int jKites, int jFrontends, int jConns,
-                                      String jDynDns);
+                                      String jDynDns, boolean jDebug);
 
     /* Initialize library using PageKite service defaults. */
-    public static native boolean initPagekiteNet(int jKites, int jConns);
+    public static native boolean initPagekiteNet(int jKites, int jConns, boolean jDebug);
 
     public static native boolean addKite(String jProto, String jKitename,
                                          int jPort, String jSecret,
