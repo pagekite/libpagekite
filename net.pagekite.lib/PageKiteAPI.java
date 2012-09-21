@@ -23,6 +23,8 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
+    public static final String PAGEKITE_NET_XMLRPC = "http://pagekite.net/xmlrpc/";
+
     public static final int PK_STATUS_STARTUP     = 10;
     public static final int PK_STATUS_CONNECT     = 20;
     public static final int PK_STATUS_DYNDNS      = 30;
