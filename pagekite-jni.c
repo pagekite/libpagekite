@@ -38,7 +38,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pagekite_net.h"
 
 
-#define BUFFER_SIZE 384 * 1024
+#define BUFFER_SIZE 512 * 1024
 struct pk_global_state pk_state;
 struct pk_manager *pk_manager_global = NULL;
 char pk_manager_buffer[BUFFER_SIZE];
@@ -55,7 +55,8 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
 
   if (pk_manager_global != NULL) return JNI_FALSE;
 
-  const jbyte* dyndns = (*env)->GetStringUTFChars(env, jDynDns, NULL);
+  const jbyte* dyndns = NULL;
+  if (jDynDns != NULL) dyndns = (*env)->GetStringUTFChars(env, jDynDns, NULL);
 
   if (jDebug) {
     pks_global_init(PK_LOG_ALL);
@@ -68,8 +69,10 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
                                        kites, fe_max, conns, dyndns, ssl_ctx);
+  pkm_set_timer_enabled(pk_manager_global, 0);
+  pkm_tick(pk_manager_global);
 
-  (*env)->ReleaseStringUTFChars(env, jDynDns, dyndns);
+  if (dyndns != NULL) (*env)->ReleaseStringUTFChars(env, jDynDns, dyndns);
   if (NULL == pk_manager_global) {
     return JNI_FALSE;
   }
@@ -115,6 +118,9 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_initPagekiteNet(JNIEnv* env, jclass c
     return JNI_FALSE;
   }
 
+  pkm_set_timer_enabled(pk_manager_global, 0);
+  pkm_tick(pk_manager_global);
+
   return JNI_TRUE;
 }
 
@@ -130,8 +136,8 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addKite(JNIEnv* env, jclass cl,
   int lport = jLport;
 
   if (pk_manager_global == NULL) return JNI_FALSE;
-  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add kite: %s://%s:%d -> %s:%d",
-                               proto, kitename, port, backend, lport);
+  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add kite: %s://%s:%d -> %s:%d (%s)",
+                               proto, kitename, port, backend, lport, secret);
   int rv = (pkm_add_kite(pk_manager_global, proto, kitename, port, secret,
                                             backend, lport) != NULL); 
 
@@ -157,6 +163,7 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addFrontend(JNIEnv* env, jclass cl,
   return (rv) ? JNI_TRUE : JNI_FALSE;
 }
 
+
 jboolean Java_net_pagekite_lib_PageKiteAPI_start(JNIEnv* env, jclass cl)
 {
   if (pk_manager_global == NULL) return JNI_FALSE;
@@ -174,6 +181,14 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_stop(JNIEnv* env, jclass cl)
   return (0 == rv) ? JNI_TRUE : JNI_FALSE;
 }
 
+
+jboolean Java_net_pagekite_lib_PageKiteAPI_tick(JNIEnv* env, jclass cl)
+{
+  if (pk_manager_global == NULL) return JNI_FALSE;
+  pkm_tick(pk_manager_global);
+  return JNI_TRUE;
+}
+
 jboolean Java_net_pagekite_lib_PageKiteAPI_poll(JNIEnv* env, jclass cl,
   jint jTimeout)
 {
@@ -187,6 +202,21 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_poll(JNIEnv* env, jclass cl,
 
   return JNI_TRUE;
 }
+
+
+jint Java_net_pagekite_lib_PageKiteAPI_setHaveNetwork(JNIEnv* env, jclass cl,
+  jboolean have_network)
+{
+  if (pk_manager_global == NULL) return -1;
+  if (have_network) {
+    PKS_STATE(pk_manager_global->status = PK_STATUS_STARTUP);
+  }
+  else {
+    PKS_STATE(pk_manager_global->status = PK_STATUS_NO_NETWORK);
+  }
+  return pk_manager_global->status;
+}
+
 
 jint Java_net_pagekite_lib_PageKiteAPI_getStatus(JNIEnv* env, jclass cl)
 {

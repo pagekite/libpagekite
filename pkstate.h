@@ -48,7 +48,8 @@ struct pk_global_state {
   /* Global program state */
   unsigned int    live_streams;
   unsigned int    live_frontends;
-  int             have_ssl:1;
+  unsigned int    have_ssl:1;
+  unsigned int    force_update:1;
 };
 
 extern struct pk_global_state pk_state;

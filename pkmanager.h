@@ -20,12 +20,8 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#define PK_HOUSEKEEPING_INTERVAL_MIN   2.0  /* Seconds */
-#ifndef ANDROID
-#define PK_HOUSEKEEPING_INTERVAL_MAX  60.0  /* 1 minute */
-#else
-#define PK_HOUSEKEEPING_INTERVAL_MAX 240.0  /* 4 minutes on mobile */
-#endif
+#define PK_HOUSEKEEPING_INTERVAL_MIN  15.0  /* Seconds */
+#define PK_HOUSEKEEPING_INTERVAL_MAX 180.0  /* 3 minutes */
 #define PK_CHECK_WORLD_INTERVAL       3600  /* 1 hour */
 
 struct pk_frontend;
@@ -101,9 +97,12 @@ struct pk_manager {
   struct ev_loop*          loop;
   ev_async                 interrupt;
   ev_async                 quit;
+  ev_async                 tick;
   ev_timer                 timer;
   time_t                   last_world_update;
 
+  unsigned int             next_tick;
+  unsigned int             enable_timer:1;
   int                      want_spare_frontends:1;
   char*                    dynamic_dns_url;
   SSL_CTX*                 ssl_ctx;
@@ -123,6 +122,9 @@ struct pk_manager*   pkm_manager_init(struct ev_loop*,
                                       int, char*, int, int, int,
                                       const char*, SSL_CTX*);
 void                 pkm_reset_timer(struct pk_manager*);
+void                 pkm_set_timer_enabled(struct pk_manager*, int);
+void                 pkm_quit(struct pk_manager*);
+void                 pkm_tick(struct pk_manager*);
 struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
                                   const char*, const char*, int, const char*,
                                   const char*, int);
@@ -159,4 +161,3 @@ void pkm_tunnel_writable_cb(EV_P_ ev_io *, int);
 void pkm_be_conn_readable_cb(EV_P_ ev_io *, int);
 void pkm_be_conn_writable_cb(EV_P_ ev_io *, int);
 void pkm_timer_cb(EV_P_ ev_timer *w, int);
-

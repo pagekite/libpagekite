@@ -23,7 +23,7 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
-    public static final String PAGEKITE_NET_XMLRPC = "http://pagekite.net/xmlrpc/";
+    public static final String PAGEKITE_NET_XMLRPC = "https://pagekite.net/xmlrpc/";
 
     public static final int PK_STATUS_STARTUP     = 10;
     public static final int PK_STATUS_CONNECT     = 20;
@@ -48,7 +48,12 @@ public class PageKiteAPI extends Object
     public static native boolean start();
     public static native boolean stop();
 
-    public static native int poll(int timeout);
+    public static native boolean tick();        /* Do periodic housekeeping */
+    public static native int poll(int timeout); /* Wait for log or state change */
+
+    /* Use this to tell the engine whether we have networking or not */
+    public static native int setHaveNetwork(boolean jHaveNetwork);
+
     public static native int getStatus();
     public static native int getLiveFrontends();
     public static native int getLiveStreams();

@@ -263,7 +263,8 @@ int pkb_update_dns(struct pk_manager* pkm)
             alp += len;
           }
         }
-        if (!(fe->conn.status & FE_STATUS_IN_DNS)) bogus++;
+        if (!(fe->conn.status & FE_STATUS_IN_DNS) || pk_state.force_update)
+          bogus++;
       }
       else /* Stuff in DNS that shouldn't be also triggers updates */
         if (fe->conn.status & FE_STATUS_IN_DNS) bogus++;
@@ -305,6 +306,7 @@ void pkb_log_fe_status(struct pk_manager* pkm)
 
 void pkb_check_world(struct pk_manager* pkm)
 {
+  if (pkm->status == PK_STATUS_NO_NETWORK) return;
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking state of world...");
   pkb_clear_transient_flags(pkm);
   pkb_check_frontend_pingtimes(pkm);
@@ -316,8 +318,9 @@ void pkb_check_world(struct pk_manager* pkm)
 void pkb_check_frontends(struct pk_manager* pkm)
 {
   int problems = 0;
-
+  if (pkm->status == PK_STATUS_NO_NETWORK) return;
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking frontends...");
+
   pkb_choose_frontends(pkm);
   pkb_log_fe_status(pkm);
 
@@ -328,7 +331,9 @@ void pkb_check_frontends(struct pk_manager* pkm)
     problems += pkb_update_dns(pkm);
   }
 
-  if (problems == 0) {
+  /* An update has happened, clear this flag. */
+  pk_state.force_update = 0;
+  if (problems == 0 && pk_state.live_frontends > 0) {
     PKS_STATE(pkm->status = PK_STATUS_FLYING);
   }
   else if (pkm->status != PK_STATUS_REJECTED) {
@@ -359,7 +364,6 @@ void* pkb_run_blocker(void *void_pkm)
     }
   }
 }
-
 
 int pkb_start_blocker(struct pk_manager *pkm)
 {

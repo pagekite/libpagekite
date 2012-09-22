@@ -34,7 +34,6 @@ Note: For alternate license terms, see the file COPYING.md.
 void pkm_yield(struct pk_manager *pkm)
 {
   pthread_mutex_unlock(&(pkm->loop_lock));
-  pk_log(PK_LOG_MANAGER_DEBUG, "Yielded loop lock.");
   pthread_mutex_lock(&(pkm->loop_lock));
 }
 static void pkm_interrupt_cb(EV_P_ ev_async *w, int revents)
@@ -58,14 +57,12 @@ void pkm_block(struct pk_manager *pkm)
 */
     pkm_interrupt(pkm);
     pthread_mutex_trylock(&(pkm->loop_lock));
-    pk_log(PK_LOG_MANAGER_DEBUG, "Blocked main event loop...");
   }
 }
 void pkm_unblock(struct pk_manager *pkm)
 {
   if (pthread_self() != pkm->main_thread) {
     pthread_mutex_unlock(&(pkm->loop_lock));
-    pk_log(PK_LOG_MANAGER_DEBUG, "...unblocked main event loop.");
   }
 }
 
@@ -407,7 +404,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
                 pkm->status = PK_STATUS_PROBLEMS);
       pkc_reset_conn(&(fe->conn));
       fe->request_count = 0;
-      pkm_reset_timer(pkm);
+      pkm_tick(pkm);
     }
     pk_log(loglevel, "%d: Closed.", pkc->sockfd, eof);
     pkc->sockfd = -1;
@@ -657,14 +654,37 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
   return (tried - connected);
 }
 
-void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
+void pkm_tick(struct pk_manager* pkm)
 {
-  struct pk_manager* pkm;
-  int need_timer;
+  ev_async_send(pkm->loop, &(pkm->tick));
+}
+static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
+{
+  struct pk_manager* pkm = (struct pk_manager*) w->data;
 
-  pkm = (struct pk_manager*) w->data;
-  pk_log(PK_LOG_MANAGER_DEBUG, "Tick (repeat=%.1f)", w->repeat);
-  need_timer = 0;
+  /* First, we look at the state of the world and schedule (or cancel)
+   * our next tick. */
+  if (pkm->enable_timer || (pkm->status != PK_STATUS_NO_NETWORK && 
+                            pkm->status != PK_STATUS_REJECTED &&
+                            pkm->status != PK_STATUS_FLYING))
+  {
+    pkm->timer.repeat = pkm->next_tick;
+    ev_timer_again(pkm->loop, &(pkm->timer));
+    pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, next=%d]",
+           pkm->enable_timer ? "yes" : "no", pkm->next_tick);
+
+    /* We slow down exponentially by default, no matter what. */
+    pkm->next_tick *= 2;
+    if (pkm->next_tick > PK_HOUSEKEEPING_INTERVAL_MAX)
+      pkm->next_tick = PK_HOUSEKEEPING_INTERVAL_MAX;
+  }
+  else {
+    ev_timer_stop(pkm->loop, &(pkm->timer));
+    pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, stopped]",
+           pkm->enable_timer ? "yes" : "no");
+    /* Reset interval. */
+    pkm->next_tick = PK_HOUSEKEEPING_INTERVAL_MIN;
+  }
 
   /* FIXME: Loop through all configured tunnels:
    *   - if idle, queue a ping.
@@ -672,37 +692,38 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
    *   - this will force need_timer to nonzero, skip on mobile?
    */
 
-  /* Trigger the frontend check on the blocking thread. */
+  /* Finally, trigger the frontend check on the blocking thread. */
   if (pkm->last_world_update + PK_CHECK_WORLD_INTERVAL < time(0)) {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_WORLD, pkm);
-    need_timer = (pkm->timer.repeat * 2);
+    /* After checking the state of the world, we are a bit more aggressive
+     * about following up on things, reset the fallback. */
+    pkm->next_tick = PK_HOUSEKEEPING_INTERVAL_MIN;
   }
   else {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
-    if (pkm->status != PK_STATUS_FLYING) {
-      need_timer = (pkm->timer.repeat * 2);
-    }
   }
-
   pkm_yield(pkm);
-
-  /* If the timer is no longer needed, turn it off. */
-  if (need_timer) {
-    if (need_timer > PK_HOUSEKEEPING_INTERVAL_MAX)
-      need_timer = PK_HOUSEKEEPING_INTERVAL_MAX;
-    pkm->timer.repeat = need_timer;
-    ev_timer_again(pkm->loop, &(pkm->timer));
-  }
-  else {
-    ev_timer_stop(pkm->loop, &(pkm->timer));
-  }
 
   loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
 }
 
+void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
+{
+  struct pk_manager* pkm = (struct pk_manager*) w->data;
+  pkm_tick(pkm);
+  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+}
 void pkm_reset_timer(struct pk_manager* pkm) {
   ev_timer_set(&(pkm->timer), 0.0, PK_HOUSEKEEPING_INTERVAL_MIN);
   ev_timer_start(pkm->loop, &(pkm->timer));
+  pkm->next_tick = PK_HOUSEKEEPING_INTERVAL_MIN;
+}
+void pkm_set_timer_enabled(struct pk_manager* pkm, int enabled) {
+  pkm->enable_timer = (enabled > 0);
+  if (pkm->enable_timer) {
+    pkm_reset_timer(pkm);
+  }
+  else ev_timer_stop(pkm->loop, &(pkm->timer));
 }
 
 
@@ -838,16 +859,23 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
 
   pkm->ssl_ctx = ctx;
-  PKS_STATE(pk_state.have_ssl = (ctx != NULL));
+  PKS_STATE(pk_state.have_ssl = (ctx != NULL);
+            pk_state.force_update = 1)
 
   /* Set up our event-loop callbacks */
   ev_timer_init(&(pkm->timer), pkm_timer_cb, 0, 0);
   pkm->timer.data = (void *) pkm;
   pkm_reset_timer(pkm);
+  pkm->enable_timer = 1;
 
   /* Let external threads shut us down */
   ev_async_init(&(pkm->quit), pkm_quit_cb);
   ev_async_start(loop, &(pkm->quit));
+
+  /* Let external threads control our "periodic housekeeping" */
+  ev_async_init(&(pkm->tick), pkm_tick_cb);
+  pkm->tick.data = (void *) pkm;
+  ev_async_start(loop, &(pkm->tick));
 
   /* Let external threads interrupt the loop */
   ev_async_init(&(pkm->interrupt), pkm_interrupt_cb);
