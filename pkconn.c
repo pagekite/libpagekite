@@ -152,11 +152,13 @@ int pkc_wait(struct pk_conn* pkc, int timeout)
 ssize_t pkc_read(struct pk_conn* pkc)
 {
   ssize_t bytes, delta;
+  int ssl_errno = SSL_ERROR_NONE;
 
   switch (pkc->state) {
 #ifdef HAVE_OPENSSL
     case CONN_SSL_DATA:
       bytes = SSL_read(pkc->ssl, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
+      if (bytes < 0) ssl_errno = SSL_get_error(pkc->ssl, bytes);
       break;
     case CONN_SSL_HANDSHAKE:
       pkc_do_handshake(pkc);
@@ -182,15 +184,36 @@ ssize_t pkc_read(struct pk_conn* pkc)
     }
   }
   else if (bytes == 0) {
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "pkc_read() hit EOF");
     pkc->status |= CONN_STATUS_CLS_READ;
   }
-  else switch (errno) {
-    case EINTR:
-    case EAGAIN:
-      break;
-    default:
-      pkc->status |= CONN_STATUS_BROKEN;
-      break;
+  else {
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+           "pkc_read() error, errno=%d, ssl_errno=%d", errno, ssl_errno);
+#ifdef HAVE_OPENSSL
+    switch (ssl_errno) {
+      case SSL_ERROR_WANT_READ:
+      case SSL_ERROR_WANT_WRITE:
+        pkc_start_handshake(pkc, ssl_errno);
+        break;
+      case SSL_ERROR_SYSCALL:
+      case SSL_ERROR_NONE:
+#endif
+        switch (errno) {
+          case EINTR:
+          case EAGAIN:
+            break;
+          default:
+            pkc->status |= CONN_STATUS_BROKEN;
+            break;
+        }
+#ifdef HAVE_OPENSSL
+        break;
+      default:
+        pkc->status |= CONN_STATUS_BROKEN;
+        break;
+    }
+#endif
   }
   return bytes;
 }

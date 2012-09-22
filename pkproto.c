@@ -502,8 +502,14 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
 
   /* Gather response from server */
   pk_log(PK_LOG_TUNNEL_DATA, " - Read response ...");
-  for (i = 0; i < sizeof(buffer)-1; ) {
-    if (0 > pkc_wait(pkc, 2000)) break;
+  for (i = 0; i < sizeof(buffer)-1 &&
+#ifdef HAVE_OPENSSL
+              (pkc->state != CONN_SSL_HANDSHAKE) &&
+#endif
+              !(pkc->status & (CONN_STATUS_BROKEN|CONN_STATUS_CLS_READ)); )
+  {
+    if (1 > pkc_wait(pkc, 2000)) return (pk_error = ERR_CONNECT_REQUEST);
+    pk_log(PK_LOG_TUNNEL_DATA, " - Have data ...");
     pkc_read(pkc);
     if (pkc->in_buffer_pos > 0) {
       memcpy(buffer+i, pkc->in_buffer, pkc->in_buffer_pos);
@@ -516,9 +522,10 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
         if (0 == strcmp(buffer+i-3, "\n\r\n")) break;
         if (0 == strcmp(buffer+i-2, "\n\n")) break;
       }
-      fprintf(stderr, "buffer: %s", buffer);
+      pk_log(PK_LOG_TUNNEL_DATA, " - Partial buffer: %s", buffer);
     }
   }
+  pk_log(PK_LOG_TUNNEL_DATA, " - Parsing!");
 
   /* OK, let's walk through the response header line-by-line and parse. */
   i = 0;
@@ -546,7 +553,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
             (0 == strcmp(requests[j].kite->public_domain, tkite.public_domain)) &&
             (0 == strcmp(requests[j].kite->protocol, tkite.protocol)))
         {
-          requests[j].fsalt = tkite_r.fsalt;
+          requests[j].fsalt = strdup(tkite_r.fsalt);
           i++;
         }
       }

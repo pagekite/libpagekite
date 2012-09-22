@@ -41,6 +41,7 @@ typedef unsigned int              uint32_t;
 #else
 #define SSL_CTX                   void
 #define pks_ssl_init(ctx)       { ctx = NULL; }
+#define SSL_ERROR_NONE            0
 #endif
 
 #define PARSER_BYTES_MIN   1 * 1024

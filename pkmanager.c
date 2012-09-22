@@ -715,6 +715,17 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   int i;
   unsigned int parse_buffer_bytes;
 
+#ifdef HAVE_OPENSSL
+  pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_ZERO_RETURN = %d", SSL_ERROR_ZERO_RETURN);
+  pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_WRITE = %d", SSL_ERROR_WANT_WRITE);
+  pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_READ = %d", SSL_ERROR_WANT_READ);
+  pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_CONNECT = %d", SSL_ERROR_WANT_CONNECT);
+  pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_ACCEPT = %d", SSL_ERROR_WANT_ACCEPT);
+  pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_X509_LOOKUP = %d", SSL_ERROR_WANT_X509_LOOKUP);
+  pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_SYSCALL = %d", SSL_ERROR_SYSCALL);
+  pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_SSL = %d", SSL_ERROR_SSL);
+#endif
+
   if (kites < MIN_KITE_ALLOC) kites = MIN_KITE_ALLOC;
   if (frontends < MIN_FE_ALLOC) frontends = MIN_FE_ALLOC;
   if (conns < MIN_CONN_ALLOC) conns = MIN_CONN_ALLOC;
