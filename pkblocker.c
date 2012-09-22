@@ -343,6 +343,8 @@ void pkb_check_frontends(struct pk_manager* pkm)
 
 void* pkb_run_blocker(void *void_pkm)
 {
+  time_t last_check_world = 0;
+  time_t last_check_frontends = 0;
   struct pk_job job;
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
   pk_log(PK_LOG_MANAGER_DEBUG, "Started blocking thread.");
@@ -353,10 +355,17 @@ void* pkb_run_blocker(void *void_pkm)
       case PK_NO_JOB:
         break;
       case PK_CHECK_WORLD:
-        pkb_check_world((struct pk_manager*) job.data);
-        /* Fall through to PK_CHECK_FRONTENDS */
+        if (time(0) > last_check_world+PK_HOUSEKEEPING_INTERVAL_MIN) {
+          pkb_check_world((struct pk_manager*) job.data);
+          pkb_check_frontends((struct pk_manager*) job.data);
+          last_check_world = last_check_frontends = time(0);
+        }
+        break;
       case PK_CHECK_FRONTENDS:
-        pkb_check_frontends((struct pk_manager*) job.data);
+        if (time(0) > last_check_frontends+PK_HOUSEKEEPING_INTERVAL_MIN) {
+          pkb_check_frontends((struct pk_manager*) job.data);
+          last_check_frontends = time(0);
+        }
         break;
       case PK_QUIT:
         pk_log(PK_LOG_MANAGER_DEBUG, "Exiting blocking thread.");
