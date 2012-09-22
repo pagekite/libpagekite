@@ -355,14 +355,14 @@ void* pkb_run_blocker(void *void_pkm)
       case PK_NO_JOB:
         break;
       case PK_CHECK_WORLD:
-        if (time(0) > last_check_world+PK_HOUSEKEEPING_INTERVAL_MIN) {
+        if (time(0) >= last_check_world+PK_HOUSEKEEPING_INTERVAL_MIN) {
           pkb_check_world((struct pk_manager*) job.data);
           pkb_check_frontends((struct pk_manager*) job.data);
           last_check_world = last_check_frontends = time(0);
         }
         break;
       case PK_CHECK_FRONTENDS:
-        if (time(0) > last_check_frontends+PK_HOUSEKEEPING_INTERVAL_MIN) {
+        if (time(0) >= last_check_frontends+PK_HOUSEKEEPING_INTERVAL_MIN) {
           pkb_check_frontends((struct pk_manager*) job.data);
           last_check_frontends = time(0);
         }

@@ -21,7 +21,7 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #define PK_HOUSEKEEPING_INTERVAL_MIN  15.0  /* Seconds */
-#define PK_HOUSEKEEPING_INTERVAL_MAX 180.0  /* 3 minutes */
+#define PK_HOUSEKEEPING_INTERVAL_MAX 900.0  /* 15 minutes */
 #define PK_CHECK_WORLD_INTERVAL       3600  /* 1 hour */
 
 struct pk_frontend;

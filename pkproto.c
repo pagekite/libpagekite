@@ -539,7 +539,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
       pk_log(PK_LOG_TUNNEL_CONNS, "%s", p);
       pkc_reset_conn(pkc);
       /* FIXME: Should update the status of each individual request. */
-      return (pk_error = (p[13] == 'u') ? ERR_CONNECT_DUPLICATE
+      return (pk_error = (p[12] == 'u') ? ERR_CONNECT_DUPLICATE
                                         : ERR_CONNECT_REJECTED);
     }
                      /* 12345678901234567890 = 20 bytes */
