@@ -28,3 +28,4 @@ ssize_t timed_read(int, void*, size_t, int);
 char *in_addr_to_str(const struct sockaddr*, char*, size_t);
 int addrcmp(const struct sockaddr *, const struct sockaddr *);
 int http_get(const char*, char*, size_t);
+void digest_to_hex(const unsigned char* digest, char *output);

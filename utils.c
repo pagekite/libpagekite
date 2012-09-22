@@ -180,3 +180,19 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
   free(urlparse);
   return total_bytes;
 }
+
+void digest_to_hex(const unsigned char* digest, char *output)
+{
+    int i,j;
+    char *c = output;
+
+    /* SHA1_DIGEST_SIZE == 20 */
+    for (i = 0; i < 20/4; i++) {
+        for (j = 0; j < 4; j++) {
+            sprintf(c,"%02x", digest[i*4+j]);
+            c += 2;
+        }
+    }
+    *c = '\0';
+}
+

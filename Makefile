@@ -7,9 +7,9 @@ CLINK ?= -lpthread -lssl -lm -lev
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
-      pklogging.o pkstate.o utils.o sha1.o
+      pklogging.o pkstate.o utils.o pd_sha1.o
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
-       pkmanager.h sha1.h
+       pkmanager.h pd_sha1.h
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
@@ -49,10 +49,10 @@ pkerror.o: common.h utils.h pkerror.h pklogging.h
 pklogging.o: common.h pkstate.h pkconn.h pkproto.h pklogging.h
 pkmanager.o: $(HDRS)
 pkmanager_test.o: $(HDRS)
-pkproto.o: common.h sha1.h utils.h pkconn.h pkproto.h pklogging.h pkerror.h
+pkproto.o: common.h pd_sha1.h utils.h pkconn.h pkproto.h pklogging.h pkerror.h
 pkproto_test.o: common.h pkerror.h pkconn.h pkproto.h utils.h
-sha1.o: common.h sha1.h
-sha1_test.o: common.h sha1.h
+pd_sha1.o: common.h pd_sha1.h
+sha1_test.o: common.h pd_sha1.h
 tests.o: pkstate.h
 utils.o: common.h
 utils_test.o: utils.h

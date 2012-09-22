@@ -79,7 +79,7 @@ A million repetitions of "a"
 /* #define SHA1HANDSOFF  */
 
 #include "common.h"
-#include "sha1.h"
+#include "pd_sha1.h"
 
 static char *test_data[] = {
     "abc",
@@ -94,14 +94,14 @@ static char *test_results[] = {
 int sha1_test()
 {
     int k;
-    SHA1_CTX context;
+    PD_SHA1_CTX context;
     uint8_t digest[20];
     char output[80];
 
     for (k = 0; k < 2; k++){
-        sha1_init(&context);
-        sha1_update(&context, (uint8_t*)test_data[k], strlen(test_data[k]));
-        sha1_final(&context, digest);
+        pd_sha1_init(&context);
+        pd_sha1_update(&context, (uint8_t*)test_data[k], strlen(test_data[k]));
+        pd_sha1_final(&context, digest);
 	digest_to_hex(digest, output);
 
         if (strcmp(output, test_results[k])) {
@@ -113,10 +113,10 @@ int sha1_test()
         }
     }
     /* million 'a' vector we feed separately */
-    sha1_init(&context);
+    pd_sha1_init(&context);
     for (k = 0; k < 1000000; k++)
-        sha1_update(&context, (uint8_t*)"a", 1);
-    sha1_final(&context, digest);
+        pd_sha1_update(&context, (uint8_t*)"a", 1);
+    pd_sha1_final(&context, digest);
     digest_to_hex(digest, output);
     if (strcmp(output, test_results[2])) {
         fprintf(stdout, "FAIL\n");

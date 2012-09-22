@@ -21,12 +21,17 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #include "common.h"
-#include "sha1.h"
 #include "utils.h"
 #include "pkconn.h"
 #include "pkproto.h"
 #include "pklogging.h"
 #include "pkerror.h"
+
+#ifdef HAVE_OPENSSL
+#include <openssl/sha.h>
+#else
+#include "pd_sha1.h"
+#endif
 
 void pk_reset_pagekite(struct pk_pagekite* kite)
 {
@@ -308,7 +313,6 @@ size_t pk_format_pong(char* buf)
 
 int pk_make_bsalt(struct pk_kite_request* kite_r) {
   uint8_t buffer[1024];
-  SHA1_CTX context;
 
   if (kite_r->bsalt == NULL) kite_r->bsalt = malloc(41);
   if (kite_r->bsalt == NULL) {
@@ -320,9 +324,17 @@ int pk_make_bsalt(struct pk_kite_request* kite_r) {
   sprintf((char*) buffer, "%x %x %x %x",
                           rand(), getpid(), getppid(), (int) time(0));
 
-  sha1_init(&context);
-  sha1_update(&context, buffer, strlen((const char*) buffer));
-  sha1_final(&context, buffer);
+#ifdef HAVE_OPENSSL
+  SHA_CTX context;
+  SHA1_Init(&context);
+  SHA1_Update(&context, buffer, strlen((const char*) buffer));
+  SHA1_Final((unsigned char*) buffer, &context);
+#else
+  PD_SHA1_CTX context;
+  pd_sha1_init(&context);
+  pd_sha1_update(&context, buffer, strlen((const char*) buffer));
+  pd_sha1_final(&context, buffer);
+#endif
   digest_to_hex(buffer, kite_r->bsalt);
   kite_r->bsalt[36] = '\0';
 
@@ -332,29 +344,47 @@ int pk_make_bsalt(struct pk_kite_request* kite_r) {
 char* pk_sign(const char* token, const char* secret, const char* payload,
               int length, char *buffer)
 {
-  SHA1_CTX context;
-  char *p, tbuffer[128], scratch[10240];
+  char tbuffer[128], scratch[10240];
 
   if (token == NULL) {
     sprintf(scratch, "%8.8x", rand());
-    sha1_init(&context);
-    sha1_update(&context, (uint8_t*) secret, strlen(secret));
-    sha1_update(&context, (uint8_t*) scratch, strlen(scratch));
-    sha1_final(&context, (uint8_t*) scratch);
+#ifdef HAVE_OPENSSL
+    SHA_CTX context;
+    SHA1_Init(&context);
+    SHA1_Update(&context, (uint8_t*) secret, strlen(secret));
+    SHA1_Update(&context, (uint8_t*) scratch, 8);
+    SHA1_Final((unsigned char*) scratch, &context);
+#else
+    PD_SHA1_CTX context;
+    pd_sha1_init(&context);
+    pd_sha1_update(&context, (uint8_t*) secret, strlen(secret));
+    pd_sha1_update(&context, (uint8_t*) scratch, 8);
+    pd_sha1_final(&context, scratch);
+#endif
     digest_to_hex((uint8_t*) scratch, tbuffer);
     token = tbuffer;
   }
+  strcpy(buffer, token);
 
-  strncpy(buffer, token, 8);
-  p = buffer+8;
-  sha1_init(&context);
-  sha1_update(&context, (uint8_t*) secret, strlen(secret));
-  if (payload) sha1_update(&context, (uint8_t*) payload, strlen(payload));
-  sha1_update(&context, (uint8_t*) token, 8);
-  sha1_final(&context, (uint8_t*) scratch);
-  digest_to_hex((uint8_t*) scratch, p);
+#ifdef HAVE_OPENSSL
+  SHA_CTX context;
+  SHA1_Init(&context);
+  SHA1_Update(&context, (uint8_t*) secret, strlen(secret));
+  if (payload)
+    SHA1_Update(&context, (uint8_t*) payload, strlen(payload));
+  SHA1_Update(&context, (uint8_t*) token, 8);
+  SHA1_Final((unsigned char*)scratch, &context);
+#else
+  PD_SHA1_CTX context;
+  pd_sha1_init(&context);
+  pd_sha1_update(&context, (uint8_t*) secret, strlen(secret));
+  if (payload)
+    pd_sha1_update(&context, (uint8_t*) payload, strlen(payload));
+  pd_sha1_update(&context, (uint8_t*) token, 8);
+  pd_sha1_final(&context, scratch);
+#endif
+  digest_to_hex((uint8_t*) scratch, buffer+8);
   buffer[length] = '\0';
-
   return buffer;
 }
 

@@ -74,9 +74,9 @@ move public api to sha1.h
 #endif
 
 #include "common.h"
-#include "sha1.h"
+#include "pd_sha1.h"
 
-void sha1_transform(uint32_t state[5], const uint8_t buffer[64]);
+void pd_sha1_transform(uint32_t state[5], const uint8_t buffer[64]);
 
 #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
@@ -114,7 +114,7 @@ void sha1_print_context(sha1_CTX *context, char *msg){
 #endif /* VERBOSE */
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
-void sha1_transform(uint32_t state[5], const uint8_t buffer[64])
+void pd_sha1_transform(uint32_t state[5], const uint8_t buffer[64])
 {
     uint32_t a, b, c, d, e;
     typedef union {
@@ -173,7 +173,7 @@ void sha1_transform(uint32_t state[5], const uint8_t buffer[64])
 
 
 /* sha1Init - Initialize new context */
-void sha1_init(SHA1_CTX* context)
+void pd_sha1_init(PD_SHA1_CTX* context)
 {
     /* sha1 initialization constants */
     context->state[0] = 0x67452301;
@@ -186,7 +186,7 @@ void sha1_init(SHA1_CTX* context)
 
 
 /* Run your data through this. */
-void sha1_update(SHA1_CTX* context, const uint8_t* data, const size_t len)
+void pd_sha1_update(PD_SHA1_CTX* context, const uint8_t* data, const size_t len)
 {
     size_t i, j;
 
@@ -198,15 +198,15 @@ void sha1_update(SHA1_CTX* context, const uint8_t* data, const size_t len)
     if ((context->count[0] += len << 3) < (len << 3)) context->count[1]++;
     context->count[1] += (len >> 29);
     if ((j + len) > 63) {
-        memcpy(&context->buffer[j], data, (i = 64-j));
-        sha1_transform(context->state, context->buffer);
+        memcpy(&(context->buffer[j]), data, (i = 64-j));
+        pd_sha1_transform(context->state, context->buffer);
         for ( ; i + 63 < len; i += 64) {
-            sha1_transform(context->state, data + i);
+            pd_sha1_transform(context->state, data + i);
         }
         j = 0;
     }
     else i = 0;
-    memcpy(&context->buffer[j], &data[i], len - i);
+    memcpy(&(context->buffer[j]), &data[i], len - i);
 
 #ifdef VERBOSE
     sha1_print_context(context, "after ");
@@ -215,7 +215,7 @@ void sha1_update(SHA1_CTX* context, const uint8_t* data, const size_t len)
 
 
 /* Add padding and return the message digest. */
-void sha1_final(SHA1_CTX* context, uint8_t digest[SHA1_DIGEST_SIZE])
+void pd_sha1_final(PD_SHA1_CTX* context, uint8_t digest[SHA1_DIGEST_SIZE])
 {
     uint32_t i;
     uint8_t  finalcount[8];
@@ -224,11 +224,11 @@ void sha1_final(SHA1_CTX* context, uint8_t digest[SHA1_DIGEST_SIZE])
         finalcount[i] = (unsigned char)((context->count[(i >= 4 ? 0 : 1)]
          >> ((3-(i & 3)) * 8) ) & 255);  /* Endian independent */
     }
-    sha1_update(context, (uint8_t *)"\200", 1);
+    pd_sha1_update(context, (uint8_t *)"\200", 1);
     while ((context->count[0] & 504) != 448) {
-        sha1_update(context, (uint8_t *)"\0", 1);
+        pd_sha1_update(context, (uint8_t *)"\0", 1);
     }
-    sha1_update(context, finalcount, 8);  /* Should cause a sha1_transform() */
+    pd_sha1_update(context, finalcount, 8);  /* Should cause a sha1_transform() */
     for (i = 0; i < SHA1_DIGEST_SIZE; i++) {
         digest[i] = (uint8_t)
          ((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
@@ -242,22 +242,9 @@ void sha1_final(SHA1_CTX* context, uint8_t digest[SHA1_DIGEST_SIZE])
     memset(finalcount, 0, 8);	/* SWR */
 
 #ifdef SHA1HANDSOFF  /* make sha1Transform overwrite its own static vars */
-    sha1_transform(context->state, context->buffer);
+    pd_sha1_transform(context->state, context->buffer);
 #endif
 }
 
 
-void digest_to_hex(const uint8_t digest[SHA1_DIGEST_SIZE], char *output)
-{
-    int i,j;
-    char *c = output;
-
-    for (i = 0; i < SHA1_DIGEST_SIZE/4; i++) {
-        for (j = 0; j < 4; j++) {
-            sprintf(c,"%02x", digest[i*4+j]);
-            c += 2;
-        }
-    }
-    *c = '\0';
-}
 

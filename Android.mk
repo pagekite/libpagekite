@@ -12,7 +12,7 @@ NDK_PROJECT_PATH    := $(TOP_LOCAL_PATH)
 LOCAL_PATH          := $(TOP_LOCAL_PATH)
 LOCAL_C_INCLUDES    := $(LOCAL_PATH)/ $(LOCAL_PATH)/libev/ $(LOCAL_PATH)/openssl-android/ $(LOCAL_PATH)/openssl-android/include/
 LOCAL_MODULE        := pagekite
-LOCAL_SRC_FILES     := utils.c sha1.c pkproto.c pkstate.c pklogging.c pkerror.c \
+LOCAL_SRC_FILES     := utils.c pd_sha1.c pkproto.c pkstate.c pklogging.c pkerror.c \
                        pkconn.c pkmanager.c pkblocker.c
 LOCAL_LDLIBS        := -lc -llog
 include $(BUILD_STATIC_LIBRARY)
