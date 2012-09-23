@@ -20,6 +20,12 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#ifdef ANDROID
+#define PK_VERSION "A.0.2"
+#else
+#define PK_VERSION "C.0.2"
+#endif
+
 /* This magic number is a high estimate of how much overhead we expect the
  * PageKite frame and chunk headers to add to each sent packet.
  *
@@ -33,14 +39,32 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_HANDSHAKE_CONNECT "CONNECT PageKite:1 HTTP/1.0\r\n"
 #ifdef ANDROID
 #define PK_HANDSHAKE_FEATURES ("X-PageKite-Features: Mobile\r\n" \
-                               "X-PageKite-Version: A.0.2\r\n")
+                               "X-PageKite-Version: " PK_VERSION "\r\n")
 #else
-#define PK_HANDSHAKE_FEATURES ("X-PageKite-Version: C.0.2\r\n")
+#define PK_HANDSHAKE_FEATURES ("X-PageKite-Version: " PK_VERSION "\r\n")
 #endif
 #define PK_HANDSHAKE_SESSION "X-PageKite-Replace: %s\r\n"
 #define PK_HANDSHAKE_KITE "X-PageKite: %s\r\n"
 #define PK_HANDSHAKE_END "\r\n"
 #define PK_HANDSHAKE_SESSIONID_MAX 256
+
+/* Must be careful here, outsiders can manipulate the contents of the
+ * reply message.  Beware the buffer overflows! */
+#define PK_REJECT_MAXSIZE 1024
+#define PK_REJECT_FMT ("HTTP/1.1 503 Unavailable\r\n" \
+                       "Content-Type: text/html; charset=utf-8\r\n" \
+                       "Pragma: no-cache\r\n" \
+                       "Expires: 0\r\n" \
+                       "Cache-Control: no-store\r\n" \
+                       "Connection: close\r\n" \
+                       "\r\n" \
+                       "<html>%s<h1>Sorry! (%.3s/" PK_VERSION ")</h1>" \
+                       "<p>The %.8s <a href='http://pagekite.org/'>" \
+                       "<i>PageKite</i></a> for <b>%.64s</b> is unavailable " \
+                       "at the moment.</p><p>Please try again later.</p>" \
+                       "%s</html>")
+#define PK_REJECT_PRE_PAGEKITE ("<frameset cols='*'><frame target='_top' src='https://pagekite.net/offline/?&v=" PK_VERSION "&where=%.3s&proto=%.8s&domain=%.64s'><noframes>")
+#define PK_REJECT_POST_PAGEKITE "</noframes></frameset>"
 
 #define PK_EOF_READ  0x1
 #define PK_EOF_WRITE 0x2

@@ -69,12 +69,15 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
                                        kites, fe_max, conns, dyndns, ssl_ctx);
-  pkm_set_timer_enabled(pk_manager_global, 0);
-  pkm_tick(pk_manager_global);
 
   if (dyndns != NULL) (*env)->ReleaseStringUTFChars(env, jDynDns, dyndns);
   if (NULL == pk_manager_global) {
     return JNI_FALSE;
+  }
+  else {
+    pk_manager_global->fancy_pagekite_net_rejection = 0;
+    pkm_set_timer_enabled(pk_manager_global, 0);
+    pkm_tick(pk_manager_global);
   }
   return JNI_TRUE;
 }

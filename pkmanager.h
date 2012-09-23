@@ -103,7 +103,8 @@ struct pk_manager {
 
   unsigned int             next_tick;
   unsigned int             enable_timer:1;
-  int                      want_spare_frontends:1;
+  unsigned int             fancy_pagekite_net_rejection:1;
+  int                      want_spare_frontends;
   char*                    dynamic_dns_url;
   SSL_CTX*                 ssl_ctx;
 

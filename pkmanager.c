@@ -80,7 +80,8 @@ void pkm_quit(struct pk_manager* pkm)
 void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
 {
   struct pk_backend_conn* pkb; /* FIXME: What if we are a front-end? */
-  char reply[1024];
+  char reply[PK_REJECT_MAXSIZE], pre[PK_REJECT_MAXSIZE], rej[PK_REJECT_MAXSIZE];
+  char *post;
   int bytes;
 
   pk_log_chunk(chunk);
@@ -95,9 +96,25 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
     }
     else {
       /* FIXME: Send back a nicer error */
+      if (fe->manager->fancy_pagekite_net_rejection) {
+        sprintf(pre, PK_REJECT_PRE_PAGEKITE, "BE",
+                     chunk->request_proto, chunk->request_host);
+        post = PK_REJECT_POST_PAGEKITE;
+      }
+      else {
+        pre[0] = '\0';
+        post = pre;
+      }
+      sprintf(rej, PK_REJECT_FMT,
+                   pre, "be", chunk->request_proto, chunk->request_host, post);
+
+      bytes = pk_format_reply(reply, chunk->sid, strlen(rej), rej);
+      pkc_write(&(fe->conn), reply, bytes);
+
       bytes = pk_format_eof(reply, chunk->sid, PK_EOF);
       pkc_write(&(fe->conn), reply, bytes);
-      pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s (sent EOF)", chunk->sid);
+      pk_log(PK_LOG_TUNNEL_CONNS, "No stream found: %s, %s://%s", chunk->sid,
+                                  chunk->request_proto, chunk->request_host);
     }
   }
 
@@ -200,9 +217,9 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   }
 
   /* FIXME: This should be non-blocking for use on high volume front-ends,
-            but that requires more buffering and fancy logic, so we're
-            lazy for now.
-            See also: http://developerweb.net/viewtopic.php?id=3196 */
+   *        but that requires more buffering and fancy logic, so we're
+   *        lazy for now.
+   *        See also: http://developerweb.net/viewtopic.php?id=3196 */
 
   pkb->kite = kite;
   pkb->conn.sockfd = sockfd;
@@ -854,6 +871,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pkm->buffer += parse_buffer_bytes;
     pkm->buffer_bytes_free -= parse_buffer_bytes;
   }
+  pkm->fancy_pagekite_net_rejection = 1;
   pkm->want_spare_frontends = 0;
   pkm->last_world_update = (time_t) 0;
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
