@@ -36,7 +36,7 @@ version:
 	@touch pkproto.h
 
 clean:
-	rm -vf tests pagekite httpkite *.o version.h
+	rm -vf tests pagekite httpkite *.o
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf
