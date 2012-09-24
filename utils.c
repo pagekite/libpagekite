@@ -83,9 +83,12 @@ char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
   char* p;
   switch (sa->sa_family) {
     case AF_INET:
+      p = s;
+      *p++ = '[';
       inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
-                s, maxlen-6);
+                p, maxlen-8);
       p = s+strlen(s);
+      *p++ = ']';
       *p++ = ':';
       sprintf(p, "%d", ntohs(((struct sockaddr_in* )sa)->sin_port));
       break;
