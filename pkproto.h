@@ -20,11 +20,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#ifdef ANDROID
-#define PK_VERSION "A.0.2"
-#else
-#define PK_VERSION "C.0.2"
-#endif
+#include "version.h"
 
 /* This magic number is a high estimate of how much overhead we expect the
  * PageKite frame and chunk headers to add to each sent packet.

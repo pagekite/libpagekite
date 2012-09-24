@@ -31,8 +31,11 @@ httpkite: runtests httpkite.o $(OBJ)
 pagekite: runtests pagekite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
 
+version:
+	@sed -e "s/@DATE@/`date '+%y%m%d'`/g" <version.h.in >version.h
+
 clean:
-	rm -vf tests pagekite httpkite *.o
+	rm -vf tests pagekite httpkite *.o version.h
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf
