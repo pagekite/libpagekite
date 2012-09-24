@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  pks_global_init(PK_LOG_ALL);
+  pks_global_init(PK_LOG_NORMAL);
   PKS_SSL_INIT(ssl_ctx);
   if (NULL == (m = pkm_manager_init(NULL, 0, NULL,
                                     10, /* Kites */

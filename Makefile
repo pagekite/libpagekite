@@ -33,6 +33,7 @@ pagekite: runtests pagekite.o $(OBJ)
 
 version:
 	@sed -e "s/@DATE@/`date '+%y%m%d'`/g" <version.h.in >version.h
+	@touch pkproto.h
 
 clean:
 	rm -vf tests pagekite httpkite *.o version.h

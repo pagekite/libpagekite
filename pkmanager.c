@@ -771,8 +771,6 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   if (buffer == NULL) {
     buffer_size = PK_MANAGER_BUFSIZE(kites, frontends, conns, PARSER_BYTES_AVG);
     buffer = malloc(buffer_size);
-    pk_log(PK_LOG_TUNNEL_DATA,
-           "pkm_manager_init: Allocating %d bytes", buffer_size);
   }
   else {
     i = PK_MANAGER_BUFSIZE(kites, frontends, conns, PARSER_BYTES_MIN);
@@ -784,8 +782,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     }
   }
   if (buffer == NULL) {
-    pk_log(PK_LOG_MANAGER_ERROR,
-           "pkm_manager_init: No buffer! Malloc failed?");
+    pk_log(PK_LOG_MANAGER_ERROR, "pkm_manager_init: No buffer! Malloc failed?");
     return NULL;
   }
 
@@ -906,6 +903,9 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pthread_cond_init(&(pkm->blocking_jobs.cond), NULL);
   pkm->blocking_jobs.count = 0;
 
+  pk_log(PK_LOG_MANAGER_INFO,
+         "Initialized libpagekite manager v%s (using %d bytes)",
+         PK_VERSION, buffer_size);
   return pkm;
 }
 
