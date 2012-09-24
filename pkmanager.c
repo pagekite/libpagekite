@@ -616,8 +616,6 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
     if (reconnect) {
       tried++;
       PKS_STATE(pkm->status = PK_STATUS_CONNECT);
-      pk_log(PK_LOG_MANAGER_INFO, "Connecting to %s:%d",
-                                  fe->fe_hostname, fe->fe_port);
       if (0 <= fe->conn.sockfd) {
         ev_io_stop(pkm->loop, &(fe->conn.watch_r));
         ev_io_stop(pkm->loop, &(fe->conn.watch_w));
