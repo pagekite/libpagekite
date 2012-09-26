@@ -78,6 +78,25 @@ ssize_t timed_read(int sockfd, void* buf, size_t count, int timeout)
 }
 
 /* http://www.beej.us/guide/bgnet/output/html/multipage/inet_ntopman.html */
+char *in_ipaddr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
+{
+  switch (sa->sa_family) {
+    case AF_INET:
+      inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
+                s, maxlen);
+      break;
+
+    case AF_INET6:
+      inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
+                s, maxlen);
+      break;
+
+    default:
+      strncpy(s, "Unknown AF", maxlen);
+      return NULL;
+  }
+  return s;
+}
 char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
 {
   char* p;

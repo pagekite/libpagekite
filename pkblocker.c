@@ -174,8 +174,8 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
               (0 == addrcmp(fe->ai->ai_addr, rp->ai_addr))) {
             pk_log(PK_LOG_MANAGER_DEBUG, "In DNS for %s: %s",
                                          kite->public_domain,
-                                         in_addr_to_str(fe->ai->ai_addr,
-                                                        buffer, 128));
+                                         in_ipaddr_to_str(fe->ai->ai_addr,
+                                                          buffer, 128));
             fe->conn.status |= FE_STATUS_IN_DNS;
           }
         }
@@ -255,7 +255,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
     if ((fe->ai) && (fe->conn.sockfd >= 0)) {
       if (fe->conn.status & FE_STATUS_WANTED) {
-        if (NULL != in_addr_to_str(fe->ai->ai_addr, printip, 128)) {
+        if (NULL != in_ipaddr_to_str(fe->ai->ai_addr, printip, 128)) {
           len = strlen(printip);
           if (len < 1000-(alp-address_list)) {
             if (alp != address_list) *alp++ = ',';
