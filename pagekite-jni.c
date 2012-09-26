@@ -139,8 +139,8 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_addKite(JNIEnv* env, jclass cl,
   int lport = jLport;
 
   if (pk_manager_global == NULL) return JNI_FALSE;
-  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add kite: %s://%s:%d -> %s:%d (%s)",
-                               proto, kitename, port, backend, lport, secret);
+  pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Add kite: %s://%s:%d -> %s:%d",
+                               proto, kitename, port, backend, lport);
   int rv = (pkm_add_kite(pk_manager_global, proto, kitename, port, secret,
                                             backend, lport) != NULL); 
 
