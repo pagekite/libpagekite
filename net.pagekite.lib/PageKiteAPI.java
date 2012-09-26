@@ -23,7 +23,8 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
-    public static final String PAGEKITE_NET_XMLRPC = "https://pagekite.net/xmlrpc/";
+    public static final String PAGEKITE_NET_XMLRPCS = "https://pagekite.net/xmlrpc/";
+    public static final String PAGEKITE_NET_XMLRPC = "http://pagekite.net/xmlrpc/";
     public static final String PAGEKITE_NET_EMAIL = "help+android@pagekite.net";
 
     public static final int PK_STATUS_STARTUP     = 10;
