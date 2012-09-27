@@ -11,6 +11,9 @@ licenses:
 
 Choose your favorite.
 
+When using according to the AGPL, the additional exemption is made that
+compiling, linking, and/or using OpenSSL is allowed.
+
 
 ### A note to developers ###
 
