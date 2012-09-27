@@ -3,36 +3,32 @@
 This code (libpagekite) may be used according to the terms of the following
 licenses:
 
-   * The GNU Affero General Public License, version 3.
+   * The Apache License, version 2.0.
+     See the file LICENSE-2.0.txt for details.
+
+   * The GNU Affero General Public License, version 3 or above.
      See the file AGPLv3.txt for details.
 
-An alternate license may apply IF and ONLY IF you are using this code to
-develop Software for distribution which fulfills one or more of the following
-additional conditions:
-
-   1. The Software uses the online PageKite service provided by
-      The Beanstalks Project ehf (see https://pagekite.net/).
-
-   2. The Software clearly gives the User the option to freely choose
-      any "PageKite Account" and "PageKite Service Provider" and the user
-      interface of the Software uses the word "PageKite" to identify
-      these settings.
-
-This code (libpagekite) may be combined or redistributed along with
-Software that meets one or both of the above conditions, according to the
-terms of the GNU Lesser General Public License.  See the file LGPLv3.txt
-for details.
+Choose your favorite.
 
 
-### Why? ###
-
-The intent of the above alternate license clause, is to allow developers of
-proprietary software (including Android apps) to use libpagekite as part of
-their products, as long as they EITHER support the upstream PageKite project
-OR respect their users' freedom enough not to obfuscate the connection
-settings or lock them in to one specific service provider.
+### A note to developers ###
 
 Developers who wish to negotiate alternate terms, service level agreements,
 bulk discounts, support contracts or have questions about compliance are
 encouraged to get in touch with the authors.
+
+Please be aware that IN THE FUTURE, some parts of libpagekite (code specific
+to frontend relay servers) are likely to *only* be available under the AGPLv3,
+not the Apache License.  If in doubt, please consult the copyright notice
+present in the relevant .c or .h files.  This is a shameless attempt to
+protect the business side of the PageKite project and encourage folks who
+need lots of frontends to either negotiate an alternate license or pay us for
+service.  We gotta eat!
+
+Also, if you plan to launch a million devices that all rely on the
+pagekite.net relay service, please let us know in advance so we can provision
+accordingly.
+
+Thanks!
 
