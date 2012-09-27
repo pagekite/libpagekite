@@ -97,7 +97,7 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
     else {
       /* FIXME: Send back a nicer error */
       if (fe->manager->fancy_pagekite_net_rejection) {
-        sprintf(pre, PK_REJECT_PRE_PAGEKITE, "BE",
+        sprintf(pre, PK_REJECT_PRE_PAGEKITE, "BE", pk_state.app_id_short,
                      chunk->request_proto, chunk->request_host);
         post = PK_REJECT_POST_PAGEKITE;
       }
@@ -106,7 +106,8 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
         post = pre;
       }
       sprintf(rej, PK_REJECT_FMT,
-                   pre, "be", chunk->request_proto, chunk->request_host, post);
+                   pre, "be", pk_state.app_id_short,
+                   chunk->request_proto, chunk->request_host, post);
 
       bytes = pk_format_reply(reply, chunk->sid, strlen(rej), rej);
       pkc_write(&(fe->conn), reply, bytes);
@@ -902,8 +903,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->blocking_jobs.count = 0;
 
   pk_log(PK_LOG_MANAGER_INFO,
-         "Initialized libpagekite manager v%s (using %d bytes)",
-         PK_VERSION, buffer_size);
+         "Initialized %s manager v%s/%s (using %d bytes)",
+         pk_state.app_id_long, PK_VERSION, pk_state.app_id_short, buffer_size);
   return pkm;
 }
 

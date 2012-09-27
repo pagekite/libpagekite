@@ -54,12 +54,12 @@ Note: For alternate license terms, see the file COPYING.md.
                        "Cache-Control: no-store\r\n" \
                        "Connection: close\r\n" \
                        "\r\n" \
-                       "<html>%s<h1>Sorry! (%.3s/" PK_VERSION ")</h1>" \
+                       "<html>%s<h1>Sorry! (%.3s/%s)</h1>" \
                        "<p>The %.8s <a href='http://pagekite.org/'>" \
                        "<i>PageKite</i></a> for <b>%.64s</b> is unavailable " \
                        "at the moment.</p><p>Please try again later.</p>" \
                        "%s</html>")
-#define PK_REJECT_PRE_PAGEKITE ("<frameset cols='*'><frame target='_top' src='https://pagekite.net/offline/?&v=" PK_VERSION "&where=%.3s&proto=%.8s&domain=%.64s'><noframes>")
+#define PK_REJECT_PRE_PAGEKITE ("<frameset cols='*'><frame target='_top' src='https://pagekite.net/offline/?&where=%.3s&v=%s&proto=%.8s&domain=%.64s'><noframes>")
 #define PK_REJECT_POST_PAGEKITE "</noframes></frameset>"
 
 #define PK_EOF_READ  0x1

@@ -50,6 +50,8 @@ struct pk_global_state {
   unsigned int    live_frontends;
   unsigned int    have_ssl:1;
   unsigned int    force_update:1;
+  char*           app_id_short;
+  char*           app_id_long;
 };
 
 extern struct pk_global_state pk_state;

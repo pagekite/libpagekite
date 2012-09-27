@@ -42,15 +42,20 @@ Note: For alternate license terms, see the file COPYING.md.
 struct pk_global_state pk_state;
 struct pk_manager *pk_manager_global = NULL;
 char pk_manager_buffer[BUFFER_SIZE];
+char pk_app_id_short[128];
+char pk_app_id_long[128];
 
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
-  jint jKites, jint jFrontends, jint jConns, jstring jDynDns, jboolean jDebug)
+  jint jKites, jint jFrontends, jint jConns, jstring jDynDns,
+  jstring jAppIdShort, jstring jAppIdLong,
+  jboolean jDebug)
 {
   int kites = jKites;
   int fe_max = jFrontends;
   int conns = jConns;
   char *buffer;
+  const jbyte *is, *il;
   SSL_CTX* ssl_ctx;
 
   if (pk_manager_global != NULL) return JNI_FALSE;
@@ -65,6 +70,14 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
     pks_global_init(PK_LOG_NORMAL);
     pk_state.log_file = NULL;
   }
+
+  pk_state.app_id_short = pk_app_id_short;
+  pk_state.app_id_long = pk_app_id_long;
+  strcpy(pk_app_id_short, is = (*env)->GetStringUTFChars(env, jAppIdShort, NULL));
+  strcpy(pk_app_id_long, il = (*env)->GetStringUTFChars(env, jAppIdLong, NULL));
+  (*env)->ReleaseStringUTFChars(env, jAppIdShort, is);
+  (*env)->ReleaseStringUTFChars(env, jAppIdLong, il);
+
   PKS_SSL_INIT(ssl_ctx);
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
@@ -83,11 +96,14 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_init(JNIEnv* env, jclass cl,
 }
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_initPagekiteNet(JNIEnv* env, jclass cl,
-  jint jKites, jint jConns, jboolean jDebug)
+  jint jKites, jint jConns,
+  jstring jAppIdShort, jstring jAppIdLong,
+  jboolean jDebug)
 {
   int kites = jKites;
   int conns = jConns;
   char *buffer;
+  const jbyte *is, *il;
   SSL_CTX* ssl_ctx;
 
   if (pk_manager_global != NULL) return JNI_FALSE;
@@ -99,6 +115,14 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_initPagekiteNet(JNIEnv* env, jclass c
     pks_global_init(PK_LOG_NORMAL);
     pk_state.log_file = NULL;
   }
+
+  pk_state.app_id_short = pk_app_id_short;
+  pk_state.app_id_long = pk_app_id_long;
+  strcpy(pk_app_id_short, is = (*env)->GetStringUTFChars(env, jAppIdShort, NULL));
+  strcpy(pk_app_id_long, il = (*env)->GetStringUTFChars(env, jAppIdLong, NULL));
+  (*env)->ReleaseStringUTFChars(env, jAppIdShort, is);
+  (*env)->ReleaseStringUTFChars(env, jAppIdLong, il);
+
   PKS_SSL_INIT(ssl_ctx);
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Initializing");
   pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, pk_manager_buffer,
@@ -181,6 +205,9 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_stop(JNIEnv* env, jclass cl)
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Stopping worker thread.");
   rv = pkm_stop_thread(pk_manager_global);
   pk_manager_global = NULL;
+  free(pk_state.app_id_short);
+  free(pk_state.app_id_long);
+  pk_state.app_id_short = pk_state.app_id_long = "unknown";
   return (0 == rv) ? JNI_TRUE : JNI_FALSE;
 }
 

@@ -20,6 +20,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#include "version.h"
 #include "common.h"
 #include "pkstate.h"
 
@@ -31,6 +32,8 @@ void pks_global_init(unsigned int log_mask) {
   pk_state.log_file = stderr;
   pk_state.log_mask = log_mask;
   pk_state.have_ssl = 0;
+  pk_state.app_id_long = "libpagekite";
+  pk_state.app_id_short = PK_VERSION;
 }
 
 #define WRAP(p) if (p >= pk_state.log_ring_buffer+PKS_LOG_DATA_MAX) \

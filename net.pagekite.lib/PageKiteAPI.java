@@ -23,8 +23,8 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
-    public static final String PAGEKITE_NET_XMLRPCS = "https://pagekite.net/xmlrpc/";
-    public static final String PAGEKITE_NET_XMLRPC = "http://pagekite.net/xmlrpc/";
+    private static final String PAGEKITE_NET_XMLRPCS = "https://pagekite.net/xmlrpc/?a=";
+    private static final String PAGEKITE_NET_XMLRPC = "http://pagekite.net/xmlrpc/?a=";
     public static final String PAGEKITE_NET_EMAIL = "help+android@pagekite.net";
 
     public static final int PK_STATUS_STARTUP     = 10;
@@ -35,12 +35,21 @@ public class PageKiteAPI extends Object
     public static final int PK_STATUS_REJECTED    = 60;
     public static final int PK_STATUS_NO_NETWORK  = 90;
 
+    public static String pageKiteNet_XMLRPC(boolean secure, String appid) {
+        return (secure ? PAGEKITE_NET_XMLRPCS
+                       : PAGEKITE_NET_XMLRPC) + appid;
+    }
+
     /* Direct wrapper around library init function. */
     public static native boolean init(int jKites, int jFrontends, int jConns,
-                                      String jDynDns, boolean jDebug);
+                                      String jDynDns,
+                                      String jAppIdShort, String jAppIdLong,
+                                      boolean jDebug);
 
     /* Initialize library using PageKite service defaults. */
-    public static native boolean initPagekiteNet(int jKites, int jConns, boolean jDebug);
+    public static native boolean initPagekiteNet(int jKites, int jConns,
+                                                 String jAppIdShort, String jAppIdLong,
+                                                 boolean jDebug);
 
     public static native boolean addKite(String jProto, String jKitename,
                                          int jPort, String jSecret,

@@ -1,5 +1,5 @@
 #ifdef ANDROID
-#define PK_VERSION "120924A"
+#define PK_VERSION "120927A"
 #else
-#define PK_VERSION "120924C"
+#define PK_VERSION "120927C"
 #endif
