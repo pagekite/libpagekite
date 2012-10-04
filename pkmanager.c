@@ -193,7 +193,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   addr = NULL;
   if (NULL != (backend = gethostbyname(kite->local_domain))) {
     addr = &addr_buf;
-    bzero((char *) addr, sizeof(addr));
+    memset((char *) addr, 0, sizeof(addr));
     addr->sin_family = AF_INET;
     bcopy((char*) backend->h_addr_list[0],
           (char*) &(addr->sin_addr.s_addr),
@@ -613,7 +613,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
 
     if (fe->requests == NULL || fe->request_count != pkm->kite_max) {
       fe->request_count = pkm->kite_max;
-      bzero(fe->requests, pkm->kite_max * sizeof(struct pk_kite_request));
+      memset(fe->requests, 0, pkm->kite_max * sizeof(struct pk_kite_request));
       for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
         kite_r->kite = (pkm->kites + j);
         kite_r->status = PK_KITE_UNKNOWN;
@@ -802,7 +802,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 
   if (loop == NULL) loop = EV_DEFAULT;
 
-  bzero(buffer, buffer_size);
+  memset(buffer, 0, buffer_size);
 
   pkm = (struct pk_manager*) buffer;
   pkm->status = PK_STATUS_STARTUP;
