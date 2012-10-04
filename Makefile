@@ -13,10 +13,10 @@ HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
+all: runtests pagekite httpkite
+
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
-
-all: runtests pagekite httpkite
 
 #android: clean
 android:
