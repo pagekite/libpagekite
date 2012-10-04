@@ -128,8 +128,8 @@ int pkproto_test_alloc(unsigned int buf_len, char *buffer, struct pk_parser* p)
       (f_offs + p->buffer_bytes_left != buf_len))
   {
     printf("Offsets within buffer:\n");
-    printf(" Parser     %2.2d (size: %d)\n", p_offs, sizeof(struct pk_parser));
-    printf(" Chunk      %2.2d (size: %d)\n", c_offs, sizeof(struct pk_chunk));
+    printf(" Parser     %2.2d (size: %zd)\n", p_offs, sizeof(struct pk_parser));
+    printf(" Chunk      %2.2d (size: %zd)\n", c_offs, sizeof(struct pk_chunk));
     printf(" Frame data %2.2d\n", f_offs);
     printf(" Space left %2d/%d\n", p->buffer_bytes_left, buf_len);
     return 0;
