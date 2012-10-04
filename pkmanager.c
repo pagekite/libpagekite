@@ -39,7 +39,9 @@ static void pkm_interrupt_cb(EV_P_ ev_async *w, int revents)
 {
   struct pk_manager* pkm = (struct pk_manager*) w->data;
   pkm_yield(pkm);
-  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+  /* -Wall dislikes unused arguments */
+  (void) loop;
+  (void) (revents);
 }
 void pkm_interrupt(struct pk_manager *pkm)
 {
@@ -68,7 +70,9 @@ void pkm_unblock(struct pk_manager *pkm)
 static void pkm_quit_cb(EV_P_ ev_async *w, int revents)
 {
   ev_unloop(EV_A_ EVUNLOOP_ALL);
-  w = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+  /* -Wall dislikes unused arguments */
+  (void) w;
+  (void) revents;
 }
 void pkm_quit(struct pk_manager* pkm)
 {
@@ -516,7 +520,9 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
     fe->conn.in_buffer_pos = 0;
   }
   pkm_update_io(fe, NULL);
-  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+  /* -Wall dislikes unused arguments */
+  (void) loop;
+  (void) revents;
 }
 
 void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
@@ -532,7 +538,9 @@ void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
   pkc_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
 
   pkm_update_io(fe, NULL);
-  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+  /* -Wall dislikes unused arguments */
+  (void) loop;
+  (void) revents;
 }
 
 void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
@@ -553,7 +561,9 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
     pk_log(PK_LOG_BE_DATA, ">%5.5s> EOF: read", pkb->sid);
   }
   pkm_update_io(pkb->frontend, pkb);
-  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+  /* -Wall dislikes unused arguments */
+  (void) loop;
+  (void) revents;
 }
 
 void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
@@ -578,7 +588,9 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
            pkb->kite->local_domain, pkb->kite->local_port);
   }
   pkm_update_io(pkb->frontend, pkb);
-  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+  /* -Wall dislikes unused arguments */
+  (void) loop;
+  (void) revents;
 }
 
 int pkm_reconnect_all(struct pk_manager *pkm) {
@@ -679,7 +691,7 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
 
   /* First, we look at the state of the world and schedule (or cancel)
    * our next tick. */
-  if (pkm->enable_timer || (pkm->status != PK_STATUS_NO_NETWORK && 
+  if (pkm->enable_timer || (pkm->status != PK_STATUS_NO_NETWORK &&
                             pkm->status != PK_STATUS_REJECTED &&
                             pkm->status != PK_STATUS_FLYING))
   {
@@ -719,14 +731,18 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
   }
   pkm_yield(pkm);
 
-  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+  /* -Wall dislikes unused arguments */
+  (void) loop;
+  (void) revents;
 }
 
 void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
 {
   struct pk_manager* pkm = (struct pk_manager*) w->data;
   pkm_tick(pkm);
-  loop = (void *) (revents = 0); /* -Wall dislikes unused arguments */
+  /* -Wall dislikes unused arguments */
+  (void) loop;
+  (void) revents;
 }
 void pkm_reset_timer(struct pk_manager* pkm) {
   ev_timer_set(&(pkm->timer), 0.0, PK_HOUSEKEEPING_INTERVAL_MIN);
