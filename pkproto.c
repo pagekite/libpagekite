@@ -264,7 +264,7 @@ size_t pk_format_frame(char* buf, const char* sid,
   size_t hlen;
   if (!sid) sid = "";
   hlen = strlen(sid) + strlen(headers) - 2;
-  hlen = sprintf(buf, "%x\r\n", hlen + bytes);
+  hlen = sprintf(buf, "%zx\r\n", hlen + bytes);
   return hlen + sprintf(buf + hlen, headers, sid);
 }
 
