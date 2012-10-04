@@ -25,10 +25,10 @@ android:
 tests: tests.o $(OBJ) $(TOBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ) $(TOBJ)
 
-httpkite: runtests httpkite.o $(OBJ)
+httpkite: httpkite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o httpkite httpkite.o $(OBJ)
 
-pagekite: runtests pagekite.o $(OBJ)
+pagekite: pagekite.o $(OBJ)
 	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
 
 version:
