@@ -118,7 +118,7 @@ int parse_frame_header(struct pk_frame* frame)
   {
     frame->hdr_length = hdr_len;
     frame->data = frame->raw_frame + hdr_len;
-    if (1 != sscanf(frame->raw_frame, "%x", (unsigned int*) &(frame->length)))
+    if (1 != sscanf(frame->raw_frame, "%zx", (size_t *) &(frame->length)))
       return (pk_error = ERR_PARSE_BAD_FRAME);
   }
   return 0;
