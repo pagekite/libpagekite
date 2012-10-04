@@ -139,7 +139,7 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk)
       if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
         chunk->sid = frame->data + pos + 5;
       else if (0 == strncasecmp(frame->data + pos, "SKB: ", 5))
-        sscanf(frame->data + pos + 5, "%d", &(chunk->remote_sent_kb));
+        sscanf(frame->data + pos + 5, "%zd", &(chunk->remote_sent_kb));
       else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
         sscanf(frame->data + pos + 5, "%d", &(chunk->throttle_spd));
     }
