@@ -802,7 +802,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 
   if (loop == NULL) loop = EV_DEFAULT;
 
-  memset(buffer, 0, buffer_size);
+  bzero(buffer, buffer_size);
 
   pkm = (struct pk_manager*) buffer;
   pkm->status = PK_STATUS_STARTUP;
@@ -829,6 +829,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->frontend_max = frontends;
   pkm->buffer += sizeof(struct pk_frontend) * frontends;
   for (i = 0; i < frontends; i++) {
+    (pkm->frontends + i)->ai = NULL;
     (pkm->frontends + i)->requests = (struct pk_kite_request*) pkm->buffer;
 #ifdef HAVE_OPENSSL
     (pkm->frontends + i)->conn.ssl = NULL;
@@ -1046,7 +1047,7 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
     if (fe->ai == NULL) {
       if (adding == NULL) adding = fe;
     }
-    else if ((ai->ai_addrlen) &&
+    else if ((ai->ai_addrlen > 0) &&
              (0 == addrcmp(fe->ai->ai_addr, ai->ai_addr)))
     {
       return NULL;

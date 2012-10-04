@@ -131,6 +131,7 @@ char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
 
 int addrcmp(const struct sockaddr *a, const struct sockaddr *b)
 {
+  if (a == NULL || b == NULL) return 3;
   if (a->sa_family != b->sa_family) return 1;
   switch (a->sa_family) {
     case AF_INET:

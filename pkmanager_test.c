@@ -79,6 +79,7 @@ int pkmanager_test(void)
   assert(j.job == PK_QUIT);
 
   /* Test pk_add_frontend_ai */
+  bzero(&ai, sizeof(struct addrinfo));
   for (i = 0; i < MIN_FE_ALLOC; i++)
     assert(NULL != pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
   assert(NULL == pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
