@@ -22,13 +22,13 @@ android:
 	@$(NDK_PROJECT_PATH)/ndk-build
 
 tests: tests.o $(OBJ) $(TOBJ)
-	$(CC) $(CFLAGS) $(CLINK) -o tests tests.o $(OBJ) $(TOBJ)
+	$(CC) $(CFLAGS) -o tests tests.o $(OBJ) $(TOBJ) $(CLINK)
 
 httpkite: httpkite.o $(OBJ)
-	$(CC) $(CFLAGS) $(CLINK) -o httpkite httpkite.o $(OBJ)
+	$(CC) $(CFLAGS) -o httpkite httpkite.o $(OBJ) $(CLINK)
 
 pagekite: pagekite.o $(OBJ)
-	$(CC) $(CFLAGS) $(CLINK) -o pagekite pagekite.o $(OBJ)
+	$(CC) $(CFLAGS) -o pagekite pagekite.o $(OBJ) $(CLINK)
 
 version:
 	@sed -e "s/@DATE@/`date '+%y%m%d'`/g" <version.h.in >version.h
