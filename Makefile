@@ -2,7 +2,8 @@
 
 OPT ?= -g -O3
 CFLAGS ?= -std=c99 -pedantic -Wall -W -fno-strict-aliasing $(OPT)
-CLINK ?= -lpthread -lssl -lcrypto -lm -lev
+CFLAGS+=$(shell pkg-config --cflags libev libssl libcrypto)
+CLINK ?= -lpthread -lm $(shell pkg-config --libs libev libssl libcrypto)
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
