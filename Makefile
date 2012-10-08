@@ -1,7 +1,8 @@
 #!/usr/bin/colormake
 
 OPT ?= -g -O3
-CFLAGS ?= -std=c99 -pedantic -Wall -W -fno-strict-aliasing $(OPT)
+CFLAGS ?= -std=c99 -pedantic -Wall -W -fno-strict-aliasing \
+          -I/usr/include/libev $(OPT)
 CLINK ?= -lpthread -lssl -lcrypto -lm -lev
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
