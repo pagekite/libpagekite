@@ -33,11 +33,16 @@ typedef unsigned int              uint32_t;
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
+#ifndef SSL_MODE_RELEASE_BUFFERS
+#define SSL_MODE_RELEASE_BUFFERS 0
+#endif
 #define PKS_SSL_INIT(ctx)       { SSL_load_error_strings(); \
                                   ERR_load_BIO_strings(); \
                                   OpenSSL_add_all_algorithms(); \
                                   SSL_library_init(); \
-                                  ctx = SSL_CTX_new(TLSv1_method()); }
+                         sk_SSL_COMP_zero(SSL_COMP_get_compression_methods()); \
+                         ctx = SSL_CTX_new(TLSv1_method()); \
+                         SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS); }
 #else
 #define SSL_CTX                   void
 #define pks_ssl_init(ctx)       { ctx = NULL; }
