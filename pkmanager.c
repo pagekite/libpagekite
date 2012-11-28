@@ -1026,6 +1026,10 @@ int pkm_add_frontend(struct pk_manager* pkm,
         count++;
       }
     }
+    /* Note: We only free the addrinfo buffers if no frontends were
+     * added, otherwise, the structures are still in use.  Valgrind
+     * will (correctly) flag this as a leak. */
+    if (count == 0) freeaddrinfo(result);
   }
   return count;
 }
