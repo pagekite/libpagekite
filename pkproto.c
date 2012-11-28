@@ -607,9 +607,12 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
     for (rp = result; rp != NULL; rp = rp->ai_next) {
       rv = pk_connect_ai(pkc, rp, 0, n, requests, session_id, ctx);
       if ((rv >= 0) ||
-          (rv != ERR_CONNECT_CONNECT))
+          (rv != ERR_CONNECT_CONNECT)) {
+        freeaddrinfo(result);
         return rv;
+      }
     }
+    freeaddrinfo(result);
   }
   else {
     return (pk_error = ERR_CONNECT_LOOKUP);
