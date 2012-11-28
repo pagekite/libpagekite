@@ -1096,7 +1096,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
       pkc_reset_conn(&(pkb->conn));
       pkb->frontend = fe;
       pkb->conn.status = CONN_STATUS_ALLOCATED;
-      strncpy(pkb->sid, sid, BE_MAX_SID_SIZE);
+      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
       return pkb;
     }
   }
