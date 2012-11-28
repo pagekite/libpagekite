@@ -226,16 +226,23 @@ void pkb_check_frontend_pingtimes(struct pk_manager* pkm)
 {
   int j;
   struct pk_frontend* fe;
+  pthread_t first = 0;
   pthread_t pt = 0;
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
-    if (fe->ai)
-      pthread_create(&pt, NULL, pkb_frontend_ping, (void *) fe);
+    if (fe->ai) {
+      if (0 == pthread_create(&pt, NULL, pkb_frontend_ping, (void *) fe)) {
+        if (first)
+          pthread_detach(pt);
+        else
+          first = pt;
+      }
+    }
   }
-  if (pt) {
-    /* We only wait for one at random - usually we only care about the
+  if (first) {
+    /* We only wait for the first one - usually we only care about the
      * fastest anyway.  The others will return in their own good time.
      */
-    pthread_join(pt, NULL);
+    pthread_join(first, NULL);
   }
 }
 
