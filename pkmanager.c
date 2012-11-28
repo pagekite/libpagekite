@@ -963,7 +963,7 @@ struct pk_pagekite* pkm_find_kite(struct pk_manager* pkm,
   found = NULL;
   for (which = 0; which < pkm->kite_max; which++) {
     kite = pkm->kites+which;
-    if (kite->protocol != NULL) {
+    if (kite->protocol[0] != '\0') {
       if ((0 == strcasecmp(domain, kite->public_domain)) &&
           (0 == strcasecmp(protocol, kite->protocol))) {
         if (kite->public_port <= 0)
@@ -988,16 +988,16 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   /* FIXME: This is O(N), we'll need a nicer data structure for frontends */
   for (which = 0; which < pkm->kite_max; which++) {
     kite = pkm->kites+which;
-    if (kite->protocol == NULL) break;
+    if (kite->protocol[0] == '\0') break;
   }
   if (which >= pkm->kite_max)
     return pk_err_null(ERR_NO_MORE_KITES);
 
-  kite->protocol = strdup(protocol);
-  kite->auth_secret = strdup(auth_secret);
-  kite->public_domain = strdup(public_domain);
+  strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
+  strncpyz(kite->auth_secret, auth_secret, PK_SECRET_LENGTH);
+  strncpyz(kite->public_domain, public_domain, PK_DOMAIN_LENGTH);
   kite->public_port = public_port;
-  kite->local_domain = strdup(local_domain);
+  strncpyz(kite->local_domain, local_domain, PK_DOMAIN_LENGTH);
   kite->local_port = local_port;
 
   return kite;

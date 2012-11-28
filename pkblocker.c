@@ -279,7 +279,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   if (!bogus) return 0;
 
   for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
-    if (kite->protocol != NULL) {
+    if (kite->protocol[0] != '\0') {
       PKS_STATE(pkm->status = PK_STATUS_DYNDNS);
       sprintf(payload, "%s:%s", kite->public_domain, address_list);
       pk_sign(NULL, kite->auth_secret, payload, 100, signature);

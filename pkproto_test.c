@@ -139,7 +139,6 @@ int pkproto_test_alloc(unsigned int buf_len, char *buffer, struct pk_parser* p)
 
 int pkproto_test_make_bsalt(void) {
   struct pk_kite_request kite;
-  kite.bsalt = NULL;
   pk_make_bsalt(&kite);
   assert(strlen(kite.bsalt) == 36);
   return 1;
@@ -153,12 +152,12 @@ int pkproto_test_sign_kite_request(void) {
   char buffer[120];
 
   kite_r.kite = &kite;
-  kite.public_domain = "testkite.com";
+  strcpy(kite.public_domain, "testkite.com");
   kite.public_port = 99;
-  kite.auth_secret = "wigglybop";
-  kite.protocol = "http";
-  kite_r.bsalt = "123456789012345678901234567890123456";
-  kite_r.fsalt = NULL;
+  strcpy(kite.auth_secret, "wigglybop");
+  strcpy(kite.protocol, "http");
+  strcpy(kite_r.bsalt, "123456789012345678901234567890123456");
+  strcpy(kite_r.fsalt, "");
 
   bytes = pk_sign_kite_request(buffer, &kite_r, 1);
   assert(bytes == strlen(expected));

@@ -29,6 +29,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkconn.h"
 #include "pkproto.h"
 #include "pklogging.h"
+#include "utils.h"
 
 struct pk_global_state pk_state;
 
@@ -89,13 +90,13 @@ int main(int argc, char **argv) {
   PKS_SSL_INIT(ctx);
 
   kite_r.kite = &kite;
-  kite.protocol = "http";
-  kite.public_domain = argv[1];
+  strcpy(kite.protocol, "http");
+  strncpyz(kite.public_domain, argv[1], PK_DOMAIN_LENGTH);
   kite.public_port = 0;
-  kite.auth_secret = argv[2];
+  strncpyz(kite.auth_secret, argv[2], PK_SECRET_LENGTH);
 
-  kite_r.bsalt = NULL;
-  kite_r.fsalt = NULL;
+  kite_r.bsalt[0] = '\0';
+  kite_r.fsalt[0] = '\0';
   kite_rp = &kite_r;
 
   srand(time(0) ^ getpid());

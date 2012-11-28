@@ -34,12 +34,12 @@ Note: For alternate license terms, see the file COPYING.md.
 
 void pk_reset_pagekite(struct pk_pagekite* kite)
 {
-  kite->protocol = NULL;
-  kite->public_domain = NULL;
+  kite->protocol[0] = '\0';
+  kite->public_domain[0] = '\0';
   kite->public_port = 0;
-  kite->local_domain = NULL;
+  kite->local_domain[0] = '\0';
   kite->local_port = 0;
-  kite->auth_secret = NULL;
+  kite->auth_secret[0] = '\0';
 }
 
 void frame_reset_values(struct pk_frame* frame)
@@ -312,12 +312,7 @@ size_t pk_format_pong(char* buf)
 
 int pk_make_bsalt(struct pk_kite_request* kite_r) {
   uint8_t buffer[1024];
-
-  if (kite_r->bsalt == NULL) kite_r->bsalt = malloc(41);
-  if (kite_r->bsalt == NULL) {
-    pk_log(PK_LOG_TUNNEL_CONNS, "WARNING: Failed to malloc() for bsalt");
-    return -1;
-  }
+  char digest[41];
 
   /* FIXME: This is not very random. */
   sprintf((char*) buffer, "%x %x %x %x",
@@ -334,8 +329,8 @@ int pk_make_bsalt(struct pk_kite_request* kite_r) {
   pd_sha1_update(&context, buffer, strlen((const char*) buffer));
   pd_sha1_final(&context, buffer);
 #endif
-  digest_to_hex(buffer, kite_r->bsalt);
-  kite_r->bsalt[36] = '\0';
+  digest_to_hex(buffer, digest);
+  strncpyz(kite_r->bsalt, digest, PK_SALT_LENGTH);
 
   return 1;
 }
@@ -392,11 +387,10 @@ int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt)
   char request_sign[1024];
   char request_salt[1024];
   char proto[64];
-  char* fsalt;
   struct pk_pagekite* kite;
 
   kite = kite_r->kite;
-  if (kite_r->bsalt == NULL)
+  if (kite_r->bsalt[0] == '\0')
     if (pk_make_bsalt(kite_r) < 0)
       return 0;
 
@@ -405,12 +399,8 @@ int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt)
   else
     strcpy(proto, kite->protocol);
 
-  if (kite_r->fsalt != NULL)
-    fsalt = kite_r->fsalt;
-  else
-    fsalt = "";
-
-  sprintf(request, "%s:%s:%s:%s", proto, kite->public_domain, kite_r->bsalt, fsalt);
+  sprintf(request, "%s:%s:%s:%s", proto, kite->public_domain,
+                                         kite_r->bsalt, kite_r->fsalt);
   sprintf(request_salt, "%8.8x", salt);
   pk_sign(request_salt, kite->auth_secret, request, 36, request_sign);
 
@@ -424,27 +414,43 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
 {
   char* copy;
   char* p;
+  char* public_domain;
+  char* bsalt;
+  char* fsalt;
+  char* protocol;
   struct pk_pagekite* kite = kite_r->kite;
 
   copy = malloc(strlen(line)+1);
   strcpy(copy, line);
 
-  kite->protocol = strchr(copy, ' ');
-  if (kite->protocol == NULL)
-    kite->protocol = copy;
+  protocol = strchr(copy, ' ');
+  if (protocol == NULL)
+    protocol = copy;
   else
-    kite->protocol++;
+    protocol++;
 
-  if (NULL == (kite->public_domain = strchr(kite->protocol, ':')))
+  if (NULL == (public_domain = strchr(protocol, ':'))) {
+    free(copy);
     return pk_err_null(ERR_PARSE_NO_KITENAME);
-  if (NULL == (kite_r->bsalt = strchr(kite->public_domain+1, ':')))
-    return pk_err_null(ERR_PARSE_NO_BSALT);
-  if (NULL == (kite_r->fsalt = strchr(kite_r->bsalt+1, ':')))
-    return pk_err_null(ERR_PARSE_NO_FSALT);
+  }
+  *(public_domain++) = '\0';
 
-  *(kite->public_domain++) = '\0';
-  *(kite_r->bsalt++) = '\0';
-  *(kite_r->fsalt++) = '\0';
+  if (NULL == (bsalt = strchr(public_domain, ':'))) {
+    free(copy);
+    return pk_err_null(ERR_PARSE_NO_BSALT);
+  }
+  *(bsalt++) = '\0';
+
+  if (NULL == (fsalt = strchr(bsalt, ':'))) {
+    free(copy);
+    return pk_err_null(ERR_PARSE_NO_FSALT);
+  }
+  *(fsalt++) = '\0';
+
+  strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
+  strncpyz(kite->public_domain, public_domain, PK_DOMAIN_LENGTH);
+  strncpyz(kite_r->bsalt, bsalt, PK_SALT_LENGTH);
+  strncpyz(kite_r->fsalt, fsalt, PK_SALT_LENGTH);
 
   if (NULL != (p = strchr(kite->protocol, '-'))) {
     *p++ = '\0';
@@ -453,7 +459,8 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
   else
     kite->public_port = 0;
 
-  return copy;
+  free(copy);
+  return kite->public_domain;
 }
 
 int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
@@ -486,7 +493,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   }
 
   for (i = 0; i < n; i++) {
-    if (requests[i].kite->protocol != NULL) {
+    if (requests[i].kite->protocol[0] != '\0') {
       requests[i].status = PK_KITE_UNKNOWN;
       bytes = pk_sign_kite_request(buffer, &(requests[i]), rand());
       pk_log(PK_LOG_TUNNEL_DATA, " * %s", requests[i].kite->public_domain);
@@ -547,23 +554,23 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
     if (strncasecmp(p, "X-PageKite-SignThis:", 20) == 0) {
       pk_log(PK_LOG_TUNNEL_DATA, "%s", p);
       tkite_r.kite = &tkite;
-      pk_parse_kite_request(&tkite_r, p);
-      for (j = 0; j < n; j++) {
-        if ((requests[j].kite->protocol != NULL) &&
-            (requests[j].kite->public_port == tkite.public_port) &&
-            (0 == strcmp(requests[j].kite->public_domain, tkite.public_domain)) &&
-            (0 == strcmp(requests[j].kite->protocol, tkite.protocol)))
-        {
-          requests[j].fsalt = strdup(tkite_r.fsalt);
-          i++;
+      if (NULL != pk_parse_kite_request(&tkite_r, p)) {
+        for (j = 0; j < n; j++) {
+          if ((requests[j].kite->protocol[0] != '\0') &&
+              (requests[j].kite->public_port == tkite.public_port) &&
+              (0 == strcmp(requests[j].kite->public_domain, tkite.public_domain)) &&
+              (0 == strcmp(requests[j].kite->protocol, tkite.protocol)))
+          {
+            strncpyz(requests[j].fsalt, tkite_r.fsalt, PK_SALT_LENGTH);
+            i++;
+          }
         }
       }
     }
     else if (session_id && /* 123456789012345678901 = 21 bytes */
              (strncasecmp(p, "X-PageKite-SessionID:", 21) == 0)) {
-      strncpy(session_id, p+22, PK_HANDSHAKE_SESSIONID_MAX);
+      strncpyz(session_id, p+22, PK_HANDSHAKE_SESSIONID_MAX-1);
       pk_log(PK_LOG_TUNNEL_DATA, "Session ID is: %s", session_id);
-      session_id[PK_HANDSHAKE_SESSIONID_MAX-1] = '\0';
     }
     p += bytes;
   } while (bytes);

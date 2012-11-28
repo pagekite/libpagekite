@@ -66,23 +66,27 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_EOF       (PK_EOF_READ | PK_EOF_WRITE)
 
 /* Data structure describing a kite */
-struct pk_pagekite {
-  char* protocol;
-  char* public_domain;
+#define PK_PROTOCOL_LENGTH   24
+#define PK_DOMAIN_LENGTH   1024
+#define PK_SECRET_LENGTH    256
+struct  pk_pagekite {
+  char  protocol[PK_PROTOCOL_LENGTH+1];
+  char  public_domain[PK_DOMAIN_LENGTH+1];
   int   public_port;
-  char* local_domain;
+  char  local_domain[PK_DOMAIN_LENGTH+1];
   int   local_port;
-  char* auth_secret;
+  char  auth_secret[PK_SECRET_LENGTH+1];
 };
 
 /* Data structure describing a kite request */
 #define PK_KITE_UNKNOWN   0x0000
 #define PK_KITE_FLYING    0x0001
 #define PK_KITE_REJECTED  0x0002
+#define PK_SALT_LENGTH    36
 struct pk_kite_request {
   struct pk_pagekite* kite;
-  char* bsalt;
-  char* fsalt;
+  char bsalt[PK_SALT_LENGTH+1];
+  char fsalt[PK_SALT_LENGTH+1];
   int status;
 };
 
