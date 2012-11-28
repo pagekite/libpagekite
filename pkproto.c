@@ -479,6 +479,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   if (0 > pkc_connect(pkc, ai))
     return (pk_error = ERR_CONNECT_CONNECT);
 
+  memset(&buffer, 0, 16*1024);
   set_blocking(pkc->sockfd);
 #ifdef HAVE_OPENSSL
   if (ctx != NULL) pkc_start_ssl(pkc, ctx);
