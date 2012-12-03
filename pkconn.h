@@ -29,6 +29,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define CONN_WINDOW_SIZE_KB_MAXIMUM 256
 #define CONN_WINDOW_SIZE_KB_MINIMUM  16
 #define CONN_WINDOW_SIZE_STEPFACTOR  16 /* Lower: more aggressive/volatile */
+#define CONN_REPORT_INCREMENT        16
 
 typedef enum {
   CONN_TUNNEL_BLOCKED,
@@ -67,10 +68,15 @@ struct pk_conn {
   int        status;
   int        sockfd;
   time_t     activity;
+  /* Data we have read, vs. what has been sent to remote end. */
   size_t     read_bytes;
   size_t     read_kb;
   size_t     sent_kb;
   size_t     send_window_kb;
+  /* Data we have written locally, what we've reported to tunnel. */
+  size_t     wrote_bytes;
+  size_t     reported_kb;
+  /* Buffers, events */
   int        in_buffer_pos;
   char       in_buffer[CONN_IO_BUFFER_SIZE];
   int        out_buffer_pos;
@@ -83,7 +89,7 @@ struct pk_conn {
 #endif
 };
 
-void    pkc_reset_conn(struct pk_conn*);
+void    pkc_reset_conn(struct pk_conn*, unsigned int);
 int     pkc_connect(struct pk_conn*, struct addrinfo*);
 #ifdef HAVE_OPENSSL
 int     pkc_start_ssl(struct pk_conn*, SSL_CTX*);
@@ -93,4 +99,5 @@ ssize_t pkc_read(struct pk_conn*);
 ssize_t pkc_raw_write(struct pk_conn*, char*, ssize_t);
 ssize_t pkc_flush(struct pk_conn*, char*, ssize_t, int, char*);
 ssize_t pkc_write(struct pk_conn*, char*, ssize_t);
+void    pkc_report_progress(struct pk_conn*, char*, struct pk_conn*);
 

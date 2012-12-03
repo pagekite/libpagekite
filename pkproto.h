@@ -142,8 +142,10 @@ void              pk_reset_pagekite(struct pk_pagekite* kite);
 size_t            pk_format_frame(char*, const char*, const char *, size_t);
 size_t            pk_reply_overhead(const char *sid, size_t);
 size_t            pk_format_reply(char*, const char*, size_t, const char*);
+size_t            pk_format_skb(char*, const char*, int);
 size_t            pk_format_eof(char*, const char*, int);
 size_t            pk_format_pong(char*);
+size_t            pk_format_ping(char*);
 
 int               pk_make_bsalt(struct pk_kite_request*);
 char*             pk_sign(const char*, const char*, const char*, int, char *);

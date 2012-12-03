@@ -44,6 +44,7 @@ struct pk_frontend {
   char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
   struct addrinfo*        ai;
   int                     priority;
+  time_t                  last_ping;
   struct pk_conn          conn;
   struct pk_parser*       parser;
   struct pk_manager*      manager;

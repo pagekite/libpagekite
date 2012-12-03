@@ -281,7 +281,8 @@ size_t pk_reply_overhead(const char *sid, size_t bytes)
   return hexlen + 2 + chunkhdr; /* %x\r\n... */
 }
 
-size_t pk_format_reply(char* buf, const char* sid, size_t bytes, const char* input)
+size_t pk_format_reply(char* buf, const char* sid,
+                       size_t bytes, const char* input)
 {
   size_t hlen;
   hlen = pk_format_frame(buf, sid, "SID: %s\r\n\r\n", bytes);
@@ -293,7 +294,7 @@ size_t pk_format_reply(char* buf, const char* sid, size_t bytes, const char* inp
     return hlen;
 }
 
-size_t pk_format_eof(char* buf, const char *sid, int how)
+size_t pk_format_eof(char* buf, const char* sid, int how)
 {
   char format[64];
   sprintf(format, "SID: %%s\r\nEOF: 1%s%s\r\n\r\n",
@@ -302,10 +303,24 @@ size_t pk_format_eof(char* buf, const char *sid, int how)
   return pk_format_frame(buf, sid, format, 0);
 }
 
+size_t pk_format_skb(char* buf, const char* sid, int kilobytes)
+{
+  char format[64];
+  sprintf(format, "NOOP: 1\r\nSID: %%s\r\nSKB: %d\r\n\r\n", kilobytes);
+  return pk_format_frame(buf, sid, format, 0);
+}
+
 size_t pk_format_pong(char* buf)
 {
   return pk_format_frame(buf, "", "NOOP: 1%s\r\n\r\n", 0);
 }
+
+size_t pk_format_ping(char* buf)
+{
+  return pk_format_frame(buf, "", "NOOP: 1%s\r\nPING: 1\r\n\r\n", 0);
+}
+
+
 
 
 /**[ Connecting ]**************************************************************/
@@ -505,7 +520,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   pk_log(PK_LOG_TUNNEL_DATA, " - End handshake, flushing.");
   pkc_write(pkc, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END));
   if (0 > pkc_flush(pkc, NULL, 0, BLOCKING_FLUSH, "pk_connect_ai")) {
-    pkc_reset_conn(pkc);
+    pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
     return (pk_error = ERR_CONNECT_REQUEST);
   }
 
@@ -546,7 +561,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
     if ((strncasecmp(p, "X-PageKite-Duplicate:", 21) == 0) ||
         (strncasecmp(p, "X-PageKite-Invalid:", 19) == 0)) {
       pk_log(PK_LOG_TUNNEL_CONNS, "%s", p);
-      pkc_reset_conn(pkc);
+      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
       /* FIXME: Should update the status of each individual request. */
       return (pk_error = (p[12] == 'u') ? ERR_CONNECT_DUPLICATE
                                         : ERR_CONNECT_REJECTED);
@@ -578,11 +593,11 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
 
   if (i) {
     if (reconnecting) {
-      pkc_reset_conn(pkc);
+      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
       return (pk_error = ERR_CONNECT_REJECTED);
     }
     else {
-      pkc_reset_conn(pkc);
+      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
       return pk_connect_ai(pkc, ai, 1, n, requests, session_id, ctx);
     }
   }

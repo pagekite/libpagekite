@@ -29,9 +29,10 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pklogging.h"
 
 
-void pkc_reset_conn(struct pk_conn* pkc)
+void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
 {
   pkc->status &= ~CONN_STATUS_BITS;
+  pkc->status |= status;
   pkc->activity = time(0);
   pkc->out_buffer_pos = 0;
   pkc->in_buffer_pos = 0;
@@ -39,6 +40,8 @@ void pkc_reset_conn(struct pk_conn* pkc)
   pkc->read_bytes = 0;
   pkc->read_kb = 0;
   pkc->sent_kb = 0;
+  pkc->wrote_bytes = 0;
+  pkc->reported_kb = 0;
   if (pkc->sockfd >= 0) close(pkc->sockfd);
   pkc->sockfd = -1;
   pkc->state = CONN_CLEAR_DATA;
@@ -51,7 +54,7 @@ void pkc_reset_conn(struct pk_conn* pkc)
 int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
 {
   int fd;
-  pkc_reset_conn(pkc);
+  pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
   if ((0 > (fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol))) ||
       (0 > connect(fd, ai->ai_addr, ai->ai_addrlen))) {
     pkc->sockfd = -1;
@@ -150,6 +153,7 @@ int pkc_wait(struct pk_conn* pkc, int timeout)
 
 ssize_t pkc_read(struct pk_conn* pkc)
 {
+  char *errfmt;
   ssize_t bytes, delta;
   int ssl_errno = SSL_ERROR_NONE;
 
@@ -169,6 +173,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
 
   if (bytes > 0) {
     pkc->in_buffer_pos += bytes;
+    pkc->activity = time(0);
 
     /* Update KB counter and window... this is a bit messy. */
     pkc->read_bytes += bytes;
@@ -187,31 +192,36 @@ ssize_t pkc_read(struct pk_conn* pkc)
     pkc->status |= CONN_STATUS_CLS_READ;
   }
   else {
-    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
-           "pkc_read() error, errno=%d, ssl_errno=%d", errno, ssl_errno);
+    errfmt = "%d: pkc_read(), errno=%d, ssl_errno=%d";
 #ifdef HAVE_OPENSSL
     switch (ssl_errno) {
-      case SSL_ERROR_WANT_READ:
       case SSL_ERROR_WANT_WRITE:
+        errfmt = "%d: pkc_read() starting handshake, errno=%d, ssl_errno=%d";
         pkc_start_handshake(pkc, ssl_errno);
         break;
+      case SSL_ERROR_WANT_READ:
       case SSL_ERROR_SYSCALL:
       case SSL_ERROR_NONE:
 #endif
         switch (errno) {
           case EINTR:
           case EAGAIN:
+            errfmt = "%d: pkc_read() should retry, errno=%d, ssl_errno=%d";
             break;
           default:
             pkc->status |= CONN_STATUS_BROKEN;
+            errfmt = "%d: pkc_read() broken, errno=%d, ssl_errno=%d";
             break;
         }
 #ifdef HAVE_OPENSSL
         break;
       default:
         pkc->status |= CONN_STATUS_BROKEN;
+        errfmt = "%d: pkc_read() broken, errno=%d, ssl_errno=%d";
         break;
     }
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+           errfmt, pkc->sockfd, errno, ssl_errno);
 #endif
   }
   return bytes;
@@ -251,7 +261,23 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
       if (length)
         wrote = write(pkc->sockfd, data, length);
   }
+  if (wrote > 0) pkc->wrote_bytes += wrote;
   return wrote;
+}
+
+void pkc_report_progress(struct pk_conn* pkc, char *sid, struct pk_conn* feconn)
+{
+  char buffer[256];
+  int bytes;
+  if (pkc->wrote_bytes > CONN_REPORT_INCREMENT*1024) {
+    pkc->reported_kb += (pkc->wrote_bytes/1024);
+    pkc->wrote_bytes %= 1024;
+    bytes = pk_format_skb(buffer, sid, pkc->reported_kb);
+    pkc_write(feconn, buffer, bytes);
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+           "%d: sid=%s, wrote_bytes=%d, reported_kb=%d",
+           pkc->sockfd, sid, pkc->wrote_bytes, pkc->reported_kb);
+  }
 }
 
 ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,

@@ -315,6 +315,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     return 0;
 
   if (pkb != NULL) {
+    pkc_report_progress(&(pkb->conn), pkb->sid, &(pkb->frontend->conn));
     if (pkc->read_kb > pkc->sent_kb + pkc->send_window_kb)
       pkm_flow_control_conn(pkc, CONN_DEST_BLOCKED);
     else
@@ -423,8 +424,11 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
       /* FIXME: Is this the right way to clean up dead tunnels? */
       PKS_STATE(pk_state.live_frontends -= 1;
                 pkm->status = PK_STATUS_PROBLEMS);
-      pkc_reset_conn(&(fe->conn));
+      pkc_reset_conn(&(fe->conn), CONN_STATUS_ALLOCATED);
       fe->request_count = 0;
+      if (pk_state.live_frontends < 1) {
+        pkm->next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
+      }
       pkm_tick(pkm);
     }
     pk_log(loglevel, "%d: Closed.", pkc->sockfd, eof);
@@ -635,7 +639,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         fe->conn.sockfd = -1;
       }
       status = fe->conn.status;
-      pkc_reset_conn(&(fe->conn));
+      pkc_reset_conn(&(fe->conn), 0);
       fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
       /* Unblock the event loop while we attempt to connect. */
@@ -670,7 +674,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
           status |= FE_STATUS_REJECTED;
           PKS_STATE(pkm->status = PK_STATUS_REJECTED);
         }
-        pkc_reset_conn(&(fe->conn));
+        pkc_reset_conn(&(fe->conn), 0);
         fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
         pk_perror("pkmanager.c");
@@ -687,7 +691,14 @@ void pkm_tick(struct pk_manager* pkm)
 }
 static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
 {
+  int i, pingsize;
+  char ping[PK_REJECT_MAXSIZE];
+  struct pk_frontend* fe;
   struct pk_manager* pkm = (struct pk_manager*) w->data;
+  unsigned int next_tick = pkm->next_tick;
+  time_t now = time(0);
+  time_t increment = (next_tick / 3);
+  time_t inactive = now - pkm->next_tick - increment;
 
   /* First, we look at the state of the world and schedule (or cancel)
    * our next tick. */
@@ -701,34 +712,51 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
            pkm->enable_timer ? "yes" : "no", pkm->next_tick);
 
     /* We slow down exponentially by default, no matter what. */
-    pkm->next_tick *= 2;
-    if (pkm->next_tick > PK_HOUSEKEEPING_INTERVAL_MAX)
-      pkm->next_tick = PK_HOUSEKEEPING_INTERVAL_MAX;
+    next_tick += increment;
+    if (next_tick > PK_HOUSEKEEPING_INTERVAL_MAX)
+      next_tick = PK_HOUSEKEEPING_INTERVAL_MAX;
   }
   else {
     ev_timer_stop(pkm->loop, &(pkm->timer));
     pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, stopped]",
            pkm->enable_timer ? "yes" : "no");
     /* Reset interval. */
-    pkm->next_tick = PK_HOUSEKEEPING_INTERVAL_MIN;
+    next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
   }
 
-  /* FIXME: Loop through all configured tunnels:
-   *   - if idle, queue a ping.
-   *   - if dead, shut 'em down.
-   *   - this will force need_timer to nonzero, skip on mobile?
-   */
+  /* Loop through all configured tunnels ... */
+  pingsize = 0;
+  for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
+    if (fe->conn.sockfd >= 0) {
+      /* If dead, shut 'em down. */
+      if (fe->conn.activity < fe->last_ping-4*(PK_HOUSEKEEPING_INTERVAL_MIN)) {
+        pk_log(PK_LOG_TUNNEL_DATA, "%d: Idle, shutting down.", fe->conn.sockfd);
+        fe->conn.status |= CONN_STATUS_BROKEN;
+        pkm_update_io(fe, NULL);
+      }
+      /* If idle, send a ping. */
+      else if (fe->conn.activity < inactive) {
+        if (pingsize == 0) pingsize = pk_format_ping(ping);
+        fe->last_ping = now;
+        pkc_write(&(fe->conn), ping, pingsize);
+        pk_log(PK_LOG_TUNNEL_DATA, "%d: Sent PING.", fe->conn.sockfd);
+        next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
+      }
+    }
+  }
 
   /* Finally, trigger the frontend check on the blocking thread. */
   if (pkm->last_world_update + PK_CHECK_WORLD_INTERVAL < time(0)) {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_WORLD, pkm);
     /* After checking the state of the world, we are a bit more aggressive
      * about following up on things, reset the fallback. */
-    pkm->next_tick = PK_HOUSEKEEPING_INTERVAL_MIN;
+    next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
   }
   else {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
   }
+
+  pkm->next_tick = next_tick;
   pkm_yield(pkm);
 
   /* -Wall dislikes unused arguments */
@@ -745,9 +773,9 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   (void) revents;
 }
 void pkm_reset_timer(struct pk_manager* pkm) {
-  ev_timer_set(&(pkm->timer), 0.0, PK_HOUSEKEEPING_INTERVAL_MIN);
+  ev_timer_set(&(pkm->timer), 0.0, 1+PK_HOUSEKEEPING_INTERVAL_MIN);
   ev_timer_start(pkm->loop, &(pkm->timer));
-  pkm->next_tick = PK_HOUSEKEEPING_INTERVAL_MIN;
+  pkm->next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
 }
 void pkm_set_timer_enabled(struct pk_manager* pkm, int enabled) {
   pkm->enable_timer = (enabled > 0);
@@ -847,7 +875,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 #ifdef HAVE_OPENSSL
     (pkm->be_conns+i)->conn.ssl = NULL;
 #endif
-    pkc_reset_conn(&(pkm->be_conns+i)->conn);
+    pkc_reset_conn(&(pkm->be_conns+i)->conn, 0);
   }
   pkm->buffer += sizeof(struct pk_backend_conn) * conns;
 
@@ -936,7 +964,7 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
       ev_io_stop(pkm->loop, &(pkc->watch_w));
-      pkc_reset_conn(pkc);
+      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
     }
   }
   for (i = 0; i < pkm->be_conn_max; i++) {
@@ -944,7 +972,7 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
       ev_io_stop(pkm->loop, &(pkc->watch_w));
-      pkc_reset_conn(pkc);
+      pkc_reset_conn(pkc, 0);
     }
   }
   ev_async_stop(pkm->loop, &(pkm->quit));
@@ -1093,9 +1121,8 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
   for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
     if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
-      pkc_reset_conn(&(pkb->conn));
+      pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
       pkb->frontend = fe;
-      pkb->conn.status = CONN_STATUS_ALLOCATED;
       strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
       return pkb;
     }
