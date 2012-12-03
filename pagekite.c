@@ -31,6 +31,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pklogging.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
+#include "version.h"
 
 #include "pagekite_net.h"
 
@@ -38,6 +39,7 @@ Note: For alternate license terms, see the file COPYING.md.
 struct pk_global_state pk_state;
 
 void usage(void) {
+  fprintf(stderr, "This is pagekite.c from libpagekite %s.\n", PK_VERSION);
   fprintf(stderr, "Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET\n");
 }
 
