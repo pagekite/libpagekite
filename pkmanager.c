@@ -519,7 +519,7 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
     {
       /* Parse failed: remote is borked: should kill this conn. */
       fe->conn.status |= CONN_STATUS_BROKEN;
-      /* FIXME: Log this event? */
+      pk_log(PK_LOG_TUNNEL_HEADERS, "pkm_tunnel_readable_cb(): parse failed!");
     }
     fe->conn.in_buffer_pos = 0;
   }
