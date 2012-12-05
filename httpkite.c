@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
     pk_parser_parse(pkp, pkc.in_buffer_pos, (char *) pkc.in_buffer);
     pkc.in_buffer_pos = 0;
   }
-  pkc_reset_conn(&pkc);
+  pkc_reset_conn(&pkc, 0);
 
   return 0;
 }
