@@ -201,8 +201,6 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
   /* No data, nothing to do. */
   if (length <= 0) return length;
 
-  pk_log(PK_LOG_TUNNEL_DATA, "PARSE: %d bytes", length);
-
   /* Update counters. */
   frame->raw_length += length;
   parser->buffer_bytes_left -= length;
@@ -236,8 +234,6 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
     if (parser->chunk->data == NULL) {
       if (ERR_PARSE_BAD_CHUNK == parse_chunk_header(frame, chunk, parse_length))
         return (pk_error = ERR_PARSE_BAD_CHUNK);
-      pk_log(PK_LOG_TUNNEL_DATA, "HEAD: %d byte header, chunk data %d bytes",
-             chunk->data - frame->raw_frame, chunk->length);
     }
     else {
       if (chunk->offset + length > chunk->total)
@@ -256,14 +252,8 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
       frame->length -= chunk->length;
       frame->raw_length -= chunk->length;
       parser->buffer_bytes_left += chunk->length;
-      pk_log(PK_LOG_TUNNEL_DATA, "FRAG: %d@%d/%d bytes (rl=%d, l=%d, wl=%d)",
-                                 chunk->length, chunk->offset, chunk->total,
-                                 frame->raw_length, frame->length, wanted_length);
     }
     else {
-      pk_log(PK_LOG_TUNNEL_DATA, "DONE: %d@%d/%d bytes (rl=%d, l=%d, wl=%d)",
-                                 chunk->length, chunk->offset, chunk->total,
-                                 frame->raw_length, frame->length, wanted_length);
       leftovers = frame->raw_length - wanted_length;
       if (leftovers > 0) {
         memmove(frame->raw_frame,
