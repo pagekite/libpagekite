@@ -195,12 +195,13 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
   int fragmenting = 0;
   int wanted_length = 0;
   int parse_length = 0;
-  int chunk_length = 0;
   struct pk_chunk *chunk = parser->chunk;
   struct pk_frame *frame = &(parser->chunk->frame);
 
   /* No data, nothing to do. */
   if (length <= 0) return length;
+
+  pk_log(PK_LOG_TUNNEL_DATA, "PARSE: %d bytes", length);
 
   /* Update counters. */
   frame->raw_length += length;
@@ -221,41 +222,48 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
 
   /* If the buffer is full, start fragmenting... */
   if ((parser->buffer_bytes_left < 1) &&
-      (wanted_length > frame->raw_length)) {
+       (wanted_length > frame->raw_length)) {
     fragmenting = 1;
     parse_length = frame->raw_length - frame->hdr_length;
   }
 
   /* Do we have enough data? */
-  if (fragmenting || (frame->raw_length >= wanted_length))
+  if (fragmenting ||
+      (parser->chunk->data != NULL) ||
+      (frame->raw_length >= wanted_length))
   {
     /* Only parse the chunk header once, if we're fragmenting. */
     if (parser->chunk->data == NULL) {
       if (ERR_PARSE_BAD_CHUNK == parse_chunk_header(frame, chunk, parse_length))
         return (pk_error = ERR_PARSE_BAD_CHUNK);
-      chunk_length = chunk->length;
       pk_log(PK_LOG_TUNNEL_DATA, "HEAD: %d byte header, chunk data %d bytes",
-             chunk->data - frame->raw_frame, chunk_length);
+             chunk->data - frame->raw_frame, chunk->length);
     }
     else {
-      chunk_length = chunk->length = length;
+      if (chunk->offset + length > chunk->total)
+        chunk->length = chunk->total - chunk->offset;
+      else
+        chunk->length = length;
     }
+    chunk->offset += chunk->length;
 
-    /* FIXME: if fragmenting, we should suppress EOFs */
-    if (parser->chunk_callback != (pkChunkCallback *) NULL)
+    if (parser->chunk_callback != (pkChunkCallback *) NULL) {
+      /* FIXME: if fragmenting, we should suppress EOFs */
       parser->chunk_callback(parser->chunk_callback_data, chunk);
+    }
 
-    if (fragmenting) {
-      frame->length -= chunk_length;
-      frame->raw_length -= chunk_length;
-      parser->buffer_bytes_left += chunk_length;
-      pk_log(PK_LOG_TUNNEL_DATA, "FRAG: %d@%d/%d bytes (%p ?= %p)",
-             chunk->length, chunk->offset, chunk->total, chunk->data,
-             frame->raw_length + frame->raw_frame);
-      chunk->offset += chunk_length;
+    if (fragmenting || (chunk->offset < chunk->total)) {
+      frame->length -= chunk->length;
+      frame->raw_length -= chunk->length;
+      parser->buffer_bytes_left += chunk->length;
+      pk_log(PK_LOG_TUNNEL_DATA, "FRAG: %d@%d/%d bytes (rl=%d, l=%d, wl=%d)",
+                                 chunk->length, chunk->offset, chunk->total,
+                                 frame->raw_length, frame->length, wanted_length);
     }
     else {
-      pk_log(PK_LOG_TUNNEL_DATA, "DONE: %d/%d bytes", chunk->length, chunk->total);
+      pk_log(PK_LOG_TUNNEL_DATA, "DONE: %d@%d/%d bytes (rl=%d, l=%d, wl=%d)",
+                                 chunk->length, chunk->offset, chunk->total,
+                                 frame->raw_length, frame->length, wanted_length);
       leftovers = frame->raw_length - wanted_length;
       if (leftovers > 0) {
         memmove(frame->raw_frame,
