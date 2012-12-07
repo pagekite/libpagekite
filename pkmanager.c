@@ -655,6 +655,8 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         pk_log(PK_LOG_MANAGER_INFO, "Connected!");
         pkm_block(pkm); /* Re-block */
 
+        pk_parser_reset(fe->parser);
+
         ev_io_init(&(fe->conn.watch_r),
                    pkm_tunnel_readable_cb, fe->conn.sockfd, EV_READ);
         ev_io_init(&(fe->conn.watch_w),
@@ -797,6 +799,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   struct pk_manager* pkm;
   int i;
   unsigned int parse_buffer_bytes;
+
+  signal(SIGPIPE, SIG_IGN);
 
 #ifdef HAVE_OPENSSL
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_ZERO_RETURN = %d", SSL_ERROR_ZERO_RETURN);
