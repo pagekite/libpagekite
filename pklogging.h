@@ -37,4 +37,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_LOG_ALL             0xffff
 
 int pk_log(int, const char *fmt, ...);
-int pk_log_chunk(struct pk_chunk* chnk);
+int pk_log_chunk(struct pk_chunk*);
+void pk_dump_state(struct pk_manager*);
+

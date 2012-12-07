@@ -510,16 +510,19 @@ void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
 
 void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 {
+  int rv;
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
   fe->conn.status &= ~CONN_STATUS_WANT_READ;
   if (0 < pkc_read(&(fe->conn))) {
-    if (0 > pk_parser_parse(fe->parser,
-                            fe->conn.in_buffer_pos,
-                            (char *) fe->conn.in_buffer))
+    if (0 > (rv = pk_parser_parse(fe->parser,
+                                  fe->conn.in_buffer_pos,
+                                  (char *) fe->conn.in_buffer)))
     {
       /* Parse failed: remote is borked: should kill this conn. */
       fe->conn.status |= CONN_STATUS_BROKEN;
-      pk_log(PK_LOG_TUNNEL_HEADERS, "pkm_tunnel_readable_cb(): parse failed!");
+      pk_log(PK_LOG_TUNNEL_HEADERS,
+             "pkm_tunnel_readable_cb(): parse error = %d", rv);
+      pk_dump_state(fe->manager);
     }
     fe->conn.in_buffer_pos = 0;
   }

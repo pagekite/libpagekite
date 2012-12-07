@@ -25,13 +25,16 @@ Note: For alternate license terms, see the file COPYING.md.
 #include <android/log.h>
 #endif
 
+#include "utils.h"
 #include "pkstate.h"
+#include "pkerror.h"
 #include "pkconn.h"
 #include "pkproto.h"
+#include "pkblocker.h"
+#include "pkmanager.h"
 #include "pklogging.h"
 
 static int logged_lines = 0;
-
 
 int pk_log(int level, const char* fmt, ...)
 {
@@ -105,3 +108,98 @@ int pk_log_chunk(struct pk_chunk* chnk) {
   }
   return r;
 }
+
+
+void pk_dump_parser(char* prefix, struct pk_parser* p)
+{
+  int i;
+
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/buffer_bytes_left: %d", prefix, p->buffer_bytes_left);
+  if (NULL == p->chunk) return;
+
+  for (i = 0; i < p->chunk->header_count; i++) {
+    pk_log(PK_LOG_MANAGER_DEBUG, "%s/chunk/header_%d: %s", prefix, i, p->chunk->headers[i]);
+  }
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/chunk/length: %d", prefix, p->chunk->length);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/chunk/length: %d", prefix, p->chunk->length);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/chunk/frame/length: %d", prefix, p->chunk->frame.length);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/chunk/frame/hdr_length: %d", prefix, p->chunk->frame.hdr_length);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/chunk/frame/raw_length: %d", prefix, p->chunk->frame.raw_length);
+}
+
+void pk_dump_conn(char* prefix, struct pk_conn* conn)
+{
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/status: %8.8x", prefix, conn->status);
+  if (conn->sockfd < 0) return;
+
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/sockfd: %d", prefix, conn->sockfd);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/activity: %x", prefix, conn->activity);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_bytes: %d", prefix, conn->read_bytes);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_kb: %d", prefix, conn->read_kb);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/sent_kb: %d", prefix, conn->sent_kb);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/send_window_kb: %d", prefix, conn->send_window_kb);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/wrote_bytes: %d", prefix, conn->wrote_bytes);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/reported_kb: %d", prefix, conn->reported_kb);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/in_buffer_pos: %d", prefix, conn->in_buffer_pos);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/out_buffer_pos: %d", prefix, conn->out_buffer_pos);
+}
+
+void pk_dump_frontend(char* prefix, struct pk_frontend* fe)
+{
+  char tmp[1024];
+  if (NULL == fe->ai) return;
+
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_hostname: %s", prefix, fe->fe_hostname);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_port: %d", prefix, fe->fe_port);
+
+  if (0 <= fe->conn.sockfd) {
+    pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_session: %s", prefix, fe->fe_session);
+    pk_log(PK_LOG_MANAGER_DEBUG, "%s/request_count: %d", prefix, fe->request_count);
+    in_addr_to_str(fe->ai->ai_addr, tmp, 1024);
+    pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_ai: %s", prefix, tmp);
+    sprintf(tmp, "%s/conn", prefix);
+    pk_dump_conn(tmp, &(fe->conn));
+    sprintf(tmp, "%s/parser", prefix);
+    pk_dump_parser(tmp, fe->parser);
+  }
+}
+
+void pk_dump_be_conn(char* prefix, struct pk_backend_conn* bec)
+{
+}
+
+void pk_dump_state(struct pk_manager* pkm)
+{
+  int i;
+  char prefix[1024];
+  struct pk_frontend* fe;
+  struct pk_backend_conn* bec;
+
+  #define LL PK_LOG_MANAGER_DEBUG
+  pk_log(LL, "pk_global_state/app_id_short: %s", pk_state.app_id_short);
+  pk_log(LL, "pk_global_state/app_id_long: %s", pk_state.app_id_long);
+  pk_log(LL, "pk_global_state/have_ssl: %d", pk_state.have_ssl);
+  pk_log(LL, "pk_global_state/live_streams: %d", pk_state.live_streams);
+  pk_log(LL, "pk_global_state/live_frontends: %d", pk_state.live_frontends);
+  pk_log(LL, "pk_manager/status: %d", pkm->status);
+  pk_log(LL, "pk_manager/buffer_bytes_free: %d", pkm->buffer_bytes_free);
+  pk_log(LL, "pk_manager/kite_max: %d", pkm->kite_max);
+  pk_log(LL, "pk_manager/frontend_max: %d", pkm->frontend_max);
+  pk_log(LL, "pk_manager/be_conn_max: %d", pkm->be_conn_max);
+  pk_log(LL, "pk_manager/last_world_update: %x", pkm->last_world_update);
+  pk_log(LL, "pk_manager/next_tick: %d", pkm->next_tick);
+  pk_log(LL, "pk_manager/enable_timer: %d", 0 < pkm->enable_timer);
+  pk_log(LL, "pk_manager/fancy_pagekite_net_rejection: %d", 0 < pkm->fancy_pagekite_net_rejection);
+  pk_log(LL, "pk_manager/want_spare_frontends: %d", pkm->want_spare_frontends);
+  pk_log(LL, "pk_manager/dynamic_dns_url: %s", pkm->dynamic_dns_url);
+
+  for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
+    sprintf(prefix, "fe_%d", i);
+    pk_dump_frontend(prefix, fe);
+  }
+  for (i = 0, bec = pkm->be_conns; i < pkm->be_conn_max; i++, bec++) {
+    sprintf(prefix, "beconn_%d", i);
+    pk_dump_be_conn(prefix, bec);
+  }
+}
+
