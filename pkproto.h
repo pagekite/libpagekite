@@ -116,7 +116,9 @@ struct pk_chunk {
   char*           remote_tls;      /* RTLS:  Remote TLS encryption (string)  */
   ssize_t         remote_sent_kb;  /* SKB:   Flow control v2                 */
   int             throttle_spd;    /* SPD:   Flow control v1                 */
-  ssize_t         length;          /* Length of chunk data.                  */
+  ssize_t         length;          /* Length of available chunk data.        */
+  ssize_t         total;           /* Length of total chunk data.            */
+  ssize_t         offset;          /* Offset of current fragment.            */
   char*           data;            /* Pointer to chunk data.                 */
   struct pk_frame frame;           /* The raw data.                          */
 };
