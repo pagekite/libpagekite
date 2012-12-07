@@ -95,7 +95,9 @@ static void pkc_end_handshake(struct pk_conn *pkc)
 
 static void pkc_do_handshake(struct pk_conn *pkc)
 {
-  int rv = SSL_do_handshake(pkc->ssl);
+  int rv;
+  errno = 0;
+  rv = SSL_do_handshake(pkc->ssl);
   if (rv == 1) {
     pkc_end_handshake(pkc);
   }
@@ -163,6 +165,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
   switch (pkc->state) {
 #ifdef HAVE_OPENSSL
     case CONN_SSL_DATA:
+      errno = 0;
       bytes = SSL_read(pkc->ssl, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
       if (bytes < 0) ssl_errno = SSL_get_error(pkc->ssl, bytes);
       break;
@@ -236,6 +239,7 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
 #ifdef HAVE_OPENSSL
     case CONN_SSL_DATA:
       if (length) {
+        errno = 0;
         wrote = SSL_write(pkc->ssl, data, length);
         if (wrote < 0) {
           int err = SSL_get_error(pkc->ssl, wrote);
