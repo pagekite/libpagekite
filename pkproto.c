@@ -239,6 +239,11 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
   int status = 0;
   int copy = 0;
   do {
+    if ((length > 0) && (0 >= parser->buffer_bytes_left)) {
+      /* We will make no progress.  This is bad! */
+      return (pk_error = ERR_PARSE_NO_MEMORY);
+    }
+
     if (length > parser->buffer_bytes_left)
       copy = parser->buffer_bytes_left;
     else
@@ -254,7 +259,7 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
     parsed += status;
     length -= status;
     data += status;
-  } while ((parser->buffer_bytes_left > 0) && (length > 0));
+  } while (length > 0);
   return parsed;
 }
 

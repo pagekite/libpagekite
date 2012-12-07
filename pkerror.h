@@ -23,6 +23,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #define ERR_PARSE_BAD_FRAME   -10000
 #define ERR_PARSE_BAD_CHUNK   -10001
+#define ERR_PARSE_NO_MEMORY   -10002
 
 #define ERR_PARSE_NO_KITENAME -20000
 #define ERR_PARSE_NO_BSALT    -20001
