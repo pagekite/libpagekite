@@ -21,7 +21,7 @@ For more information about PageKite, see http://pagekite.org/
 Things that work:
 
     httpkite.c      Sample implementation of a very basic HTTP server
-    pagekite.c      Basic standalone pagekite back-end connector.
+    pagekitec.c     Basic standalone pagekite back-end connector.
 
 Works in progress:
 
@@ -41,7 +41,7 @@ Running the program will give some hints on how to use it.  It does not do
 anything useful on its own, the idea is to provide a basic implementation
 which can extended and build upon.
 
-A more complete implementation of a PageKite proxy is in `pagekite.c`.
+A more complete implementation of a PageKite proxy is in `pagekitec.c`.
 
 This project has a Wiki page: <https://pagekite.net/wiki/Floss/LibPageKite/>
 
