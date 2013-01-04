@@ -1,7 +1,7 @@
 /******************************************************************************
-pagekite.c - A high-performance PageKite implementation in C.
+pagekitec.c - A high-performance PageKite connector in C.
 
-Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET
+Usage: pagekitec LPORT PROTO NAME.pagekite.me PPORT SECRET
 
 *******************************************************************************
 
@@ -39,8 +39,8 @@ Note: For alternate license terms, see the file COPYING.md.
 struct pk_global_state pk_state;
 
 void usage(void) {
-  fprintf(stderr, "This is pagekite.c from libpagekite %s.\n", PK_VERSION);
-  fprintf(stderr, "Usage: pagekite LPORT PROTO NAME.pagekite.me PPORT SECRET\n");
+  fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n", PK_VERSION);
+  fprintf(stderr, "Usage: pagekitec LPORT PROTO NAME.pagekite.me PPORT SECRET\n");
 }
 
 int main(int argc, char **argv) {

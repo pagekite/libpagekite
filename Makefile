@@ -13,7 +13,7 @@ HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
-all: runtests pagekite httpkite
+all: runtests pagekitec httpkite
 
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
@@ -28,15 +28,15 @@ tests: tests.o $(OBJ) $(TOBJ)
 httpkite: httpkite.o $(OBJ)
 	$(CC) $(CFLAGS) -o httpkite httpkite.o $(OBJ) $(CLINK)
 
-pagekite: pagekite.o $(OBJ)
-	$(CC) $(CFLAGS) -o pagekite pagekite.o $(OBJ) $(CLINK)
+pagekitec: pagekitec.o $(OBJ)
+	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(OBJ) $(CLINK)
 
 version:
 	@sed -e "s/@DATE@/`date '+%y%m%d'`/g" <version.h.in >version.h
 	@touch pkproto.h
 
 clean:
-	rm -vf tests pagekite httpkite *.o
+	rm -vf tests pagekitec httpkite *.o
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf
@@ -45,7 +45,7 @@ allclean: clean
 	$(CC) $(CFLAGS) -c $<
 
 httpkite.o: $(HDRS)
-pagekite.o: $(HDRS)
+pagekitec.o: $(HDRS)
 pagekite-jni.o: $(HDRS)
 pkblocker.o: $(HDRS)
 pkconn.o: common.h utils.h pkerror.h pklogging.h
