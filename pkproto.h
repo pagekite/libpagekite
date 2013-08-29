@@ -61,6 +61,9 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_REJECT_PRE_PAGEKITE ("<frameset cols='*'><frame target='_top' src='https://pagekite.net/offline/?&where=%.3s&v=%s&proto=%.8s&domain=%.64s'><noframes>")
 #define PK_REJECT_POST_PAGEKITE "</noframes></frameset>"
 
+#define PK_REJECT_TLS_DATA "\x15\x03\0\0\x02\x02\x50"
+#define PK_REJECT_TLS_LEN  7
+
 #define PK_EOF_READ  0x1
 #define PK_EOF_WRITE 0x2
 #define PK_EOF       (PK_EOF_READ | PK_EOF_WRITE)
