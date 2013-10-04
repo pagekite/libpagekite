@@ -251,7 +251,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   int j, len, bogus, rlen;
   struct pk_frontend* fe;
   struct pk_pagekite* kite;
-  char printip[128], get_result[10240];
+  char printip[128], get_result[10240], *result;
   char address_list[1024], payload[2048], signature[2048], url[2048], *alp;
 
   address_list[0] = '\0';
@@ -278,6 +278,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   }
   if (!bogus) return 0;
 
+  bogus = 0;
   for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
     if (kite->protocol[0] != '\0') {
       PKS_STATE(pkm->status = PK_STATUS_DYNDNS);
@@ -288,12 +289,27 @@ int pkb_update_dns(struct pk_manager* pkm)
               kite->public_domain, address_list, signature);
       rlen = http_get(url, get_result, 10240);
 
-      /* FIXME: Did we get an ack or a nack from the server?  Or an error? */
-      pk_log(PK_LOG_MANAGER_DEBUG, "FIXME! DDNS result(%d): %s", rlen, get_result);
+      if (rlen < 1) {
+        pk_log(PK_LOG_MANAGER_ERROR, "DDNS: No response from %s", url);
+        bogus++;
+      }
+      else {
+        result = skip_http_header(rlen, get_result);
+        if ((strncasecmp(result, "nochg", 5) == 0) ||
+            (strncasecmp(result, "good", 5) == 0)) {
+          pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update OK for %s",
+                                      kite->public_domain);
+        }
+        else {
+          pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update failed for %s (%s)",
+                                      kite->public_domain, result);
+          bogus++;
+        }
+      }
     }
   }
 
-  return 0;
+  return bogus;
 }
 
 void pkb_log_fe_status(struct pk_manager* pkm)
