@@ -37,6 +37,23 @@ int zero_first_crlf(int length, char* data)
   return 0;
 }
 
+char *skip_http_header(int length, const char* data)
+{
+  int i, lfs;
+  char *p = "\0";
+  for (lfs = i = 0; i < length-1; i++) {
+    p = (char*) data + i;
+    if (*p == '\n') {
+      lfs++;
+      if (lfs == 2) return p + 1;
+    }
+    else if (*p != '\r') {
+      lfs = 0;
+    }
+  }
+  return p;
+}
+
 int dbg_write(int sockfd, char *buffer, int bytes)
 {
   printf(">> %s", buffer);

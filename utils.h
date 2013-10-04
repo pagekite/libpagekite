@@ -22,6 +22,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define strncpyz(dest, src, len) { strncpy(dest, src, len); dest[len] = '\0'; }
 
 int zero_first_crlf(int, char*);
+char *skip_http_header(int, const char*);
 int dbg_write(int, char *, int);
 int set_non_blocking(int);
 int set_blocking(int);

@@ -40,5 +40,8 @@ int utils_test(void)
   assert((buffer1[4] == '\0') && (buffer1[5] == '\0') && (buffer1[6] == '\r'));
   assert(strcmp(buffer1, "abcd") == 0);
 
+  strcpy(buffer1, "abcd\r\nfoo\r\n\r\ndef");
+  assert(strcmp(skip_http_header(strlen(buffer1), buffer1), "def") == 0);
+
   return 1;
 }
