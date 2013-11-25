@@ -218,7 +218,17 @@ void* pkb_frontend_ping(void* void_fe) {
 
   fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
                + (tv2.tv_usec - tv1.tv_usec) / 1000;
-  pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s: %dms", printip, fe->priority);
+  if (fe->conn.status & FE_STATUS_WANTED) {
+    /* We had previously decided we wanted this frontend, so bias ping time
+     * to make that decision a bit more sticky. */
+    fe->priority /= 10;
+    fe->priority *= 9;
+    pk_log(PK_LOG_MANAGER_DEBUG,
+           "Ping %s: %dms (fudged)", printip, fe->priority);
+  }
+  else {
+    pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s: %dms", printip, fe->priority);
+  }
   return NULL;
 }
 
@@ -239,9 +249,10 @@ void pkb_check_frontend_pingtimes(struct pk_manager* pkm)
     }
   }
   if (first) {
-    /* We only wait for the first one - usually we only care about the
+    /* Sleep, but only wait for the first one - usually we only care about the
      * fastest anyway.  The others will return in their own good time.
      */
+    sleep(1);
     pthread_join(first, NULL);
   }
 }
