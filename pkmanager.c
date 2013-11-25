@@ -99,7 +99,8 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
     }
     else {
       /* FIXME: Send back a nicer error */
-      if (0 == strncasecmp(chunk->request_proto, "https", 5)) {
+      if ((NULL != chunk->request_proto) &&
+          (0 == strncasecmp(chunk->request_proto, "https", 5))) {
         bytes = pk_format_reply(reply, chunk->sid, PK_REJECT_TLS_LEN,
                                                    PK_REJECT_TLS_DATA);
         pkc_write(&(fe->conn), reply, bytes);
