@@ -460,14 +460,12 @@ void pkm_flow_control_fe(struct pk_frontend* fe, flow_op op)
         if (op == CONN_TUNNEL_UNBLOCKED) {
           pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel unblocked", pkb->conn.sockfd);
           pkb->conn.status &= ~CONN_STATUS_TNL_BLOCKED;
-          pkm_update_io(fe, pkb);
         }
       }
       else
         if (op == CONN_TUNNEL_BLOCKED) {
           pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel blocked", pkb->conn.sockfd);
           pkb->conn.status |= CONN_STATUS_TNL_BLOCKED;
-          pkm_update_io(fe, pkb);
         }
     }
   }
