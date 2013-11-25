@@ -325,7 +325,7 @@ int pkb_update_dns(struct pk_manager* pkm)
     }
   }
 
-  if (!bogus) pkm->last_dns_update = time(0);
+  pkm->last_dns_update = time(0);
   return bogus;
 }
 
