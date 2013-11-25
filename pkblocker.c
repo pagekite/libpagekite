@@ -265,6 +265,9 @@ int pkb_update_dns(struct pk_manager* pkm)
   char printip[128], get_result[10240], *result;
   char address_list[1024], payload[2048], signature[2048], url[2048], *alp;
 
+  if (time(0) > pkm->last_dns_update+PK_DDNS_UPDATE_INTERVAL_MIN)
+    return 0;
+
   address_list[0] = '\0';
   alp = address_list;
 
@@ -320,6 +323,7 @@ int pkb_update_dns(struct pk_manager* pkm)
     }
   }
 
+  pkm->last_dns_update = time(0);
   return bogus;
 }
 

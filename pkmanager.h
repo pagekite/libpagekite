@@ -22,6 +22,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_HOUSEKEEPING_INTERVAL_MIN  15.0  /* Seconds */
 #define PK_HOUSEKEEPING_INTERVAL_MAX 900.0  /* 15 minutes */
 #define PK_CHECK_WORLD_INTERVAL       3600  /* 1 hour */
+#define PK_DDNS_UPDATE_INTERVAL_MIN    450  /* Less than 300 makes no sense,
+                                               due to DNS caching TTLs. */
 
 struct pk_frontend;
 struct pk_backend_conn;
@@ -106,6 +108,7 @@ struct pk_manager {
   unsigned int             fancy_pagekite_net_rejection:1;
   int                      want_spare_frontends;
   char*                    dynamic_dns_url;
+  time_t                   last_dns_update;
   SSL_CTX*                 ssl_ctx;
 
   pthread_t                blocking_thread;

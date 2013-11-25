@@ -929,6 +929,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->fancy_pagekite_net_rejection = 1;
   pkm->want_spare_frontends = 0;
   pkm->last_world_update = (time_t) 0;
+  pkm->last_dns_update = (time_t) 0;
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
 
   pkm->ssl_ctx = ctx;
