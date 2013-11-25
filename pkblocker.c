@@ -218,13 +218,15 @@ void* pkb_frontend_ping(void* void_fe) {
 
   fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
                + (tv2.tv_usec - tv1.tv_usec) / 1000;
-  if (fe->conn.status & FE_STATUS_WANTED) {
-    /* We had previously decided we wanted this frontend, so bias ping time
-     * to make that decision a bit more sticky. */
+  if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST))
+  {
+    /* Bias ping time to make old decisions a bit more sticky. We ignore
+     * DNS though, to allow a bit of churn to spread the load around and
+     * make sure new frontends don't stay ignored forever. */
     fe->priority /= 10;
     fe->priority *= 9;
     pk_log(PK_LOG_MANAGER_DEBUG,
-           "Ping %s: %dms (fudged)", printip, fe->priority);
+           "Ping %s: %dms (biased)", printip, fe->priority);
   }
   else {
     pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s: %dms", printip, fe->priority);
