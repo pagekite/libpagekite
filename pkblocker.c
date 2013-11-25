@@ -267,7 +267,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   char printip[128], get_result[10240], *result;
   char address_list[1024], payload[2048], signature[2048], url[2048], *alp;
 
-  if (time(0) > pkm->last_dns_update+PK_DDNS_UPDATE_INTERVAL_MIN)
+  if (time(0) < pkm->last_dns_update+PK_DDNS_UPDATE_INTERVAL_MIN)
     return 0;
 
   address_list[0] = '\0';
@@ -312,7 +312,7 @@ int pkb_update_dns(struct pk_manager* pkm)
       else {
         result = skip_http_header(rlen, get_result);
         if ((strncasecmp(result, "nochg", 5) == 0) ||
-            (strncasecmp(result, "good", 5) == 0)) {
+            (strncasecmp(result, "good", 4) == 0)) {
           pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update OK for %s",
                                       kite->public_domain);
         }
@@ -325,7 +325,7 @@ int pkb_update_dns(struct pk_manager* pkm)
     }
   }
 
-  pkm->last_dns_update = time(0);
+  if (!bogus) pkm->last_dns_update = time(0);
   return bogus;
 }
 
@@ -348,8 +348,8 @@ void pkb_check_world(struct pk_manager* pkm)
   if (pkm->status == PK_STATUS_NO_NETWORK) return;
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking state of world...");
   pkb_clear_transient_flags(pkm);
-  pkb_check_frontend_pingtimes(pkm);
   pkb_check_kites_dns(pkm);
+  pkb_check_frontend_pingtimes(pkm);
   pkb_log_fe_status(pkm);
   pkm->last_world_update = time(0);
 }
