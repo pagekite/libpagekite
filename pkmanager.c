@@ -190,9 +190,9 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
 
   /* Allocate a connection for this request or die... */
   if (NULL == (pkb = pkm_alloc_be_conn(fe->manager, fe, chunk->sid))) {
-    pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: BE alloc failed for %s://%s:%d",
-                                chunk->request_proto, chunk->request_host,
-                                chunk->request_port);
+    pk_log(PK_LOG_TUNNEL_CONNS|PK_LOG_ERROR,
+           "pkm_connect_be: BE alloc failed for %s://%s:%d",
+           chunk->request_proto, chunk->request_host, chunk->request_port);
     return NULL;
   }
 

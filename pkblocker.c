@@ -316,8 +316,8 @@ int pkb_update_dns(struct pk_manager* pkm)
                                       kite->public_domain);
         }
         else {
-          pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update failed for %s (%s)",
-                                      kite->public_domain, result);
+          pk_log(PK_LOG_MANAGER_ERROR, "DDNS: Update failed for %s (%s)",
+                                       kite->public_domain, result);
           bogus++;
         }
       }
