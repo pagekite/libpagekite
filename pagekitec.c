@@ -45,7 +45,8 @@ void usage(void) {
                   "\t-q\tDecrease verbosity (less log output)\n"
                   "\t-v\tIncrease verbosity (more log output)\n"
                   "\t-I\tConnect insecurely, without SSL.\n"
-                  "\t-c N\tSet max conn count to N (default = 25)\n"
+                  "\t-S\tStatic setup, disable FE failover and DDNS updates\n"
+                  "\t-c N\tSet max connection count to N (default = 25)\n"
                   "\t-B N\tBail out (abort) after N logged errors\n"
                   "\n");
 }
@@ -59,6 +60,7 @@ int main(int argc, char **argv) {
   int verbosity = 0;
   int use_ssl = 1;
   int max_conns = 25;
+  char* ddns_url = PAGEKITE_NET_DDNS;
   int ac;
   int pport;
   int lport;
@@ -68,7 +70,7 @@ int main(int argc, char **argv) {
   srand(time(0) ^ getpid());
   pks_global_init(PK_LOG_NORMAL);
 
-  while (-1 != (ac = getopt(argc, argv, "c:B:Iqv"))) {
+  while (-1 != (ac = getopt(argc, argv, "c:B:IqSv"))) {
     switch (ac) {
       case 'v':
         verbosity++;
@@ -78,6 +80,9 @@ int main(int argc, char **argv) {
         break;
       case 'I':
         use_ssl = 0;
+        break;
+      case 'S':
+        ddns_url = NULL;
         break;
       case 'B':
         gotargs++;
@@ -110,8 +115,7 @@ int main(int argc, char **argv) {
   if (NULL == (m = pkm_manager_init(NULL, 0, NULL,
                                     1 + (argc-1-gotargs)/5, /* Kites */
                                     PAGEKITE_NET_FE_MAX,
-                                    max_conns,
-                                    PAGEKITE_NET_DDNS, ssl_ctx))) {
+                                    max_conns, ddns_url, ssl_ctx))) {
     pk_perror(argv[0]);
     exit(1);
   }
@@ -133,11 +137,17 @@ int main(int argc, char **argv) {
     }
   }
 
-  if ((0 > (pkm_add_frontend(m, PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO))) ||
-      (0 > (pkm_add_frontend(m, PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO))) ||
-      (0 > pkm_run_in_thread(m))) {
+  if (ddns_url != NULL) {
+    if ((0 > (pkm_add_frontend(m, PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO))) ||
+        (0 > (pkm_add_frontend(m, PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO)))) {
+      pk_perror(argv[0]);
+      exit(4);
+    }
+  }
+
+  if (0 > pkm_run_in_thread(m)) {
     pk_perror(argv[0]);
-    exit(4);
+    exit(5);
   }
 
   pkm_wait_thread(m);
