@@ -30,9 +30,10 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #define PK_LOG_ERROR           0x1000
 
+#define PK_LOG_ERRORS          (PK_LOG_ERROR|PK_LOG_MANAGER_ERROR)
 #define PK_LOG_MANAGER         (PK_LOG_MANAGER_ERROR|PK_LOG_MANAGER_INFO)
 #define PK_LOG_CONNS           (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
-#define PK_LOG_NORMAL          (PK_LOG_ERROR|PK_LOG_CONNS|PK_LOG_MANAGER)
+#define PK_LOG_NORMAL          (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER)
 #define PK_LOG_ALL             0xffff
 
 int pk_log(int, const char *fmt, ...);

@@ -1,7 +1,7 @@
 /******************************************************************************
 pagekitec.c - A high-performance PageKite connector in C.
 
-Usage: pagekitec LPORT PROTO NAME.pagekite.me PPORT SECRET
+Usage: pagekitec [options] LPORT PROTO NAME.pagekite.me PPORT SECRET ...
 
 *******************************************************************************
 
@@ -38,8 +38,15 @@ Note: For alternate license terms, see the file COPYING.md.
 struct pk_global_state pk_state;
 
 void usage(void) {
-  fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n", PK_VERSION);
-  fprintf(stderr, "Usage: pagekitec LPORT PROTO NAME.pagekite.me PPORT SECRET\n");
+  fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n\n", PK_VERSION);
+  fprintf(stderr, "Usage:\tpagekitec [options] LPORT PROTO"
+                                   " NAME.pagekite.me PPORT SECRET ...\n"
+                  "Options:\n"
+                  "\t-q\tDecrease verbosity (less log output)\n"
+                  "\t-v\tIncrease verbosity (more log output)\n"
+                  "\t-I\tConnect insecurely, without SSL.\n"
+                  "\t-c N\tSet max conn count to N (default = 25)\n"
+                  "\n");
 }
 
 int main(int argc, char **argv) {
@@ -47,6 +54,10 @@ int main(int argc, char **argv) {
   char* proto;
   char* kitename;
   char* secret;
+  int gotargs = 0;
+  int verbosity = 0;
+  int use_ssl = 1;
+  int max_conns = 25;
   int ac;
   int pport;
   int lport;
@@ -55,23 +66,51 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  if ((argc-1) < 5 || ((argc-1) % 5) != 0) {
+  while (-1 != (ac = getopt(argc, argv, "qvIc:"))) {
+    switch (ac) {
+      case 'v':
+        verbosity++;
+        break;
+      case 'q':
+        verbosity--;
+        break;
+      case 'I':
+        use_ssl = 0;
+        break;
+      case 'c':
+        gotargs++;
+        if (1 == sscanf(optarg, "%d", &max_conns)) break;
+      default:
+        usage();
+        exit(1);
+    }
+    gotargs++;
+  }
+
+  if ((argc-1-gotargs) < 5 || ((argc-1-gotargs) % 5) != 0) {
     usage();
     exit(1);
   }
 
-  pks_global_init(PK_LOG_ALL);
-  PKS_SSL_INIT(ssl_ctx);
+  pks_global_init((verbosity < 0) ? PK_LOG_ERROR :
+                  (verbosity > 0 ? PK_LOG_ALL : PK_LOG_NORMAL));
+  if (use_ssl) {
+    PKS_SSL_INIT(ssl_ctx);
+  }
+  else {
+    ssl_ctx = NULL;
+  }
+
   if (NULL == (m = pkm_manager_init(NULL, 0, NULL,
-                                    10, /* Kites */
+                                    1 + (argc-1-gotargs)/5, /* Kites */
                                     PAGEKITE_NET_FE_MAX,
-                                    25, /* Simultaneous connections */
+                                    max_conns,
                                     PAGEKITE_NET_DDNS, ssl_ctx))) {
     pk_perror(argv[0]);
     exit(1);
   }
 
-  for (ac = 0; ac+5 < argc; ac += 5) {
+  for (ac = gotargs; ac+5 < argc; ac += 5) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
         (1 != sscanf(argv[ac+4], "%d", &pport))) {
       usage();
