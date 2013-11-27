@@ -805,8 +805,6 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   int i;
   unsigned int parse_buffer_bytes;
 
-  signal(SIGPIPE, SIG_IGN);
-
 #ifdef HAVE_OPENSSL
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_ZERO_RETURN = %d", SSL_ERROR_ZERO_RETURN);
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_WRITE = %d", SSL_ERROR_WANT_WRITE);
