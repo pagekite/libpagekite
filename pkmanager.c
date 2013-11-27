@@ -959,6 +959,9 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pthread_cond_init(&(pkm->blocking_jobs.cond), NULL);
   pkm->blocking_jobs.count = 0;
 
+  /* SIGPIPE is boring */
+  signal(SIGPIPE, SIG_IGN);
+
   pk_log(PK_LOG_MANAGER_INFO,
          "Initialized %s manager v%s/%s (using %d bytes)",
          pk_state.app_id_long, PK_VERSION, pk_state.app_id_short, buffer_size);
