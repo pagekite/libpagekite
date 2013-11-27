@@ -42,6 +42,7 @@ struct pk_global_state {
   char            log_ring_buffer[PKS_LOG_DATA_MAX+1];
   char*           log_ring_start;
   char*           log_ring_end;
+  unsigned int    bail_on_errors;
 
   /* Global program state */
   unsigned int    live_streams;

@@ -34,6 +34,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pklogging.h"
 
 static int logged_lines = 0;
+static int logged_errors = 0;
 
 int pk_log(int level, const char* fmt, ...)
 {
@@ -67,6 +68,11 @@ int pk_log(int level, const char* fmt, ...)
   }
   else {
     r = 0;
+  }
+
+  if (level & PK_LOG_ERRORS) {
+    if ((logged_errors++ > pk_state.bail_on_errors) && pk_state.bail_on_errors)
+      exit(100);
   }
 
   return r;

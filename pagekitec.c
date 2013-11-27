@@ -46,6 +46,7 @@ void usage(void) {
                   "\t-v\tIncrease verbosity (more log output)\n"
                   "\t-I\tConnect insecurely, without SSL.\n"
                   "\t-c N\tSet max conn count to N (default = 25)\n"
+                  "\t-B N\tBail out (abort) after N logged errors\n"
                   "\n");
 }
 
@@ -65,8 +66,9 @@ int main(int argc, char **argv) {
 
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
+  pks_global_init(PK_LOG_NORMAL);
 
-  while (-1 != (ac = getopt(argc, argv, "qvIc:"))) {
+  while (-1 != (ac = getopt(argc, argv, "c:B:Iqv"))) {
     switch (ac) {
       case 'v':
         verbosity++;
@@ -77,6 +79,9 @@ int main(int argc, char **argv) {
       case 'I':
         use_ssl = 0;
         break;
+      case 'B':
+        gotargs++;
+        if (1 == sscanf(optarg, "%u", &pk_state.bail_on_errors)) break;
       case 'c':
         gotargs++;
         if (1 == sscanf(optarg, "%d", &max_conns)) break;
@@ -92,8 +97,9 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  pks_global_init((verbosity < 0) ? PK_LOG_ERROR :
-                  (verbosity > 0 ? PK_LOG_ALL : PK_LOG_NORMAL));
+  pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERROR :
+                       (verbosity > 0 ? PK_LOG_ALL : PK_LOG_NORMAL));
+
   if (use_ssl) {
     PKS_SSL_INIT(ssl_ctx);
   }
