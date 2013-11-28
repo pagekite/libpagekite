@@ -70,9 +70,14 @@ int pk_log(int level, const char* fmt, ...)
     r = 0;
   }
 
-  if (level & PK_LOG_ERRORS) {
-    if ((logged_errors++ > pk_state.bail_on_errors) && pk_state.bail_on_errors)
-      exit(100);
+  if (pk_state.bail_on_errors) {
+    if (level & PK_LOG_ERRORS) {
+      logged_errors += 10;
+      if (logged_errors > 10*pk_state.bail_on_errors) exit(100);
+    }
+    else if (level & PK_LOG_NORMAL) {
+      if (logged_errors) logged_errors -= 1;
+    }
   }
 
   return r;
