@@ -146,7 +146,9 @@ void pk_dump_conn(char* prefix, struct pk_conn* conn)
   if (conn->sockfd < 0) return;
 
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/sockfd: %d", prefix, conn->sockfd);
-  pk_log(PK_LOG_MANAGER_DEBUG, "%s/activity: %x", prefix, conn->activity);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/activity: %x (%ss ago)", prefix,
+                               conn->activity,
+                               time(0) - conn->activity);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_bytes: %d", prefix, conn->read_bytes);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_kb: %d", prefix, conn->read_kb);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/sent_kb: %d", prefix, conn->sent_kb);
@@ -179,6 +181,15 @@ void pk_dump_frontend(char* prefix, struct pk_frontend* fe)
 
 void pk_dump_be_conn(char* prefix, struct pk_backend_conn* bec)
 {
+  char tmp[1024];
+
+  #define LL PK_LOG_MANAGER_DEBUG
+  pk_log(LL, "%s/fe: %s", prefix, bec->frontend->fe_hostname);
+  pk_log(LL, "%s/kite: %d <- %s://%s", prefix, bec->kite->local_port,
+                                               bec->kite->protocol,
+                                               bec->kite->public_domain);
+  sprintf(tmp, "%s/conn", prefix);
+  pk_dump_conn(tmp, &(bec->conn));
 }
 
 void pk_dump_state(struct pk_manager* pkm)

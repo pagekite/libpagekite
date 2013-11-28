@@ -38,5 +38,9 @@ Note: For alternate license terms, see the file COPYING.md.
 
 int pk_log(int, const char *fmt, ...);
 int pk_log_chunk(struct pk_chunk*);
+void pk_dump_parser(char*, struct pk_parser*);
+void pk_dump_conn(char*, struct pk_conn*);
+void pk_dump_frontend(char*, struct pk_frontend*);
+void pk_dump_be_conn(char*, struct pk_backend_conn*);
 void pk_dump_state(struct pk_manager*);
 
