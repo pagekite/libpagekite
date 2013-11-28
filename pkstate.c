@@ -30,7 +30,10 @@ void pks_global_init(unsigned int log_mask) {
   pk_state.log_ring_start = pk_state.log_ring_end = pk_state.log_ring_buffer;
   pk_state.log_file = stderr;
   pk_state.log_mask = log_mask;
+
   pk_state.bail_on_errors = 0;
+  pk_state.conn_eviction_idle_s = 0;
+
   pk_state.have_ssl = 0;
   pk_state.app_id_long = "libpagekite";
   pk_state.app_id_short = PK_VERSION;

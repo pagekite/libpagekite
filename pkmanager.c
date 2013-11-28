@@ -1127,12 +1127,14 @@ unsigned char pkm_sid_shift(char *sid)
 struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
                                           struct pk_frontend* fe, char *sid)
 {
-  int i;
+  int i, evicting;
   time_t max_age;
   unsigned char shift;
   struct pk_backend_conn* pkb;
   struct pk_backend_conn* pkb_oldest;
 
+  max_age = time(0);
+  pkb_oldest = NULL;
   shift = pkm_sid_shift(sid);
   for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
@@ -1142,21 +1144,32 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
       strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
       return pkb;
     }
-  }
-  max_age = time(0);
-  pkb_oldest = NULL;
-  for (i = 0; i < pkm->be_conn_max; i++) {
-    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
     if (pkb->conn.activity <= max_age) {
       max_age = pkb->conn.activity;
       pkb_oldest = pkb;
     }
   }
-  if (NULL != pkb_oldest) {
-    pk_log(PK_LOG_MANAGER_DEBUG, "Stalest conn: %s (%ds old)",
-                                 pkb_oldest->sid,
-                                 time(0) - pkb_oldest->conn.activity);
+
+  /* If we get this far, we found no empty slots. Let's complain to the
+   * log and, if so configured, kick out the oldest idle connection. */
+  if (NULL != (pkb = pkb_oldest)) {
+    max_age = time(0) - pkb->conn.activity;
+    evicting = (pk_state.conn_eviction_idle_s &&
+               (pk_state.conn_eviction_idle_s < max_age));
+
+    pk_log(evicting ? PK_LOG_MANAGER_INFO : PK_LOG_MANAGER_DEBUG,
+           "Idlest conn: %s (idle %ds, evicting=%d)",
+           pkb->sid, max_age, evicting);
     pk_dump_be_conn("be", pkb);
+
+    if (evicting) {
+      pkb->conn.status |= (CONN_STATUS_END_WRITE|CONN_STATUS_END_READ);
+      pkm_update_io(fe, pkb);
+      pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
+      pkb->frontend = fe;
+      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
+      return pkb;
+    }
   }
   return NULL;
 }
