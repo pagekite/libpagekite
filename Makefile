@@ -1,7 +1,7 @@
 #!/usr/bin/colormake
 
 OPT ?= -g -O3
-CFLAGS ?= -std=c99 -pedantic -Wall -W -fno-strict-aliasing \
+CFLAGS ?= -std=c99 -pedantic -Wall -W -fpic -fno-strict-aliasing \
           -I/usr/include/libev $(OPT)
 CLINK ?= -lpthread -lssl -lcrypto -lm -lev
 
@@ -13,7 +13,7 @@ HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
-all: runtests pagekitec httpkite
+all: runtests libpagekite.so pagekitec httpkite
 
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
@@ -24,6 +24,9 @@ android:
 
 tests: tests.o $(OBJ) $(TOBJ)
 	$(CC) $(CFLAGS) -o tests tests.o $(OBJ) $(TOBJ) $(CLINK)
+
+libpagekite.so: $(OBJ)
+	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(CLINK)
 
 httpkite: httpkite.o $(OBJ)
 	$(CC) $(CFLAGS) -o httpkite httpkite.o $(OBJ) $(CLINK)

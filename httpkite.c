@@ -32,7 +32,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pklogging.h"
 #include "utils.h"
 
-struct pk_global_state pk_state;
 
 void usage(void) {
   printf("Usage: httpkite your.kitename.com SECRET\n\n");

@@ -37,7 +37,6 @@ Note: For alternate license terms, see the file COPYING.md.
 
 
 #define BUFFER_SIZE 512 * 1024
-struct pk_global_state pk_state;
 struct pk_manager *pk_manager_global = NULL;
 char pk_manager_buffer[BUFFER_SIZE];
 char pk_app_id_short[128];

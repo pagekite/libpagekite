@@ -35,8 +35,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pagekite_net.h"
 
 
-struct pk_global_state pk_state;
-
 void usage(void) {
   fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n\n", PK_VERSION);
   fprintf(stderr, "Usage:\tpagekitec [options] LPORT PROTO"

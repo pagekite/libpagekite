@@ -17,6 +17,7 @@ If not, see: <http://www.apache.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
+#define __IN_PKSTATE_C__
 
 #include "version.h"
 #include "common.h"

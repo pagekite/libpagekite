@@ -838,7 +838,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     return NULL;
   }
 
-  if (loop == NULL) loop = EV_DEFAULT;
+  if (loop == NULL) loop = ev_loop_new(0);
 
   memset(buffer, 0, buffer_size);
 

@@ -53,7 +53,11 @@ struct pk_global_state {
   char*           app_id_long;
 };
 
+#ifdef __IN_PKSTATE_C__
 extern struct pk_global_state pk_state;
+#else
+struct pk_global_state pk_state;
+#endif
 
 #define PKS_STATE(change) { pthread_mutex_lock(&(pk_state.lock)); \
                             change; \
