@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERROR :
+  pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERRORS :
                        (verbosity > 0 ? PK_LOG_ALL : PK_LOG_NORMAL));
 
   if (use_ssl) {
