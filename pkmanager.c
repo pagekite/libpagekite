@@ -1157,7 +1157,9 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
     evicting = (pk_state.conn_eviction_idle_s &&
                (pk_state.conn_eviction_idle_s < max_age));
 
-    pk_log(evicting ? PK_LOG_MANAGER_INFO : PK_LOG_MANAGER_DEBUG,
+    /* Eviction is an error, as it means we're unable to do our job and
+     * may have been configured with too few connection slots. */
+    pk_log(evicting ? PK_LOG_MANAGER_ERROR : PK_LOG_MANAGER_DEBUG,
            "Idlest conn: %s (idle %ds, evicting=%d)",
            pkb->sid, max_age, evicting);
     pk_dump_be_conn("be", pkb);
