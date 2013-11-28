@@ -1128,8 +1128,10 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
                                           struct pk_frontend* fe, char *sid)
 {
   int i;
+  time_t max_age;
   unsigned char shift;
   struct pk_backend_conn* pkb;
+  struct pk_backend_conn* pkb_oldest;
 
   shift = pkm_sid_shift(sid);
   for (i = 0; i < pkm->be_conn_max; i++) {
@@ -1140,6 +1142,21 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
       strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
       return pkb;
     }
+  }
+  max_age = time(0);
+  pkb_oldest = NULL;
+  for (i = 0; i < pkm->be_conn_max; i++) {
+    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
+    if (pkb->conn.activity <= max_age) {
+      max_age = pkb->conn.activity;
+      pkb_oldest = pkb;
+    }
+  }
+  if (NULL != pkb_oldest) {
+    pk_log(PK_LOG_MANAGER_DEBUG, "Stalest conn: %s (%ds old)",
+                                 pkb_oldest->sid,
+                                 time(0) - pkb_oldest->conn.activity);
+    pk_dump_be_conn("be", pkb);
   }
   return NULL;
 }
