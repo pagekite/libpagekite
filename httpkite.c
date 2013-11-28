@@ -121,5 +121,8 @@ int main(int argc, char **argv) {
   }
   pkc_reset_conn(&pkc, 0);
 
+  /* -Wall dislikes unused variables */
+  kite_rp++;
+
   return 0;
 }
