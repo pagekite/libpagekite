@@ -146,7 +146,7 @@ void pk_dump_conn(char* prefix, struct pk_conn* conn)
   if (conn->sockfd < 0) return;
 
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/sockfd: %d", prefix, conn->sockfd);
-  pk_log(PK_LOG_MANAGER_DEBUG, "%s/activity: %x (%ss ago)", prefix,
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/activity: %x (%ds ago)", prefix,
                                conn->activity,
                                time(0) - conn->activity);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_bytes: %d", prefix, conn->read_bytes);
