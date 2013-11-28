@@ -1163,7 +1163,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
     pk_dump_be_conn("be", pkb);
 
     if (evicting) {
-      pkb->conn.status |= (CONN_STATUS_END_WRITE|CONN_STATUS_END_READ);
+      pkb->conn.status |= (CONN_STATUS_CLS_WRITE|CONN_STATUS_CLS_READ);
       pkm_update_io(fe, pkb);
       pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
       pkb->frontend = fe;
