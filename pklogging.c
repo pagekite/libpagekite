@@ -33,8 +33,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 
-static int logged_lines = 0;
-static int logged_errors = 0;
+static unsigned int logged_lines = 0;
+static unsigned int logged_errors = 0;
 
 int pk_log(int level, const char* fmt, ...)
 {
@@ -73,7 +73,10 @@ int pk_log(int level, const char* fmt, ...)
   if (pk_state.bail_on_errors) {
     if (level & PK_LOG_ERRORS) {
       logged_errors += 10;
-      if (logged_errors > 10*pk_state.bail_on_errors) exit(100);
+      if (logged_errors > 10*pk_state.bail_on_errors)
+        exit(100);
+      if (logged_errors > 9*pk_state.bail_on_errors)
+        pk_state.log_mask = PK_LOG_ALL;
     }
     else if (level & PK_LOG_NORMAL) {
       if (logged_errors) logged_errors -= 1;
