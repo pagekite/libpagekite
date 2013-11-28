@@ -39,6 +39,8 @@ These are Things TO DO for libpagekite.
    * pagekite.c: truly non-blocking pagekite proxy, suitable for front-end
    * PageKiteAPI.java: Turn on/off pagekite thread depending on network state.
    * PageKiteAPI.java: Use imprecise timers for update/reconnect.
+   * Python wrapper (libpagekite.py)
+   * Windows compatibility and build rules
 
 ### External ###
 
