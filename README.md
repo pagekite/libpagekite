@@ -1,7 +1,7 @@
 # libpagekite #
 
-This will eventually be a tight, fast implementation of the PageKite protocol
-in C, suitable for high-performance or embedded applications.
+This is a tight, fast implementation of the PageKite protocol in C,
+suitable for high-performance or embedded applications.
 
 This code is a work in progress.
 
@@ -21,11 +21,12 @@ For more information about PageKite, see http://pagekite.org/
 Things that work:
 
     httpkite.c      Sample implementation of a very basic HTTP server
-    pagekitec.c     Basic standalone pagekite back-end connector.
+    pagekitec.c     Basic standalone pagekite back-end connector/proxy.
 
 Works in progress:
 
     pagekite-jni.c  JNI wrapper for use in Android development
+    libpagekite.py  A simple Python wrapper
 
 Everything else is either support code or documentation.
 
