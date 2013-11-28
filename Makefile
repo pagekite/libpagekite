@@ -39,7 +39,7 @@ version:
 	@touch pkproto.h
 
 clean:
-	rm -vf tests pagekitec httpkite *.o
+	rm -vf tests pagekitec httpkite *.o *.so
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf
