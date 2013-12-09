@@ -333,12 +333,14 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
            (pkc->out_buffer_pos == 0)) {
     /* So far so good, everything has been flushed. Write the new data! */
     flushed = wrote = 0;
-    while ((length > wrote) || (errno == EINTR)) {
+    while (length > wrote) {
       bytes = pkc_raw_write(pkc, data+wrote, length-wrote);
       if (bytes > 0) {
         wrote += bytes;
         flushed += bytes;
       }
+      else if ((bytes <= 0) && (errno != EINTR))
+        break;
     }
     /* At this point, if we have a non-EINTR error, bytes is < 0 and we
      * want to return that.  Otherwise, return how much got written. */
