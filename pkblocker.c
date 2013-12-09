@@ -161,6 +161,7 @@ void pkb_choose_frontends(struct pk_manager* pkm)
 void pkb_check_kites_dns(struct pk_manager* pkm)
 {
   int i, j, rv;
+  time_t ddns_window;
   struct pk_frontend* fe;
   struct pk_pagekite* kite;
   struct addrinfo hints;
@@ -172,14 +173,15 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
+  ddns_window = time(0) - PK_DDNS_UPDATE_INTERVAL_MIN;
 
   for (i = 0, kite = pkm->kites; i < pkm->kite_max; i++, kite++) {
     rv = getaddrinfo(kite->public_domain, NULL, &hints, &result);
     if (rv == 0) {
       for (rp = result; rp != NULL; rp = rp->ai_next) {
         for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
-          if ((fe->ai) &&
-              (0 == addrcmp(fe->ai->ai_addr, rp->ai_addr))) {
+          if ((fe->ai) && ((fe->last_ddnsup > ddns_window) ||
+                           (0 == addrcmp(fe->ai->ai_addr, rp->ai_addr)))) {
             pk_log(PK_LOG_MANAGER_DEBUG, "In DNS for %s: %s",
                                          kite->public_domain,
                                          in_ipaddr_to_str(fe->ai->ai_addr,
@@ -282,6 +284,8 @@ void pkb_check_frontend_pingtimes(struct pk_manager* pkm)
 int pkb_update_dns(struct pk_manager* pkm)
 {
   int j, len, bogus, rlen;
+  struct pk_frontend* fe_list[1024]; /* Magic, bounded by address_list[] below */
+  struct pk_frontend** fes;
   struct pk_frontend* fe;
   struct pk_pagekite* kite;
   char printip[128], get_result[10240], *result;
@@ -295,6 +299,9 @@ int pkb_update_dns(struct pk_manager* pkm)
   address_list[0] = '\0';
   alp = address_list;
 
+  fes = fe_list;
+  *fes = NULL;
+
   bogus = 0;
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
     if ((fe->ai) && (fe->conn.sockfd >= 0)) {
@@ -305,6 +312,8 @@ int pkb_update_dns(struct pk_manager* pkm)
             if (alp != address_list) *alp++ = ',';
             strcpy(alp, printip);
             alp += len;
+            *fes++ = fe;
+            *fes = NULL;
           }
         }
         if (!(fe->conn.status & FE_STATUS_IN_DNS) || pk_state.force_update)
@@ -315,6 +324,7 @@ int pkb_update_dns(struct pk_manager* pkm)
     }
   }
   if (!bogus) return 0;
+  if (!address_list[0]) return 0;
 
   bogus = 0;
   for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
@@ -335,12 +345,17 @@ int pkb_update_dns(struct pk_manager* pkm)
         result = skip_http_header(rlen, get_result);
         if ((strncasecmp(result, "nochg", 5) == 0) ||
             (strncasecmp(result, "good", 4) == 0)) {
-          pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update OK for %s",
-                                      kite->public_domain);
+          pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update OK, %s=%s",
+                                      kite->public_domain, address_list);
+          for (fes = fe_list; *fes; fes++) {
+            (*fes)->last_ddnsup = time(0);
+            (*fes)->conn.status |= FE_STATUS_IN_DNS;
+          }
         }
         else {
-          pk_log(PK_LOG_MANAGER_ERROR, "DDNS: Update failed for %s (%s)",
-                                       kite->public_domain, result);
+          result[7] = '\0';
+          pk_log(PK_LOG_MANAGER_ERROR, "DDNS: Update failed for %s (%s -> %s)",
+                                       kite->public_domain, url, result);
           bogus++;
         }
       }
@@ -353,16 +368,23 @@ int pkb_update_dns(struct pk_manager* pkm)
 
 void pkb_log_fe_status(struct pk_manager* pkm)
 {
-  int j;
+  int j, ddnsup_ago;
   struct pk_frontend* fe;
   char printip[128];
+  char ddnsinfo[128];
 
   PK_TRACE_FUNCTION;
 
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
     if (fe->ai) {
       if (NULL != in_addr_to_str(fe->ai->ai_addr, printip, 128)) {
-        pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x %s", fe->conn.status, printip);
+        ddnsinfo[0] = '\0';
+        if (fe->last_ddnsup) {
+          ddnsup_ago = time(0) - fe->last_ddnsup;
+          sprintf(ddnsinfo, " (ddns %us ago)", ddnsup_ago);
+        }
+        pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x %s%s",
+                                     fe->conn.status, printip, ddnsinfo);
       }
     }
   }

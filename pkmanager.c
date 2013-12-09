@@ -1138,6 +1138,7 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
   adding->ai = ai;
   adding->fe_hostname = strdup(hostname);
   adding->fe_port = port;
+  adding->last_ddnsup = 0;
   adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
   adding->request_count = 0;
   adding->priority = 0;

@@ -46,6 +46,7 @@ struct pk_frontend {
   struct addrinfo*        ai;
   int                     priority;
   time_t                  last_ping;
+  time_t                  last_ddnsup;
   struct pk_conn          conn;
   struct pk_parser*       parser;
   struct pk_manager*      manager;
