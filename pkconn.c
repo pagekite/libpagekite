@@ -252,7 +252,8 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
               break;
             default:
               pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
-                     "%d: SSL_ERROR=%d: %p/%d/%d", pkc->sockfd, err, data, wrote, length);
+                     "%d: SSL_ERROR=%d: %p/%d/%d",
+                     pkc->sockfd, err, data, wrote, length);
           }
         }
       }
@@ -316,8 +317,9 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
       pkc->out_buffer_pos -= wrote;
       flushed += wrote;
     }
-  } while ((errno == EINTR) ||
-           ((mode == BLOCKING_FLUSH) && (pkc->out_buffer_pos > 0)));
+  } while ((errno != EINTR) &&
+           (mode == BLOCKING_FLUSH) &&
+           (pkc->out_buffer_pos > 0));
 
   /* At this point we either have a non-EINTR error, or we've flushed
    * everything.  Return errors, else continue. */
