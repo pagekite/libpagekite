@@ -50,6 +50,8 @@ void usage(void) {
                   "\t-B N\tBail out (abort) after N logged errors\n"
                   "\t-E N\tAllow eviction of streams idle for >N seconds\n"
                   "\t-R\tChoose frontends at random, instead of pinging\n"
+                  "\t-6\tDisable IPv4 frontends\n"
+                  "\t-4\tDisable IPv6 frontends\n"
                   "\n");
 }
 
@@ -65,6 +67,8 @@ int main(int argc, char **argv) {
   char* secret;
   int gotargs = 0;
   int verbosity = 0;
+  int use_ipv4 = 1;
+  int use_ipv6 = 1;
   int use_ssl = 1;
   int max_conns = 25;
   char* ddns_url = PAGEKITE_NET_DDNS;
@@ -77,8 +81,14 @@ int main(int argc, char **argv) {
   srand(time(0) ^ getpid());
   pks_global_init(PK_LOG_NORMAL);
 
-  while (-1 != (ac = getopt(argc, argv, "c:B:E:IqRSv"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:E:IqRSv"))) {
     switch (ac) {
+      case '4':
+        use_ipv4 = 0;
+        break;
+      case '6':
+        use_ipv6 = 0;
+        break;
       case 'v':
         verbosity++;
         break;
@@ -156,8 +166,10 @@ int main(int argc, char **argv) {
   }
 
   if (ddns_url != NULL) {
-    if ((0 > (pkm_add_frontend(m, PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO))) ||
-        (0 > (pkm_add_frontend(m, PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO)))) {
+    if (((use_ipv4) &&
+         (0 > (pkm_add_frontend(m, PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO)))) ||
+        ((use_ipv6) &&
+         (0 > (pkm_add_frontend(m, PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO))))) {
       pk_perror(argv[0]);
       exit(4);
     }
