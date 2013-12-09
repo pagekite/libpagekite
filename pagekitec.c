@@ -34,6 +34,8 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #include "pagekite_net.h"
 
+#include <signal.h>
+
 
 void usage(void) {
   fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n\n", PK_VERSION);
@@ -48,6 +50,10 @@ void usage(void) {
                   "\t-B N\tBail out (abort) after N logged errors\n"
                   "\t-E N\tAllow eviction of streams idle for >N seconds\n"
                   "\n");
+}
+
+void raise_log_level(int sig) {
+  if (sig) pk_state.log_mask = PK_LOG_ALL;
 }
 
 int main(int argc, char **argv) {
@@ -108,6 +114,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
+  signal(SIGUSR1, &raise_log_level);
   pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERRORS :
                        (verbosity < 1 ? PK_LOG_NORMAL :
                        (verbosity < 2 ? PK_LOG_DEBUG : PK_LOG_ALL)));
