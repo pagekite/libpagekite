@@ -713,6 +713,57 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
   return (tried - connected);
 }
 
+int pkm_disconnect_unused(struct pk_manager *pkm) {
+  struct pk_frontend *fe;
+  struct pk_backend_conn* pkb;
+  char buffer[1025];
+  unsigned int status;
+  int i, j, disconnect, disconnected;
+
+  PK_TRACE_FUNCTION;
+  disconnected = 0;
+
+  /* Loop through all configured frontends:
+   *   - if no streams are live, disconnect
+   */
+  pkm_block(pkm);
+  for (i = 0; i < pkm->frontend_max; i++) {
+    fe = (pkm->frontends + i);
+
+    if (fe->fe_hostname == NULL) continue;
+    if (fe->conn.sockfd <= 0) continue;
+    if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) continue;
+
+    /* Check if there are any live streams... */
+    disconnect = 1;
+    for (j = 0; j < pkm->be_conn_max; j++) {
+      pkb = (pkm->be_conns + j);
+      if (pkb->conn.sockfd > 0 && pkb->frontend == fe) {
+        disconnect = 0;
+        break;
+      }
+    }
+
+    if (disconnect) {
+      pk_log(PK_LOG_MANAGER_INFO, "Disconnecting: %s",
+                                in_addr_to_str(fe->ai->ai_addr, buffer, 1024));
+
+      ev_io_stop(pkm->loop, &(fe->conn.watch_r));
+      ev_io_stop(pkm->loop, &(fe->conn.watch_w));
+      close(fe->conn.sockfd);
+      fe->conn.sockfd = -1;
+      disconnected += 1;
+
+      status = fe->conn.status;
+      pkc_reset_conn(&(fe->conn), 0);
+      fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
+    }
+  }
+  pkm_unblock(pkm);
+  return disconnected;
+}
+
+
 void pkm_tick(struct pk_manager* pkm)
 {
   ev_async_send(pkm->loop, &(pkm->tick));

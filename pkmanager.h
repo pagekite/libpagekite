@@ -121,6 +121,7 @@ int pkm_run_in_thread               (struct pk_manager*);
 int pkm_wait_thread                 (struct pk_manager*);
 int pkm_stop_thread                 (struct pk_manager*);
 int pkm_reconnect_all               (struct pk_manager*);
+int pkm_disconnect_unused           (struct pk_manager*);
 
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
                                       int, char*, int, int, int,

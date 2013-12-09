@@ -416,7 +416,8 @@ void pkb_check_frontends(struct pk_manager* pkm)
 
   problems += pkm_reconnect_all(pkm);
 
-  /* FIXME: Disconnect from idle front-ends we don't care about anymore. */
+  if (!problems) pkm_disconnect_unused(pkm);
+
   if (pkm->dynamic_dns_url && (pkm->status != PK_STATUS_REJECTED)) {
     problems += pkb_update_dns(pkm);
   }
