@@ -1107,6 +1107,7 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
                                  const char* local_domain, int local_port)
 {
   int which;
+  char *pp;
   struct pk_pagekite* kite;
 
   PK_TRACE_FUNCTION;
@@ -1125,6 +1126,12 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   kite->public_port = public_port;
   strncpyz(kite->local_domain, local_domain, PK_DOMAIN_LENGTH);
   kite->local_port = local_port;
+
+  /* Allow the public port to be specified as part of the protocol */
+  if ((0 == public_port) && (NULL != (pp = strchr(kite->protocol, '-')))) {
+    *pp++ = '\0';
+    sscanf(pp, "%d", &(kite->public_port));
+  }
 
   return kite;
 }

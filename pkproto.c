@@ -614,19 +614,25 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
     }
                      /* 12345678901234567890 = 20 bytes */
     if (strncasecmp(p, "X-PageKite-SignThis:", 20) == 0) {
-      pk_log(PK_LOG_TUNNEL_DATA, "%s", p);
       tkite_r.kite = &tkite;
       if (NULL != pk_parse_kite_request(&tkite_r, p)) {
+        pk_log(PK_LOG_TUNNEL_DATA, " - Parsed: %s", p);
         for (j = 0; j < n; j++) {
           if ((requests[j].kite->protocol[0] != '\0') &&
               (requests[j].kite->public_port == tkite.public_port) &&
               (0 == strcmp(requests[j].kite->public_domain, tkite.public_domain)) &&
               (0 == strcmp(requests[j].kite->protocol, tkite.protocol)))
           {
+            pk_log(PK_LOG_TUNNEL_DATA, " - Matched: %s:%s",
+                                       requests[j].kite->protocol,
+                                       requests[j].kite->public_domain);
             strncpyz(requests[j].fsalt, tkite_r.fsalt, PK_SALT_LENGTH);
             i++;
           }
         }
+      }
+      else {
+        pk_log(PK_LOG_TUNNEL_DATA, " - Bogus: %s", p);
       }
     }
     else if (session_id && /* 123456789012345678901 = 21 bytes */
