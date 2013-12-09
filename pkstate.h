@@ -46,6 +46,7 @@ struct pk_global_state {
   /* Settings */
   unsigned int    bail_on_errors;
   time_t          conn_eviction_idle_s;
+  unsigned int    fake_ping:1;
 
   /* Global program state */
   unsigned int    live_streams;

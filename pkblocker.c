@@ -204,31 +204,37 @@ void* pkb_frontend_ping(void* void_fe) {
   fe->priority = 0;
   in_addr_to_str(fe->ai->ai_addr, printip, 1024);
 
-  gettimeofday(&tv1, NULL);
-  if ((0 > (sockfd = socket(fe->ai->ai_family, fe->ai->ai_socktype,
-                            fe->ai->ai_protocol))) ||
-      (0 > connect(sockfd, fe->ai->ai_addr, fe->ai->ai_addrlen)) ||
-      (0 > write(sockfd, PK_FRONTEND_PING, strlen(PK_FRONTEND_PING))))
-  {
-    if (sockfd >= 0)
-      close(sockfd);
-    pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (connect)", printip);
-    sleep(2); /* We don't want to return first! */
-    return NULL;
+  if (pk_state.fake_ping) {
+    fe->priority = rand() % 500;
   }
-  want = strlen(PK_FRONTEND_PONG);
-  bytes = timed_read(sockfd, buffer, want, 1000);
-  if ((bytes != want) ||
-      (0 != strncmp(buffer, PK_FRONTEND_PONG, want))) {
-    pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (read=%d)", printip, bytes);
-    sleep(2); /* We don't want to return first! */
-    return NULL;
-  }
-  close(sockfd);
-  gettimeofday(&tv2, NULL);
+  else {
+    gettimeofday(&tv1, NULL);
+    if ((0 > (sockfd = socket(fe->ai->ai_family, fe->ai->ai_socktype,
+                              fe->ai->ai_protocol))) ||
+        (0 > connect(sockfd, fe->ai->ai_addr, fe->ai->ai_addrlen)) ||
+        (0 > write(sockfd, PK_FRONTEND_PING, strlen(PK_FRONTEND_PING))))
+    {
+      if (sockfd >= 0)
+        close(sockfd);
+      pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (connect)", printip);
+      sleep(2); /* We don't want to return first! */
+      return NULL;
+    }
+    want = strlen(PK_FRONTEND_PONG);
+    bytes = timed_read(sockfd, buffer, want, 1000);
+    if ((bytes != want) ||
+        (0 != strncmp(buffer, PK_FRONTEND_PONG, want))) {
+      pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (read=%d)", printip, bytes);
+      sleep(2); /* We don't want to return first! */
+      return NULL;
+    }
+    close(sockfd);
+    gettimeofday(&tv2, NULL);
 
-  fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
-               + (tv2.tv_usec - tv1.tv_usec) / 1000;
+    fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
+                 + (tv2.tv_usec - tv1.tv_usec) / 1000;
+  }
+
   if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST))
   {
     /* Bias ping time to make old decisions a bit more sticky. We ignore

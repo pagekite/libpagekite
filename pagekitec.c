@@ -49,6 +49,7 @@ void usage(void) {
                   "\t-c N\tSet max connection count to N (default = 25)\n"
                   "\t-B N\tBail out (abort) after N logged errors\n"
                   "\t-E N\tAllow eviction of streams idle for >N seconds\n"
+                  "\t-R\tChoose frontends at random, instead of pinging\n"
                   "\n");
 }
 
@@ -76,7 +77,7 @@ int main(int argc, char **argv) {
   srand(time(0) ^ getpid());
   pks_global_init(PK_LOG_NORMAL);
 
-  while (-1 != (ac = getopt(argc, argv, "c:B:IqSE:v"))) {
+  while (-1 != (ac = getopt(argc, argv, "c:B:E:IqRSv"))) {
     switch (ac) {
       case 'v':
         verbosity++;
@@ -86,6 +87,9 @@ int main(int argc, char **argv) {
         break;
       case 'I':
         use_ssl = 0;
+        break;
+      case 'R':
+        pk_state.fake_ping = 1;
         break;
       case 'S':
         ddns_url = NULL;
