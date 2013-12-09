@@ -130,8 +130,8 @@ int main(int argc, char **argv) {
 
   signal(SIGUSR1, &raise_log_level);
   pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERRORS :
-                       (verbosity < 1 ? PK_LOG_NORMAL :
-                       (verbosity < 2 ? PK_LOG_DEBUG : PK_LOG_ALL)));
+                      ((verbosity < 1) ? PK_LOG_NORMAL :
+                      ((verbosity < 2) ? PK_LOG_DEBUG : PK_LOG_ALL)));
 
   if (use_ssl) {
     PKS_SSL_INIT(ssl_ctx);

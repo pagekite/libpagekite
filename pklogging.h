@@ -35,7 +35,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_LOG_MANAGER         (PK_LOG_MANAGER_ERROR|PK_LOG_MANAGER_INFO)
 #define PK_LOG_CONNS           (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
 #define PK_LOG_NORMAL          (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER)
-#define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_TRACE|PK_LOG_CONNS|PK_LOG_MANAGER_DEBUG)
+#define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG)
 #define PK_LOG_ALL             0xffff
 
 #ifdef PK_TRACE
