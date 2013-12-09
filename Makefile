@@ -11,7 +11,7 @@ OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
        pkmanager.h pd_sha1.h Makefile
 
-PK_TRACE ?=
+PK_TRACE ?= 0
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 

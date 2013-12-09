@@ -38,10 +38,10 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG)
 #define PK_LOG_ALL             0xffff
 
-#ifdef PK_TRACE
+#if defined(PK_TRACE) && (PK_TRACE >= 1)
 #define PK_TRACE_FUNCTION pk_log(PK_LOG_TRACE, "Trace: %s", __FUNCTION__)
 #else
-#define PK_TRACE_FUNCTION NULL
+#define PK_TRACE_FUNCTION
 #endif
 
 int pk_log(int, const char *fmt, ...);
