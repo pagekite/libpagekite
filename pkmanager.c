@@ -702,6 +702,10 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
           status |= FE_STATUS_REJECTED;
           PKS_STATE(pkm->status = PK_STATUS_REJECTED);
         }
+        else if (pk_error == ERR_CONNECT_DUPLICATE) {
+          status |= FE_STATUS_LAME;
+          tried -= 1;
+        }
         pkc_reset_conn(&(fe->conn), 0);
         fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
