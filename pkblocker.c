@@ -34,8 +34,9 @@ Note: For alternate license terms, see the file COPYING.md.
 int pkb_add_job(struct pk_job_pile* pkj, pk_job_t job, void* data)
 {
   int i;
-  pthread_mutex_lock(&(pkj->mutex));
+  PK_TRACE_FUNCTION;
 
+  pthread_mutex_lock(&(pkj->mutex));
   for (i = 0; i < pkj->max; i++) {
     if ((pkj->pile+i)->job == PK_NO_JOB) {
       (pkj->pile+i)->job = job;
@@ -53,6 +54,8 @@ int pkb_add_job(struct pk_job_pile* pkj, pk_job_t job, void* data)
 int pkb_get_job(struct pk_job_pile* pkj, struct pk_job* dest)
 {
   int i;
+  PK_TRACE_FUNCTION;
+
   pthread_mutex_lock(&(pkj->mutex));
   while (pkj->count == 0)
     pthread_cond_wait(&(pkj->cond), &(pkj->mutex));
@@ -79,6 +82,9 @@ void pkb_clear_transient_flags(struct pk_manager* pkm)
 {
   int i;
   struct pk_frontend* fe;
+
+  PK_TRACE_FUNCTION;
+
   for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
     fe->conn.status &= ~FE_STATUS_REJECTED;
     fe->conn.status &= ~FE_STATUS_LAME;
@@ -92,6 +98,8 @@ void pkb_choose_frontends(struct pk_manager* pkm)
   int i, wanted, wantn;
   struct pk_frontend* fe;
   struct pk_frontend* highpri;
+
+  PK_TRACE_FUNCTION;
 
   /* Clear WANTED flag... */
   for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
@@ -159,6 +167,8 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
   struct addrinfo *result, *rp;
   char buffer[128];
 
+  PK_TRACE_FUNCTION;
+
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
@@ -188,6 +198,8 @@ void* pkb_frontend_ping(void* void_fe) {
   struct timeval tv1, tv2;
   char buffer[1024], printip[1024];
   int sockfd, bytes, want;
+
+  PK_TRACE_FUNCTION;
 
   fe->priority = 0;
   in_addr_to_str(fe->ai->ai_addr, printip, 1024);
@@ -237,6 +249,9 @@ void pkb_check_frontend_pingtimes(struct pk_manager* pkm)
 {
   int j;
   struct pk_frontend* fe;
+
+  PK_TRACE_FUNCTION;
+
   pthread_t first = 0;
   pthread_t pt = 0;
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
@@ -265,6 +280,8 @@ int pkb_update_dns(struct pk_manager* pkm)
   struct pk_pagekite* kite;
   char printip[128], get_result[10240], *result;
   char address_list[1024], payload[2048], signature[2048], url[2048], *alp;
+
+  PK_TRACE_FUNCTION;
 
   if (time(0) < pkm->last_dns_update+PK_DDNS_UPDATE_INTERVAL_MIN)
     return 0;
@@ -333,6 +350,9 @@ void pkb_log_fe_status(struct pk_manager* pkm)
   int j;
   struct pk_frontend* fe;
   char printip[128];
+
+  PK_TRACE_FUNCTION;
+
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
     if (fe->ai) {
       if (NULL != in_addr_to_str(fe->ai->ai_addr, printip, 128)) {
@@ -344,6 +364,8 @@ void pkb_log_fe_status(struct pk_manager* pkm)
 
 void pkb_check_world(struct pk_manager* pkm)
 {
+  PK_TRACE_FUNCTION;
+
   if (pkm->status == PK_STATUS_NO_NETWORK) return;
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking state of world...");
   pkb_clear_transient_flags(pkm);
@@ -356,6 +378,8 @@ void pkb_check_world(struct pk_manager* pkm)
 void pkb_check_frontends(struct pk_manager* pkm)
 {
   int problems = 0;
+  PK_TRACE_FUNCTION;
+
   if (pkm->status == PK_STATUS_NO_NETWORK) return;
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking frontends...");
 

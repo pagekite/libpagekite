@@ -9,7 +9,9 @@ TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
       pklogging.o pkstate.o utils.o pd_sha1.o
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
-       pkmanager.h pd_sha1.h
+       pkmanager.h pd_sha1.h Makefile
+
+PK_TRACE ?=
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
@@ -45,7 +47,7 @@ allclean: clean
 	find . -name '*.o' |xargs rm -vf
 
 .c.o:
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -DPK_TRACE=$(PK_TRACE) -c $<
 
 httpkite.o: $(HDRS)
 pagekitec.o: $(HDRS)

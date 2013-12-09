@@ -86,6 +86,7 @@ void pkm_chunk_cb(struct pk_frontend* fe, struct pk_chunk *chunk)
   char *post;
   int bytes;
 
+  PK_TRACE_FUNCTION;
   pk_log_chunk(chunk);
 
   pkb = NULL;
@@ -168,6 +169,8 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   struct hostent *backend;
   struct pk_backend_conn* pkb;
   struct pk_pagekite *kite;
+
+  PK_TRACE_FUNCTION;
 
   /* FIXME: Better error handling? */
   if ((NULL == chunk->request_proto) || (NULL == chunk->request_host)) {
@@ -252,6 +255,7 @@ ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
   ssize_t overhead = 0;
   struct pk_conn* pkc = &(fe->conn);
 
+  PK_TRACE_FUNCTION;
   /* FIXME: Better error handling */
 
   /* Make sure there is space in our output buffer for the header. */
@@ -270,6 +274,7 @@ ssize_t pkm_write_chunked(struct pk_frontend* fe, struct pk_backend_conn* pkb,
 int pkm_post_read(struct pk_conn* pkc, int bytes, int err)
 {
   ssize_t delta;
+  PK_TRACE_FUNCTION;
   if (bytes > 0) {
     pkc->in_buffer_pos += bytes;
 
@@ -309,6 +314,8 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
   int flows = 2;
   struct pk_conn* pkc;
   struct pk_manager* pkm = fe->manager;
+
+  PK_TRACE_FUNCTION;
 
   if (pkb != NULL) {
     pkc = &(pkb->conn);
@@ -452,6 +459,8 @@ void pkm_flow_control_fe(struct pk_frontend* fe, flow_op op)
   struct pk_backend_conn* pkb;
   struct pk_manager* pkm = fe->manager;
 
+  PK_TRACE_FUNCTION;
+
   for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + i);
     if (pkb->frontend == fe) {
@@ -472,6 +481,7 @@ void pkm_flow_control_fe(struct pk_frontend* fe, flow_op op)
 
 void pkm_flow_control_conn(struct pk_conn* pkc, flow_op op)
 {
+  PK_TRACE_FUNCTION;
   if (pkc->status & CONN_STATUS_DST_BLOCKED) {
     if (op == CONN_DEST_UNBLOCKED) {
       pk_log(PK_LOG_BE_DATA, "%d: Destination unblocked", pkc->sockfd);
@@ -491,6 +501,8 @@ void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
   int eof_read = 0;
   int eof_write = 0;
   char *p;
+
+  PK_TRACE_FUNCTION;
 
   /* Figure out what kind of EOF this is */
   for (p = eof; (p != NULL) && (*p != '\0'); p++) {
@@ -517,6 +529,7 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 {
   int rv;
   struct pk_frontend* fe = (struct pk_frontend*) w->data;
+  PK_TRACE_FUNCTION;
   fe->conn.status &= ~CONN_STATUS_WANT_READ;
   if (0 < pkc_read(&(fe->conn))) {
     if (0 > (rv = pk_parser_parse(fe->parser,
@@ -560,6 +573,8 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
   struct pk_backend_conn* pkb = (struct pk_backend_conn*) w->data;
   size_t bytes;
 
+  PK_TRACE_FUNCTION;
+
   pkb->conn.status &= ~CONN_STATUS_WANT_READ;
   bytes = pkc_read(&(pkb->conn));
   if ((0 < bytes) &&
@@ -581,6 +596,8 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
 void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
 {
   struct pk_backend_conn* pkb = (struct pk_backend_conn*) w->data;
+
+  PK_TRACE_FUNCTION;
 
   /* This is necessary for SSL handshakes and the like. */
   if (pkb->conn.status & CONN_STATUS_WANT_WRITE) {
@@ -611,6 +628,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
   unsigned int status;
   int i, j, reconnect, tried, connected;
 
+  PK_TRACE_FUNCTION;
   tried = connected = 0;
 
   /* Loop through all configured kites:
@@ -710,6 +728,8 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
   time_t increment = (next_tick / 3);
   time_t inactive = now - pkm->next_tick - increment;
 
+  PK_TRACE_FUNCTION;
+
   /* First, we look at the state of the world and schedule (or cancel)
    * our next tick. */
   if (pkm->enable_timer || (pkm->status != PK_STATUS_NO_NETWORK &&
@@ -804,6 +824,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   struct pk_manager* pkm;
   int i;
   unsigned int parse_buffer_bytes;
+
+  PK_TRACE_FUNCTION;
 
 #ifdef HAVE_OPENSSL
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_ZERO_RETURN = %d", SSL_ERROR_ZERO_RETURN);
@@ -971,6 +993,8 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
   int i;
   struct pk_conn* pkc;
 
+  PK_TRACE_FUNCTION;
+
   for (i = 0; i < pkm->kite_max; i++) {
     pk_reset_pagekite(pkm->kites+i);
   }
@@ -1002,6 +1026,8 @@ struct pk_pagekite* pkm_find_kite(struct pk_manager* pkm,
   struct pk_pagekite* kite;
   struct pk_pagekite* found;
 
+  PK_TRACE_FUNCTION;
+
   /* FIXME: This is O(N), we'll need a nicer data structure for frontends */
   found = NULL;
   for (which = 0; which < pkm->kite_max; which++) {
@@ -1028,6 +1054,8 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   int which;
   struct pk_pagekite* kite;
 
+  PK_TRACE_FUNCTION;
+
   /* FIXME: This is O(N), we'll need a nicer data structure for frontends */
   for (which = 0; which < pkm->kite_max; which++) {
     kite = pkm->kites+which;
@@ -1053,6 +1081,8 @@ int pkm_add_frontend(struct pk_manager* pkm,
   struct addrinfo *result, *rp;
   char printip[128], sport[128];
   int rv, count;
+
+  PK_TRACE_FUNCTION;
 
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;
@@ -1085,6 +1115,8 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
   int which;
   struct pk_frontend* fe;
   struct pk_frontend* adding = NULL;
+
+  PK_TRACE_FUNCTION;
 
   /* Scan the front-end list to see if we already have this IP or,
    * if not, find an available slot.
@@ -1133,6 +1165,8 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
   unsigned char shift;
   struct pk_backend_conn* pkb;
   struct pk_backend_conn* pkb_oldest;
+
+  PK_TRACE_FUNCTION;
 
   max_age = time(0);
   pkb_oldest = NULL;
@@ -1188,6 +1222,8 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
   int i;
   unsigned char shift;
   struct pk_backend_conn* pkb;
+
+  PK_TRACE_FUNCTION;
 
   shift = pkm_sid_shift(sid);
   for (i = 0; i < pkm->be_conn_max; i++) {

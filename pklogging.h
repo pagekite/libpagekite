@@ -28,13 +28,21 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_LOG_MANAGER_INFO    0x0200
 #define PK_LOG_MANAGER_DEBUG   0x0400
 
+#define PK_LOG_TRACE           0x0800
 #define PK_LOG_ERROR           0x1000
 
 #define PK_LOG_ERRORS          (PK_LOG_ERROR|PK_LOG_MANAGER_ERROR)
 #define PK_LOG_MANAGER         (PK_LOG_MANAGER_ERROR|PK_LOG_MANAGER_INFO)
 #define PK_LOG_CONNS           (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
 #define PK_LOG_NORMAL          (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER)
+#define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_TRACE|PK_LOG_CONNS|PK_LOG_MANAGER_DEBUG)
 #define PK_LOG_ALL             0xffff
+
+#ifdef PK_TRACE
+#define PK_TRACE_FUNCTION pk_log(PK_LOG_TRACE, "Trace: %s", __FUNCTION__)
+#else
+#define PK_TRACE_FUNCTION NULL
+#endif
 
 int pk_log(int, const char *fmt, ...);
 int pk_log_chunk(struct pk_chunk*);
