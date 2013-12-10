@@ -234,11 +234,11 @@ ssize_t pkc_read(struct pk_conn* pkc)
 
 ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
   ssize_t wrote = 0;
+  errno = 0;
   switch (pkc->state) {
 #ifdef HAVE_OPENSSL
     case CONN_SSL_DATA:
       if (length) {
-        errno = 0;
         wrote = SSL_write(pkc->ssl, data, length);
         if (wrote < 0) {
           int err = SSL_get_error(pkc->ssl, wrote);
@@ -317,8 +317,9 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
       pkc->out_buffer_pos -= wrote;
       flushed += wrote;
     }
-  } while ((errno != EINTR) &&
-           (mode == BLOCKING_FLUSH) &&
+    else if (errno != EINTR)
+      break;
+  } while ((mode == BLOCKING_FLUSH) &&
            (pkc->out_buffer_pos > 0));
 
   /* At this point we either have a non-EINTR error, or we've flushed
@@ -339,7 +340,7 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
         wrote += bytes;
         flushed += bytes;
       }
-      else if ((bytes <= 0) && (errno != EINTR))
+      else if (errno != EINTR)
         break;
     }
     /* At this point, if we have a non-EINTR error, bytes is < 0 and we
