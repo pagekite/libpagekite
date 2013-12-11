@@ -441,7 +441,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
       pkc_reset_conn(&(fe->conn), CONN_STATUS_ALLOCATED);
       fe->request_count = 0;
       if (pk_state.live_frontends < 1) {
-        pkm->next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
+        pkm->next_tick = 1 + pkm->housekeeping_interval_min;
       }
       pkm_tick(pkm);
     }
@@ -780,7 +780,8 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
   char ping[PK_REJECT_MAXSIZE];
   struct pk_frontend* fe;
   struct pk_manager* pkm = (struct pk_manager*) w->data;
-  unsigned int next_tick = pkm->next_tick;
+  time_t next_tick = pkm->next_tick;
+  time_t max_tick;
   time_t now = time(0);
   time_t increment = (next_tick / 3);
   time_t inactive = now - pkm->next_tick - increment;
@@ -800,15 +801,16 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
 
     /* We slow down exponentially by default, no matter what. */
     next_tick += increment;
-    if (next_tick > PK_HOUSEKEEPING_INTERVAL_MAX)
-      next_tick = PK_HOUSEKEEPING_INTERVAL_MAX;
+    max_tick = pkm->housekeeping_interval_max + pkm->interval_fudge_factor;
+    if (next_tick > max_tick)
+      next_tick = max_tick;
   }
   else {
     ev_timer_stop(pkm->loop, &(pkm->timer));
     pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, stopped]",
            pkm->enable_timer ? "yes" : "no");
     /* Reset interval. */
-    next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
+    next_tick = 1 + pkm->housekeeping_interval_min;
   }
 
   /* Loop through all configured tunnels ... */
@@ -816,7 +818,8 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
   for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
     if (fe->conn.sockfd >= 0) {
       /* If dead, shut 'em down. */
-      if (fe->conn.activity < fe->last_ping-4*(PK_HOUSEKEEPING_INTERVAL_MIN)) {
+      if (fe->conn.activity < fe->last_ping - 4*pkm->housekeeping_interval_min)
+      {
         pk_log(PK_LOG_TUNNEL_DATA, "%d: Idle, shutting down.", fe->conn.sockfd);
         fe->conn.status |= CONN_STATUS_BROKEN;
         pkm_update_io(fe, NULL);
@@ -827,17 +830,17 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
         fe->last_ping = now;
         pkc_write(&(fe->conn), ping, pingsize);
         pk_log(PK_LOG_TUNNEL_DATA, "%d: Sent PING.", fe->conn.sockfd);
-        next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
+        next_tick = 1 + pkm->housekeeping_interval_min;
       }
     }
   }
 
   /* Finally, trigger the frontend check on the blocking thread. */
-  if (pkm->last_world_update + PK_CHECK_WORLD_INTERVAL < time(0)) {
+  if (pkm->last_world_update + pkm->check_world_interval < time(0)) {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_WORLD, pkm);
     /* After checking the state of the world, we are a bit more aggressive
      * about following up on things, reset the fallback. */
-    next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
+    next_tick = 1 + pkm->housekeeping_interval_min;
   }
   else {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
@@ -860,9 +863,9 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   (void) revents;
 }
 void pkm_reset_timer(struct pk_manager* pkm) {
-  ev_timer_set(&(pkm->timer), 0.0, 1+PK_HOUSEKEEPING_INTERVAL_MIN);
+  ev_timer_set(&(pkm->timer), 0.0, 1 + pkm->housekeeping_interval_min);
   ev_timer_start(pkm->loop, &(pkm->timer));
-  pkm->next_tick = 1+PK_HOUSEKEEPING_INTERVAL_MIN;
+  pkm->next_tick = 1 + pkm->housekeeping_interval_min;
 }
 void pkm_set_timer_enabled(struct pk_manager* pkm, int enabled) {
   pkm->enable_timer = (enabled > 0);
@@ -1001,8 +1004,14 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pkm->buffer += parse_buffer_bytes;
     pkm->buffer_bytes_free -= parse_buffer_bytes;
   }
+
   pkm->fancy_pagekite_net_rejection = 1;
   pkm->want_spare_frontends = 0;
+  pkm->housekeeping_interval_min = PK_HOUSEKEEPING_INTERVAL_MIN;
+  pkm->housekeeping_interval_max = PK_HOUSEKEEPING_INTERVAL_MAX;
+  pkm->check_world_interval = PK_CHECK_WORLD_INTERVAL;
+  pkm->interval_fudge_factor = 2 * (rand() % PK_HOUSEKEEPING_INTERVAL_MIN);
+
   pkm->last_world_update = (time_t) 0;
   pkm->last_dns_update = (time_t) 0;
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;

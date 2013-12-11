@@ -18,8 +18,8 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#define PK_HOUSEKEEPING_INTERVAL_MIN  15.0  /* Seconds */
-#define PK_HOUSEKEEPING_INTERVAL_MAX 900.0  /* 15 minutes */
+#define PK_HOUSEKEEPING_INTERVAL_MIN    15  /* Seconds */
+#define PK_HOUSEKEEPING_INTERVAL_MAX   900  /* 15 minutes */
 #define PK_CHECK_WORLD_INTERVAL       3600  /* 1 hour */
 #define PK_DDNS_UPDATE_INTERVAL_MIN    450  /* Less than 300 makes no sense,
                                                due to DNS caching TTLs. */
@@ -88,11 +88,8 @@ struct pk_manager {
   int                      buffer_bytes_free;
   char*                    buffer;
   char*                    buffer_base;
-  int                      kite_max;
   struct pk_pagekite*      kites;
-  int                      frontend_max;
   struct pk_frontend*      frontends;
-  int                      be_conn_max;
   struct pk_backend_conn*  be_conns;
 
   pthread_t                main_thread;
@@ -102,18 +99,27 @@ struct pk_manager {
   ev_async                 quit;
   ev_async                 tick;
   ev_timer                 timer;
-  time_t                   last_world_update;
 
-  unsigned int             next_tick;
+  time_t                   last_world_update;
+  time_t                   next_tick;
   unsigned int             enable_timer:1;
+  time_t                   last_dns_update;
+
+  SSL_CTX*                 ssl_ctx;
+  pthread_t                blocking_thread;
+  struct pk_job_pile       blocking_jobs;
+
+  /* Settings */
+  int                      kite_max;
+  int                      frontend_max;
+  int                      be_conn_max;
   unsigned int             fancy_pagekite_net_rejection:1;
   int                      want_spare_frontends;
   char*                    dynamic_dns_url;
-  time_t                   last_dns_update;
-  SSL_CTX*                 ssl_ctx;
-
-  pthread_t                blocking_thread;
-  struct pk_job_pile       blocking_jobs;
+  time_t                   interval_fudge_factor;
+  time_t                   housekeeping_interval_min;
+  time_t                   housekeeping_interval_max;
+  time_t                   check_world_interval;
 };
 
 
