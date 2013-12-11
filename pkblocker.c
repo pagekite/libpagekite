@@ -239,7 +239,8 @@ void* pkb_frontend_ping(void* void_fe) {
     gettimeofday(&tv2, NULL);
 
     fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
-                 + (tv2.tv_usec - tv1.tv_usec) / 1000;
+                 + (tv2.tv_usec - tv1.tv_usec) / 1000
+                 + (rand() % 25);
   }
 
   if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST))
