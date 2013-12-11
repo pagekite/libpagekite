@@ -688,6 +688,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
 
         PKS_STATE(pk_state.live_frontends += 1);
+        fe->error_count = 0;
         connected++;
       }
       else {
@@ -696,6 +697,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         /* FIXME: Is this the right behavior? */
         pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
         fe->request_count = 0;
+        fe->error_count += 1;
 
         status = fe->conn.status;
         if (pk_error == ERR_CONNECT_REJECTED) {
@@ -1201,6 +1203,7 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
   adding->fe_hostname = strdup(hostname);
   adding->fe_port = port;
   adding->last_ddnsup = 0;
+  adding->error_count = 0;
   adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
   adding->request_count = 0;
   adding->priority = 0;

@@ -95,9 +95,9 @@ void pkb_clear_transient_flags(struct pk_manager* pkm)
 
 void pkb_choose_frontends(struct pk_manager* pkm)
 {
-  int i, wanted, wantn;
+  int i, wanted, wantn, highpri, prio;
   struct pk_frontend* fe;
-  struct pk_frontend* highpri;
+  struct pk_frontend* highpri_fe;
 
   PK_TRACE_FUNCTION;
 
@@ -108,19 +108,22 @@ void pkb_choose_frontends(struct pk_manager* pkm)
 
   /* Choose N fastest: this is inefficient, but trivially correct. */
   for (wantn = 0; wantn < pkm->want_spare_frontends+1; wantn++) {
-    highpri = NULL;
+    highpri_fe = NULL;
+    highpri = 1024000;
     for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
+      prio = fe->priority + (25 * fe->error_count);
       if ((fe->ai) &&
           (fe->priority) &&
-          ((highpri == NULL) || (highpri->priority > fe->priority)) &&
+          ((highpri_fe == NULL) || (highpri > prio)) &&
           (!(fe->conn.status & (FE_STATUS_WANTED
                                |FE_STATUS_REJECTED
                                |FE_STATUS_IS_FAST
                                |FE_STATUS_LAME))))
-        highpri = fe;
+        highpri_fe = fe;
+        highpri = prio;
     }
-    if (highpri != NULL)
-      highpri->conn.status |= FE_STATUS_IS_FAST;
+    if (highpri_fe != NULL)
+      highpri_fe->conn.status |= FE_STATUS_IS_FAST;
   }
 
   wanted = 0;
@@ -218,6 +221,7 @@ void* pkb_frontend_ping(void* void_fe) {
     {
       if (sockfd >= 0)
         close(sockfd);
+      fe->error_count += 1;
       pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (connect)", printip);
       sleep(2); /* We don't want to return first! */
       return NULL;
@@ -226,6 +230,7 @@ void* pkb_frontend_ping(void* void_fe) {
     bytes = timed_read(sockfd, buffer, want, 1000);
     if ((bytes != want) ||
         (0 != strncmp(buffer, PK_FRONTEND_PONG, want))) {
+      fe->error_count += 1;
       pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (read=%d)", printip, bytes);
       sleep(2); /* We don't want to return first! */
       return NULL;
@@ -383,8 +388,9 @@ void pkb_log_fe_status(struct pk_manager* pkm)
           ddnsup_ago = time(0) - fe->last_ddnsup;
           sprintf(ddnsinfo, " (ddns %us ago)", ddnsup_ago);
         }
-        pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x %s%s",
-                                     fe->conn.status, printip, ddnsinfo);
+        pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x %s E=%d%s",
+                                     fe->conn.status, printip, fe->error_count,
+                                     ddnsinfo);
       }
     }
   }
