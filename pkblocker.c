@@ -177,6 +177,13 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
+
+  for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
+    fe->conn.status &= ~FE_STATUS_IN_DNS;
+  }
+
+  /* FIXME: We should really get this from the TTL of the DNS record itself,
+   *        not from a hard coded magic number. */
   ddns_window = time(0) - PK_DDNS_UPDATE_INTERVAL_MIN;
 
   for (i = 0, kite = pkm->kites; i < pkm->kite_max; i++, kite++) {
@@ -184,13 +191,18 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
     if (rv == 0) {
       for (rp = result; rp != NULL; rp = rp->ai_next) {
         for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
-          if ((fe->ai) && ((fe->last_ddnsup > ddns_window) ||
-                           (0 == addrcmp(fe->ai->ai_addr, rp->ai_addr)))) {
-            pk_log(PK_LOG_MANAGER_DEBUG, "In DNS for %s: %s",
-                                         kite->public_domain,
-                                         in_ipaddr_to_str(fe->ai->ai_addr,
-                                                          buffer, 128));
-            fe->conn.status |= FE_STATUS_IN_DNS;
+          if (fe->ai) {
+            if (0 == addrcmp(fe->ai->ai_addr, rp->ai_addr)) {
+              pk_log(PK_LOG_MANAGER_DEBUG, "In DNS for %s: %s",
+                                           kite->public_domain,
+                                           in_ipaddr_to_str(fe->ai->ai_addr,
+                                                            buffer, 128));
+              fe->conn.status |= FE_STATUS_IN_DNS;
+              fe->last_ddnsup = time(0);
+            }
+            else if (fe->last_ddnsup > ddns_window) {
+              fe->conn.status |= FE_STATUS_IN_DNS;
+            }
           }
         }
       }
@@ -302,7 +314,7 @@ int pkb_update_dns(struct pk_manager* pkm)
 
   PK_TRACE_FUNCTION;
 
-  if (time(0) < pkm->last_dns_update+PK_DDNS_UPDATE_INTERVAL_MIN)
+  if (time(0) < pkm->last_dns_update + PK_DDNS_UPDATE_INTERVAL_MIN)
     return 0;
 
   address_list[0] = '\0';
@@ -390,7 +402,7 @@ void pkb_log_fe_status(struct pk_manager* pkm)
         ddnsinfo[0] = '\0';
         if (fe->last_ddnsup) {
           ddnsup_ago = time(0) - fe->last_ddnsup;
-          sprintf(ddnsinfo, " (ddns %us ago)", ddnsup_ago);
+          sprintf(ddnsinfo, " (in dns %us ago)", ddnsup_ago);
         }
         pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x %s E=%d%s",
                                      fe->conn.status, printip, fe->error_count,
@@ -421,6 +433,7 @@ void pkb_check_frontends(struct pk_manager* pkm)
   if (pkm->status == PK_STATUS_NO_NETWORK) return;
   pk_log(PK_LOG_MANAGER_DEBUG, "Checking frontends...");
 
+  pkb_check_kites_dns(pkm);
   pkb_choose_frontends(pkm);
   pkb_log_fe_status(pkm);
 
