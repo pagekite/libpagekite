@@ -116,11 +116,12 @@ void pkb_choose_frontends(struct pk_manager* pkm)
           (fe->priority) &&
           ((highpri_fe == NULL) || (highpri > prio)) &&
           (!(fe->conn.status & (FE_STATUS_WANTED
-                               |FE_STATUS_REJECTED
                                |FE_STATUS_IS_FAST
-                               |FE_STATUS_LAME))))
+                               |FE_STATUS_REJECTED
+                               |FE_STATUS_LAME)))) {
         highpri_fe = fe;
         highpri = prio;
+      }
     }
     if (highpri_fe != NULL)
       highpri_fe->conn.status |= FE_STATUS_IS_FAST;
@@ -239,8 +240,7 @@ void* pkb_frontend_ping(void* void_fe) {
     gettimeofday(&tv2, NULL);
 
     fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
-                 + (tv2.tv_usec - tv1.tv_usec) / 1000
-                 + (rand() % 25);
+                 + (tv2.tv_usec - tv1.tv_usec) / 1000;
   }
 
   if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST))
@@ -254,6 +254,9 @@ void* pkb_frontend_ping(void* void_fe) {
            "Ping %s: %dms (biased)", printip, fe->priority);
   }
   else {
+    /* Add artificial +/-5% jitter to ping results */
+    fe->priority *= ((rand() % 11) + 95);
+    fe->priority /= 100;
     pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s: %dms", printip, fe->priority);
   }
   return NULL;
