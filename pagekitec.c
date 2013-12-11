@@ -55,6 +55,7 @@ void usage(int ecode) {
                   "\t-4\tDisable IPv4 frontends\n"
                   "\t-6\tDisable IPv6 frontends\n"
                   "\t-C\tDisable auto-adding current DNS IP as a front-end\n"
+                  "\t-Z\tEvil mode: Very low intervals for reconnect/ping\n"
                   "\n");
   exit(ecode);
 }
@@ -75,6 +76,7 @@ int main(int argc, char **argv) {
   int use_ipv6 = 1;
   int use_current = 1;
   int use_ssl = 1;
+  int use_evil = 0;
   int max_conns = 25;
   int spare_frontends = 0;
   char* fe_hostname = NULL;
@@ -88,7 +90,7 @@ int main(int argc, char **argv) {
   srand(time(0) ^ getpid());
   pks_global_init(PK_LOG_NORMAL);
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:In:qRSv"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:In:qRSvZ"))) {
     switch (ac) {
       case '4':
         use_ipv4 = 0;
@@ -113,6 +115,9 @@ int main(int argc, char **argv) {
         break;
       case 'S':
         ddns_url = NULL;
+        break;
+      case 'Z':
+        use_evil = 1;
         break;
       case 'F':
         gotargs++;
@@ -165,6 +170,11 @@ int main(int argc, char **argv) {
     exit(1);
   }
   m->want_spare_frontends = spare_frontends;
+  if (use_evil) {
+    m->housekeeping_interval_min = 5;
+    m->housekeeping_interval_max = 20;
+    m->check_world_interval = 30;
+  }
 
   for (ac = gotargs; ac+5 < argc; ac += 5) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
