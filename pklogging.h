@@ -39,9 +39,11 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_LOG_ALL             0xffff
 
 #if defined(PK_TRACE) && (PK_TRACE >= 1)
-#define PK_TRACE_FUNCTION pk_log(PK_LOG_TRACE, "Trace: %s", __FUNCTION__)
+#define PK_TRACE_FUNCTION pk_log(PK_LOG_TRACE, "trace/%s", __FUNCTION__)
+#define PK_TRACE_LOOP(msg) pk_log(PK_LOG_TRACE, "trace/%s: %s", __FUNCTION__, msg)
 #else
 #define PK_TRACE_FUNCTION
+#define PK_TRACE_LOOP(msg)
 #endif
 
 int pk_log(int, const char *fmt, ...);

@@ -136,6 +136,8 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk,
   chunk->header_count = 0;
   while (2 < (len = zero_first_crlf(bytes - pos, frame->data + pos)))
   {
+    PK_TRACE_LOOP("lines");
+
     /* This gives us an upper-case (US-ASCII) of the first character. */
     first = *(frame->data + pos) & (0xff - 32);
 
@@ -277,6 +279,8 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
   int status = 0;
   int copy = 0;
   do {
+    PK_TRACE_LOOP("parsing");
+
     if ((length > 0) && (0 >= parser->buffer_bytes_left)) {
       /* We will make no progress.  This is bad! */
       return (pk_error = ERR_PARSE_NO_MEMORY);
@@ -578,6 +582,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
 #endif
               !(pkc->status & (CONN_STATUS_BROKEN|CONN_STATUS_CLS_READ)); )
   {
+    PK_TRACE_LOOP("read response");
     if (1 > pkc_wait(pkc, 2000)) return (pk_error = ERR_CONNECT_REQUEST);
     pk_log(PK_LOG_TUNNEL_DATA, " - Have data ...");
     pkc_read(pkc);
@@ -601,6 +606,8 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   i = 0;
   p = buffer;
   do {
+    PK_TRACE_LOOP("response line");
+
     bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
 
                       /* 123456789012345678901 = 21 bytes */

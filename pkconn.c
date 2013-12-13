@@ -150,6 +150,7 @@ int pkc_wait(struct pk_conn* pkc, int timeout)
   pfd.fd = pkc->sockfd;
   pfd.events = (POLLIN | POLLPRI | POLLHUP);
   do {
+    PK_TRACE_LOOP("polling");
     rv = poll(&pfd, 1, timeout);
   } while ((rv < 0) && (errno == EINTR));
   return rv;
@@ -307,6 +308,7 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
 
   /* First, flush whatever was in the conn buffers */
   do {
+    PK_TRACE_LOOP("flushing");
     wrote = pkc_raw_write(pkc, pkc->out_buffer, pkc->out_buffer_pos);
     if (wrote > 0) {
       if (pkc->out_buffer_pos > wrote) {
@@ -335,6 +337,7 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
     /* So far so good, everything has been flushed. Write the new data! */
     flushed = wrote = 0;
     while (length > wrote) {
+      PK_TRACE_LOOP("writing");
       bytes = pkc_raw_write(pkc, data+wrote, length-wrote);
       if (bytes > 0) {
         wrote += bytes;
@@ -373,6 +376,7 @@ ssize_t pkc_write(struct pk_conn* pkc, char* data, ssize_t length)
   if (0 == pkc->out_buffer_pos) {
     errno = 0;
     do {
+      PK_TRACE_LOOP("writing");
       wrote = pkc_raw_write(pkc, data, length);
     } while ((wrote < 0) && (errno == EINTR));
   }
