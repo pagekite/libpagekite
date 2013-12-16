@@ -28,10 +28,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 
-#ifdef _MSC_VER
-#include "libev/ev.c"
-#endif
-
 
 void pkm_yield(struct pk_manager *pkm)
 {

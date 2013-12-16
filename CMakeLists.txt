@@ -7,7 +7,7 @@ include_directories("." ${OPENSSL_INCLUDE_DIR})
 set(CMAKE_C_FLAGS "-g -O3 -std=c99 -pedantic -Wall -W -fpic -fno-strict-aliasing")
 
 add_library(pagekite SHARED pkerror.c pkproto.c pkconn.c pkblocker.c pkmanager.c
-    pklogging.c pkstate.c utils.c pd_sha1.c)
+    pklogging.c pkstate.c utils.c pd_sha1.c win_evwrap.c)
 target_link_libraries(pagekite ${OPENSSL_LIBRARIES} ev m pthread)
 
 add_executable(httpkite httpkite.c)
