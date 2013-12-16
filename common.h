@@ -23,8 +23,6 @@
 
 #include <ev.h>
 
-#define HAVE_OPENSSL 1
-
 #ifndef ANDROID
 typedef signed char               int8_t;
 typedef short int                 int16_t;
@@ -35,7 +33,7 @@ typedef unsigned short int        uint16_t;
 typedef unsigned int              uint32_t;
 #endif
 
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL) && (HAVE_OPENSSL != 0)
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
@@ -51,8 +49,9 @@ typedef unsigned int              uint32_t;
                          SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS); }
 #else
 #define SSL_CTX                   void
-#define pks_ssl_init(ctx)       { ctx = NULL; }
+#define PKS_SSL_INIT(ctx)         { ctx = NULL; }
 #define SSL_ERROR_NONE            0
+#undef HAVE_OPENSSL
 #endif
 
 #define PARSER_BYTES_MIN   1 * 1024

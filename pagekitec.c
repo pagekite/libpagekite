@@ -44,7 +44,9 @@ void usage(int ecode) {
                   "Options:\n"
                   "\t-q\tDecrease verbosity (less log output)\n"
                   "\t-v\tIncrease verbosity (more log output)\n"
+#ifdef HAVE_OPENSSL
                   "\t-I\tConnect insecurely, without SSL.\n"
+#endif
                   "\t-S\tStatic setup, disable FE failover and DDNS updates\n"
                   "\t-c N\tSet max connection count to N (default = 25)\n"
                   "\t-n N\tAlways connect to N spare frontends (default = 0)\n"

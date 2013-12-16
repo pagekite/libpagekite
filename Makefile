@@ -12,6 +12,7 @@ HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
        pkmanager.h pd_sha1.h Makefile
 
 PK_TRACE ?= 0
+HAVE_OPENSSL ?= 1
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
@@ -47,7 +48,7 @@ allclean: clean
 	find . -name '*.o' |xargs rm -vf
 
 .c.o:
-	$(CC) $(CFLAGS) -DPK_TRACE=$(PK_TRACE) -c $<
+	$(CC) $(CFLAGS) -DHAVE_OPENSSL=$(HAVE_OPENSSL) -DPK_TRACE=$(PK_TRACE) -c $<
 
 httpkite.o: $(HDRS)
 pagekitec.o: $(HDRS)
