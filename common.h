@@ -16,6 +16,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifdef _MSC_VER
+#define EV_STANDALONE              /* keeps ev from requiring config.h */
+#define EV_SELECT_IS_WINSOCKET 1   /* configure libev for windows select */
+#endif
+
 #include <ev.h>
 
 #define HAVE_OPENSSL 1
