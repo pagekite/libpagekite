@@ -19,8 +19,6 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #include "common.h"
-#include <poll.h>
-
 #include "utils.h"
 #include "pkerror.h"
 #include "pkconn.h"
@@ -142,17 +140,15 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx)
 }
 #endif
 
-int pkc_wait(struct pk_conn* pkc, int timeout)
+int pkc_wait(struct pk_conn* pkc, int timeout_ms)
 {
   int rv;
-  struct pollfd pfd;
   set_non_blocking(pkc->sockfd);
-  pfd.fd = pkc->sockfd;
-  pfd.events = (POLLIN | POLLPRI | POLLHUP);
   do {
-    PK_TRACE_LOOP("polling");
-    rv = poll(&pfd, 1, timeout);
+    PK_TRACE_LOOP("waiting");
+    rv = wait_fd(pkc->sockfd, timeout_ms);
   } while ((rv < 0) && (errno == EINTR));
+  set_blocking(pkc->sockfd);
   return rv;
 }
 

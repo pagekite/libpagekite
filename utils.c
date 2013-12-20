@@ -21,6 +21,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "common.h"
 #include <fcntl.h>
 #include <poll.h>
+#define HAVE_POLL
+
 
 int zero_first_crlf(int length, char* data)
 {
@@ -75,16 +77,35 @@ int set_blocking(int sockfd)
   return -1;
 }
 
-ssize_t timed_read(int sockfd, void* buf, size_t count, int timeout)
+int wait_fd(int fd, int timeout_ms)
 {
+#ifdef HAVE_POLL
   struct pollfd pfd;
+
+  pfd.fd = fd;
+  pfd.events = (POLLIN | POLLPRI | POLLHUP);
+
+  return poll(&pfd, 1, timeout_ms);
+#else
+  fd_set rfds;
+  struct timeval tv;
+
+  FD_ZERO(&rfds);
+  FD_SET(fd, &rfds);
+  tv.tv_sec = (timeout_ms / 1000);
+  tv.tv_usec = 1000 * (timeout_ms % 1000);
+
+  return select(fd+1, &rfds, NULL, NULL, &tv);
+#endif
+}
+
+ssize_t timed_read(int sockfd, void* buf, size_t count, int timeout_ms)
+{
   ssize_t rv;
 
   set_non_blocking(sockfd);
-  pfd.fd = sockfd;
-  pfd.events = (POLLIN | POLLPRI | POLLHUP);
   do {
-    if (0 <= (rv = poll(&pfd, 1, timeout)))
+    if (0 <= (rv = wait_fd(sockfd, timeout_ms)))
       rv = read(sockfd, buf, count);
   } while (errno == EINTR);
   set_blocking(sockfd);

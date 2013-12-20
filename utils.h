@@ -25,6 +25,7 @@ char *skip_http_header(int, const char*);
 int dbg_write(int, char *, int);
 int set_non_blocking(int);
 int set_blocking(int);
+int wait_fd(int, int);
 ssize_t timed_read(int, void*, size_t, int);
 char *in_ipaddr_to_str(const struct sockaddr*, char*, size_t);
 char *in_addr_to_str(const struct sockaddr*, char*, size_t);
