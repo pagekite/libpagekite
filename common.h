@@ -33,6 +33,10 @@ typedef unsigned short int        uint16_t;
 typedef unsigned int              uint32_t;
 #endif
 
+#if defined(HAVE_IPV6) && (HAVE_IPV6 == 0)
+#undef HAVE_IPV6
+#endif
+
 #if defined(HAVE_OPENSSL) && (HAVE_OPENSSL != 0)
 #include <openssl/ssl.h>
 #include <openssl/bio.h>

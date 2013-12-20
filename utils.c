@@ -100,18 +100,19 @@ char *in_ipaddr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
       inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
                 s, maxlen);
       break;
-
+#ifdef HAVE_IPV6
     case AF_INET6:
       inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
                 s, maxlen);
       break;
-
+#endif
     default:
       strncpy(s, "Unknown AF", maxlen);
       return NULL;
   }
   return s;
 }
+
 char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
 {
   char* p;
@@ -126,7 +127,7 @@ char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
       *p++ = ':';
       sprintf(p, "%d", ntohs(((struct sockaddr_in* )sa)->sin_port));
       break;
-
+#ifdef HAVE_IPV6
     case AF_INET6:
       p = s;
       *p++ = '[';
@@ -137,7 +138,7 @@ char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
       *p++ = ':';
       sprintf(p, "%d", ntohs(((struct sockaddr_in6* )sa)->sin6_port));
       break;
-
+#endif
     default:
       strncpy(s, "Unknown AF", maxlen);
       return NULL;
@@ -154,10 +155,12 @@ int addrcmp(const struct sockaddr *a, const struct sockaddr *b)
       return memcmp(&(((struct sockaddr_in*) a)->sin_addr),
                     &(((struct sockaddr_in*) b)->sin_addr),
                     sizeof(struct in_addr));
+#ifdef HAVE_IPV6
     case AF_INET6:
       return memcmp(&(((struct sockaddr_in6*) a)->sin6_addr),
                     &(((struct sockaddr_in6*) b)->sin6_addr),
                     sizeof(struct in6_addr));
+#endif
   }
   return 2;
 }
