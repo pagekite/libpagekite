@@ -27,6 +27,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
+#include "pkwatchdog.h"
 
 
 void pkm_yield(struct pk_manager *pkm)
@@ -787,6 +788,7 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
   time_t inactive = now - pkm->next_tick - increment;
 
   PK_TRACE_FUNCTION;
+  pkw_pet_watchdog();
 
   /* First, we look at the state of the world and schedule (or cancel)
    * our next tick. */
@@ -1006,6 +1008,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   }
 
   pkm->fancy_pagekite_net_rejection = 1;
+  pkm->enable_watchdog = 0;
   pkm->want_spare_frontends = 0;
   pkm->housekeeping_interval_min = PK_HOUSEKEEPING_INTERVAL_MIN;
   pkm->housekeeping_interval_max = PK_HOUSEKEEPING_INTERVAL_MAX;
@@ -1319,12 +1322,15 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
 void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
+  if (pkm->enable_watchdog) pkw_start_watchdog(pkm);
   pkb_start_blocker(pkm);
+
   pthread_mutex_lock(&(pkm->loop_lock));
   ev_loop(pkm->loop, 0);
   pthread_mutex_unlock(&(pkm->loop_lock));
 
   pkb_stop_blocker(pkm);
+  if (pkm->enable_watchdog) pkw_stop_watchdog(pkm);
   pkm_reset_manager(pkm);
   pk_log(PK_LOG_MANAGER_DEBUG, "Event loop exited.");
   return void_pkm;

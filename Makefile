@@ -7,9 +7,9 @@ CLINK ?= -lpthread -lssl -lcrypto -lm -lev
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
-      pklogging.o pkstate.o utils.o pd_sha1.o
+      pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
-       pkmanager.h pd_sha1.h Makefile
+       pkmanager.h pd_sha1.h pkwatchdog.h Makefile
 
 PK_TRACE ?= 0
 HAVE_OPENSSL ?= 1

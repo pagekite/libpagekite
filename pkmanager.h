@@ -106,6 +106,7 @@ struct pk_manager {
   time_t                   last_dns_update;
 
   SSL_CTX*                 ssl_ctx;
+  pthread_t                watchdog_thread;
   pthread_t                blocking_thread;
   struct pk_job_pile       blocking_jobs;
 
@@ -114,6 +115,7 @@ struct pk_manager {
   int                      frontend_max;
   int                      be_conn_max;
   unsigned int             fancy_pagekite_net_rejection:1;
+  unsigned int             enable_watchdog:1;
   int                      want_spare_frontends;
   char*                    dynamic_dns_url;
   time_t                   interval_fudge_factor;
