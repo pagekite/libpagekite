@@ -21,6 +21,8 @@ DEFINES=-DHAVE_IPV6=$(HAVE_IPV6) \
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
+default: libpagekite.so pagekitec
+
 all: runtests libpagekite.so pagekitec httpkite
 
 runtests: tests
