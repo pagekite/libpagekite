@@ -113,8 +113,7 @@ void pkb_choose_frontends(struct pk_manager* pkm)
       if ((fe->ai) &&
           (fe->priority) &&
           ((highpri_fe == NULL) || (highpri > prio)) &&
-          (!(fe->conn.status & (FE_STATUS_WANTED
-                               |FE_STATUS_IS_FAST
+          (!(fe->conn.status & (FE_STATUS_IS_FAST
                                |FE_STATUS_REJECTED
                                |FE_STATUS_LAME)))) {
         highpri_fe = fe;
@@ -131,33 +130,64 @@ void pkb_choose_frontends(struct pk_manager* pkm)
     if ((fe->conn.status & FE_STATUS_NAILED_UP) ||
         (fe->conn.status & FE_STATUS_IS_FAST)) {
       fe->conn.status |= FE_STATUS_WANTED;
+      wanted++;
+      pk_log(PK_LOG_MANAGER_DEBUG,
+             "Fast or nailed up, should use %s (status=%x)",
+             fe->fe_hostname, fe->conn.status);
     }
     /* Otherwise, we don't! */
-    else
+    else {
       fe->conn.status &= ~FE_STATUS_WANTED;
+      if (fe->conn.status & FE_STATUS_IN_DNS) {
+        pk_log(PK_LOG_MANAGER_DEBUG,
+               "Not wanted, but in DNS (fallback): %s (status=%x)",
+               fe->fe_hostname, fe->conn.status);
+      }
+    }
 
     /* Rejecting us or going lame overrides other concerns. */
     if ((fe->conn.status & FE_STATUS_REJECTED) ||
         (fe->conn.status & FE_STATUS_LAME)) {
       fe->conn.status &= ~FE_STATUS_WANTED;
+      pk_log(PK_LOG_MANAGER_DEBUG,
+             "Lame or rejecting, avoiding %s (status=%x)",
+             fe->fe_hostname, fe->conn.status);
     }
 
     /* Count how many we're aiming for. */
     if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) wanted++;
   }
+  if (wanted) return;
 
-  if (wanted == 0) {
-    /* None?  Uh oh, best accept anything non-broken at this point... */
-    for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
-      if ((fe->ai != NULL) &&
-          !(fe->conn.status & (FE_STATUS_REJECTED|FE_STATUS_LAME))) {
-        pk_log(PK_LOG_MANAGER_DEBUG,
-               "None wanted, going for random %s", fe->fe_hostname);
-        fe->conn.status |= FE_STATUS_WANTED;
-        break;
-      }
+  /* None wanted?  Uh oh, best accept anything non-broken at this point... */
+  for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
+    if ((fe->ai != NULL) &&
+        !(fe->conn.status & (FE_STATUS_REJECTED|FE_STATUS_LAME))) {
+      fe->conn.status |= FE_STATUS_WANTED;
+      wanted++;
+      pk_log(PK_LOG_MANAGER_INFO,
+             "No front-end wanted, randomly using %s (status=%x)",
+             fe->fe_hostname, fe->conn.status);
+      break;
     }
   }
+  if (wanted) return;
+
+  /* Still none? Crazy town. Let's at least not disconnect. */
+  for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
+    if ((fe->ai != NULL) &&
+        (fe->conn.sockfd > 0)) {
+      fe->conn.status |= FE_STATUS_WANTED;
+      wanted++;
+      pk_log(PK_LOG_MANAGER_INFO,
+             "No front-end wanted, keeping %s (status=%x)",
+             fe->fe_hostname, fe->conn.status);
+    }
+  }
+  if (wanted) return;
+
+  /* If we get this far, we're hopeless. Log as error. */
+  pk_log(PK_LOG_MANAGER_ERROR, "No front-end wanted! We are lame.");
 }
 
 void pkb_check_kites_dns(struct pk_manager* pkm)
