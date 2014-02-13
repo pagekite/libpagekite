@@ -130,7 +130,6 @@ void pkb_choose_frontends(struct pk_manager* pkm)
     if ((fe->conn.status & FE_STATUS_NAILED_UP) ||
         (fe->conn.status & FE_STATUS_IS_FAST)) {
       fe->conn.status |= FE_STATUS_WANTED;
-      wanted++;
       pk_log(PK_LOG_MANAGER_DEBUG,
              "Fast or nailed up, should use %s (status=%x)",
              fe->fe_hostname, fe->conn.status);
