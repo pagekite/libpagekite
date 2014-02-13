@@ -172,7 +172,9 @@ void pkb_choose_frontends(struct pk_manager* pkm)
   }
   if (wanted) return;
 
-  /* Still none? Crazy town. Let's at least not disconnect. */
+  /* Still none? Crazy town. Maybe a good front-end has been marked as
+   * being lame because of duplicates and we've somehow forgotten it is
+   * in DNS? Let's at least not disconnect. */
   for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
     if ((fe->ai != NULL) &&
         (fe->conn.sockfd > 0)) {
