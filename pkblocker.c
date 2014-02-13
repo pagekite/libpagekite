@@ -435,8 +435,11 @@ void pkb_log_fe_status(struct pk_manager* pkm)
           ddnsup_ago = time(0) - fe->last_ddnsup;
           sprintf(ddnsinfo, " (in dns %us ago)", ddnsup_ago);
         }
-        pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x %s E=%d%s",
-                                     fe->conn.status, printip, fe->error_count,
+        pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x E:%d %s%s%s",
+                                     fe->conn.status,
+                                     fe->error_count,
+                                     printip,
+                                     (fe->conn.sockfd > 0) ? " live" : "",
                                      ddnsinfo);
       }
     }
