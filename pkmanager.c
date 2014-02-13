@@ -698,7 +698,8 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
         /* FIXME: Is this the right behavior? */
         pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
         fe->request_count = 0;
-        fe->error_count += 1;
+        if (fe->error_count < 999)
+          fe->error_count += 1;
 
         status = fe->conn.status;
         if (pk_error == ERR_CONNECT_REJECTED) {

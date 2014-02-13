@@ -232,7 +232,8 @@ void* pkb_frontend_ping(void* void_fe) {
     {
       if (sockfd >= 0)
         close(sockfd);
-      fe->error_count += 1;
+      if (fe->error_count < 999)
+        fe->error_count += 1;
       pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (connect)", printip);
       sleep(2); /* We don't want to return first! */
       return NULL;
@@ -241,7 +242,8 @@ void* pkb_frontend_ping(void* void_fe) {
     bytes = timed_read(sockfd, buffer, want, 1000);
     if ((bytes != want) ||
         (0 != strncmp(buffer, PK_FRONTEND_PONG, want))) {
-      fe->error_count += 1;
+      if (fe->error_count < 999)
+        fe->error_count += 1;
       pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (read=%d)", printip, bytes);
       sleep(2); /* We don't want to return first! */
       return NULL;
