@@ -38,6 +38,9 @@ void pk_perror(const char* prefix) {
 
   switch (pk_error) {
     /* FIXME: Make this prettier */
+    case ERR_NO_FRONTENDS:
+      pk_log(PK_LOG_ERROR, "%s: No frontends configured!", prefix);
+      break;
     case ERR_CONNECT_CONNECT:
       pk_log(PK_LOG_ERROR, "%s: %s", prefix, strerror(errno));
       break;

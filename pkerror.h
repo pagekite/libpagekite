@@ -38,6 +38,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #define ERR_NO_MORE_KITES     -50000
 #define ERR_NO_MORE_FRONTENDS -50001
+#define ERR_NO_FRONTENDS      -50002
 
 #define ERR_TOOBIG_MANAGER    -60000
 #define ERR_TOOBIG_KITES      -60001

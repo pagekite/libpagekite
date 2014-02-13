@@ -78,8 +78,10 @@ int main(int argc, char **argv) {
   int gotargs = 0;
   int verbosity = 0;
   int use_ipv4 = 1;
+  int fes_v4 = 0;
 #ifdef HAVE_IPV6
   int use_ipv6 = 1;
+  int fes_v6 = 0;
 #endif
   int use_current = 1;
   int use_ssl = 1;
@@ -210,21 +212,26 @@ int main(int argc, char **argv) {
 
   if (ddns_url != NULL) {
     if (fe_hostname) {
-      if (0 > (pkm_add_frontend(m, fe_hostname, 443, FE_STATUS_AUTO))) {
+      if (0 > (fes_v4 = pkm_add_frontend(m, fe_hostname, 443, FE_STATUS_AUTO))) {
         pk_perror(argv[0]);
         exit(4);
       }
     }
     else if (((use_ipv4) &&
-              (0 > (pkm_add_frontend(m, PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO))))
+              (0 >= (fes_v4 = pkm_add_frontend(m, PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO))))
 #ifdef HAVE_IPV6
          ||  ((use_ipv6) &&
-              (0 > (pkm_add_frontend(m, PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO))))
+              (0 >= (fes_v6 = pkm_add_frontend(m, PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO))))
 #endif
              ) {
       pk_perror(argv[0]);
       exit(4);
     }
+  }
+  if (0 == (fes_v4 + fes_v6)) {
+    pk_error = ERR_NO_FRONTENDS;
+    pk_perror(argv[0]);
+    exit(4);
   }
 
   if (0 > pkm_run_in_thread(m)) {
