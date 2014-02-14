@@ -194,8 +194,11 @@ void pkb_choose_frontends(struct pk_manager* pkm)
 void pkb_check_kites_dns(struct pk_manager* pkm)
 {
   int i, j, rv;
+  int in_dns = 0;
+  int recently_in_dns = 0;
   time_t ddns_window;
   struct pk_frontend* fe;
+  struct pk_frontend* dns_fe;
   struct pk_pagekite* kite;
   struct addrinfo hints;
   struct addrinfo *result, *rp;
@@ -207,14 +210,14 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
 
+  /* Clear DNS flag... */
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
     fe->conn.status &= ~FE_STATUS_IN_DNS;
   }
 
-  /* FIXME: We should really get this from the TTL of the DNS record itself,
-   *        not from a hard coded magic number. */
-  ddns_window = time(0) - PK_DDNS_UPDATE_INTERVAL_MIN;
-
+  /* Walk through kite list, look each up in DNS and update the
+   * frontend flags as appropriate.
+   */
   for (i = 0, kite = pkm->kites; i < pkm->kite_max; i++, kite++) {
     rv = getaddrinfo(kite->public_domain, NULL, &hints, &result);
     if (rv == 0) {
@@ -228,15 +231,45 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
                                                             buffer, 128));
               fe->conn.status |= FE_STATUS_IN_DNS;
               fe->last_ddnsup = time(0);
-            }
-            else if (fe->last_ddnsup > ddns_window) {
-              fe->conn.status |= FE_STATUS_IN_DNS;
+              in_dns++;
             }
           }
         }
       }
       freeaddrinfo(result);
     }
+  }
+
+  /* FIXME: We should really get this from the TTL of the DNS record itself,
+   *        not from a hard coded magic number.
+   */
+  ddns_window = time(0) - PK_DDNS_UPDATE_INTERVAL_MIN;
+
+  /* Walk through the list of frontends and rewnew the FE_STATUS_IN_DNS
+   * if they were either last updated within our window.
+   */
+  dns_fe = NULL;
+  for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
+    if (fe->ai) {
+      if (fe->last_ddnsup > ddns_window) {
+        fe->conn.status |= FE_STATUS_IN_DNS;
+        in_dns++;
+      }
+      /* Figure out which FE was most recently seen in DNS, for use below */
+      if (fe->last_ddnsup > recently_in_dns) {
+        recently_in_dns = fe->last_ddnsup;
+        dns_fe = fe;
+      }
+    }
+  }
+
+  /* If nothing was found in DNS, but we know there was stuff in DNS
+   * before, then DNS is probably broken for us and the data in DNS is
+   * unchanged. Keep the most recent one active!  This is incomplete if
+   * we are using many frontends at once, but still better than nothing.
+   */
+  if (in_dns < 1 && dns_fe) {
+    dns_fe->conn.status |= FE_STATUS_IN_DNS;
   }
 }
 
