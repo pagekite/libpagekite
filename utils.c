@@ -20,8 +20,11 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #include "common.h"
 #include <fcntl.h>
+
+#ifndef _MSC_VER
 #include <poll.h>
 #define HAVE_POLL
+#endif
 
 
 int zero_first_crlf(int length, char* data)
@@ -64,8 +67,13 @@ int dbg_write(int sockfd, char *buffer, int bytes)
 int set_non_blocking(int sockfd)
 {
   int flags;
+//#ifndef _MSC_VER
   if ((0 <= (flags = fcntl(sockfd, F_GETFL, 0))) &&
-      (0 <= fcntl(sockfd, F_SETFL, flags | O_NONBLOCK))) return sockfd;
+	  (0 <= fcntl(sockfd, F_SETFL, flags | O_NONBLOCK))) return sockfd;
+//#else
+//  if ((0 <= (flags = dup(sockfd))) &&
+//	  (0 <= dup());
+//#endif
   return -1;
 }
 

@@ -1,4 +1,23 @@
-#define _GNU_SOURCE 1
+#ifndef _MSC_VER
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <strings.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#endif
+
+#include <assert.h>
+#include <errno.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <time.h>
+/*
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -15,8 +34,13 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+*/
+
 
 #ifdef _MSC_VER
+typedef intptr_t ssize_t;
+#include "win/getopt.h"
+#include "win/pthreads.h"
 #define EV_STANDALONE              /* keeps ev from requiring config.h */
 #define EV_SELECT_IS_WINSOCKET 1   /* configure libev for windows select */
 #endif
