@@ -1,3 +1,5 @@
+#define _GNU_SOURCE 1
+
 #ifndef _MSC_VER
 #include <arpa/inet.h>
 #include <netdb.h>
