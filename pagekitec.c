@@ -40,25 +40,25 @@ Note: For alternate license terms, see the file COPYING.md.
 void usage(int ecode) {
   fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n\n", PK_VERSION);
   fprintf(stderr, "Usage:\tpagekitec [options] LPORT PROTO"
-                                   " NAME.pagekite.me PPORT SECRET ...\n"
-                  "Options:\n"
-                  "\t-q\tDecrease verbosity (less log output)\n"
-                  "\t-v\tIncrease verbosity (more log output)\n"
+	              " NAME.pagekite.me PPORT SECRET ...\n"
+	              "Options:\n"
+	              "\t-q\tDecrease verbosity (less log output)\n"
+	              "\t-v\tIncrease verbosity (more log output)\n");
 #ifdef HAVE_OPENSSL
-                  "\t-I\tConnect insecurely, without SSL.\n"
+  fprintf(stderr, "\t-I\tConnect insecurely, without SSL.\n");
 #endif
-                  "\t-S\tStatic setup, disable FE failover and DDNS updates\n"
-                  "\t-c N\tSet max connection count to N (default = 25)\n"
-                  "\t-n N\tAlways connect to N spare frontends (default = 0)\n"
-                  "\t-B N\tBail out (abort) after N logged errors\n"
-                  "\t-E N\tAllow eviction of streams idle for >N seconds\n"
-                  "\t-F x\tUse x (a DNS name) as frontend pool\n"
-                  "\t-R\tChoose frontends at random, instead of pinging\n"
-                  "\t-4\tDisable IPv4 frontends\n"
+  fprintf(stderr, "\t-S\tStatic setup, disable FE failover and DDNS updates\n"
+	              "\t-c N\tSet max connection count to N (default = 25)\n"
+	              "\t-n N\tAlways connect to N spare frontends (default = 0)\n"
+	              "\t-B N\tBail out (abort) after N logged errors\n"
+	              "\t-E N\tAllow eviction of streams idle for >N seconds\n"
+	              "\t-F x\tUse x (a DNS name) as frontend pool\n"
+	              "\t-R\tChoose frontends at random, instead of pinging\n"
+	              "\t-4\tDisable IPv4 frontends\n");
 #ifdef HAVE_IPV6
-                  "\t-6\tDisable IPv6 frontends\n"
+  fprintf(stderr, "\t-6\tDisable IPv6 frontends\n");
 #endif
-                  "\t-C\tDisable auto-adding current DNS IP as a front-end\n"
+  fprintf(stderr, "\t-C\tDisable auto-adding current DNS IP as a front-end\n"
                   "\t-W\tEnable watchdog thread (dumps core if we lock up)\n"
                   "\t-Z\tEvil mode: Very low intervals for reconnect/ping\n"
                   "\n");
@@ -136,7 +136,11 @@ int main(int argc, char **argv) {
         break;
       case 'F':
         gotargs++;
-        fe_hostname = strdup(optarg);
+#ifndef _MSC_VER
+		fe_hostname = strdup(optarg);
+#else
+		fe_hostname = _strdup(optarg);
+#endif
         break;
       case 'B':
         gotargs++;
@@ -165,7 +169,9 @@ int main(int argc, char **argv) {
 
   if ((argc-1-gotargs) < 5 || ((argc-1-gotargs) % 5) != 0) usage(1);
 
+#ifndef _MSC_VER
   signal(SIGUSR1, &raise_log_level);
+#endif
   pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERRORS :
                       ((verbosity < 1) ? PK_LOG_NORMAL :
                       ((verbosity < 2) ? PK_LOG_DEBUG : PK_LOG_ALL)));
@@ -228,7 +234,13 @@ int main(int argc, char **argv) {
       exit(4);
     }
   }
-  if (0 == (fes_v4 + fes_v6)) {
+  int fes;
+#ifdef HAVE_IPV6
+  fes = fes_v4 + fes_v6;
+#else
+  fes = fes_v4;
+#endif
+  if (0 == (fes)) {
     pk_error = ERR_NO_FRONTENDS;
     pk_perror(argv[0]);
     exit(4);

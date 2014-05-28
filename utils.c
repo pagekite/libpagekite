@@ -18,14 +18,15 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "common.h"
-#include <fcntl.h>
-
 #ifndef _MSC_VER
 #include <poll.h>
 #define HAVE_POLL
+#else
+//#define _WIN32_WINNT 0x501
 #endif
 
+#include "common.h"
+#include <fcntl.h>
 
 int zero_first_crlf(int length, char* data)
 {
@@ -66,22 +67,27 @@ int dbg_write(int sockfd, char *buffer, int bytes)
 
 int set_non_blocking(int sockfd)
 {
+#ifndef _MSC_VER
   int flags;
-//#ifndef _MSC_VER
   if ((0 <= (flags = fcntl(sockfd, F_GETFL, 0))) &&
 	  (0 <= fcntl(sockfd, F_SETFL, flags | O_NONBLOCK))) return sockfd;
-//#else
-//  if ((0 <= (flags = dup(sockfd))) &&
-//	  (0 <= dup());
-//#endif
+#else
+  ULONG nonBlocking = 1;
+  if (ioctlsocket(sockfd, FIONBIO, &nonBlocking) == NO_ERROR) return sockfd;
+#endif
   return -1;
 }
 
 int set_blocking(int sockfd)
 {
+#ifndef _MSC_VER
   int flags;
   if ((0 <= (flags = fcntl(sockfd, F_GETFL, 0))) &&
       (0 <= fcntl(sockfd, F_SETFL, flags & (~O_NONBLOCK)))) return sockfd;
+#else
+  ULONG blocking = 0;
+  if (ioctlsocket(sockfd, FIONBIO, &blocking) == NO_ERROR) return sockfd;
+#endif
   return -1;
 }
 
@@ -202,7 +208,11 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
   int sockfd, rlen, bytes, total_bytes;
 
   /* http://hostname:port/foo */
+#ifndef _MSC_VER
   urlparse = strdup(url);
+#else
+  urlparse = _strdup(url);
+#endif
   hostname = urlparse+7;
   while (*hostname && *hostname == '/') hostname++;
   port = hostname;

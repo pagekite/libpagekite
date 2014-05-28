@@ -55,7 +55,11 @@ void* pkw_run_watchdog(void *void_pkm)
     last_ticker = pk_global_watchdog_ticker;
     for (i = 0; i < (pkm->housekeeping_interval_max * 2); i++) {
       if (pk_global_watchdog_ticker < 0) return NULL;
+#ifndef _MSC_VER
       sleep(1);
+#else
+	  Sleep(1);
+#endif
     }
   }
 }

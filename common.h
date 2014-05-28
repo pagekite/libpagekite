@@ -8,6 +8,9 @@
 #include <strings.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#else
+#pragma comment(lib, "ws2_32.lib")
+#include <ws2tcpip.h>
 #endif
 
 #include <assert.h>
@@ -38,13 +41,22 @@
 #include <unistd.h>
 */
 
+#ifndef __STDC__
+#define __STDC__ 1
+#endif
 
 #ifdef _MSC_VER
 typedef intptr_t ssize_t;
+#include "win/gettimeofday.h"
 #include "win/getopt.h"
 #include "win/pthreads.h"
-#define EV_STANDALONE              /* keeps ev from requiring config.h */
-#define EV_SELECT_IS_WINSOCKET 1   /* configure libev for windows select */
+#include "libev/evwrap.h"
+//#define EV_STANDALONE              /* keeps ev from requiring config.h */
+//#define EV_SELECT_IS_WINSOCKET 1   /* configure libev for windows select */
+#define sleep Sleep
+#define strncasecmp _stricmp
+#define strcasecmp _stricmp
+#define snprintf _snprintf // This could potentially be problematic
 #endif
 
 #include <ev.h>

@@ -942,7 +942,7 @@ static EV_ATOMIC_T have_monotonic; /* did clock_gettime (CLOCK_MONOTONIC) work? 
 # define EV_WIN32_HANDLE_TO_FD(handle) _open_osfhandle (handle, 0)
 #endif
 #ifndef EV_WIN32_CLOSE_FD
-# define EV_WIN32_CLOSE_FD(fd) close (fd)
+# define EV_WIN32_CLOSE_FD(fd) _close (fd)
 #endif
 
 #ifdef _WIN32
@@ -1821,7 +1821,11 @@ evpipe_write (EV_P_ EV_ATOMIC_T *flag)
           /* so when you think this write should be a send instead, please find out */
           /* where your send() is from - it's definitely not the microsoft send, and */
           /* tell me. thank you. */
-          write (evpipe [1], &(evpipe [1]), 1);
+#ifndef _MSC_VER
+		  write (evpipe [1], &(evpipe [1]), 1);
+#else
+		  _write(evpipe[1], &(evpipe[1]), 1);
+#endif
         }
 
       errno = old_errno;
@@ -1848,7 +1852,11 @@ pipecb (EV_P_ ev_io *iow, int revents)
         {
           char dummy;
           /* see discussion in evpipe_write when you think this read should be recv in win32 */
-          read (evpipe [0], &dummy, 1);
+#ifndef _MSC_VER
+		  read (evpipe [0], &dummy, 1);
+#else
+		  _read(evpipe[0], &dummy, 1);
+#endif
         }
     }
 
@@ -2316,7 +2324,11 @@ ev_loop_destroy (EV_P)
 #endif
 
   if (backend_fd >= 0)
+#ifndef _MSC_VER
     close (backend_fd);
+#else
+	  _close(backend_fd);
+#endif
 
 #if EV_USE_IOCP
   if (backend == EVBACKEND_IOCP  ) iocp_destroy   (EV_A);

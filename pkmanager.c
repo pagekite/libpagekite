@@ -206,9 +206,15 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
     addr = &addr_buf;
     memset((char *) addr, 0, sizeof(addr));
     addr->sin_family = AF_INET;
-    bcopy((char*) backend->h_addr_list[0],
+#ifndef _MSC_VER
+	bcopy((char*) backend->h_addr_list[0],
           (char*) &(addr->sin_addr.s_addr),
           backend->h_length);
+#else
+	memmove((char*)&(addr->sin_addr.s_addr),
+            (char*)backend->h_addr_list[0], 
+            backend->h_length);
+#endif
     addr->sin_port = htons(kite->local_port);
   }
 
@@ -1018,8 +1024,11 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 
   pkm->last_world_update = (time_t) 0;
   pkm->last_dns_update = (time_t) 0;
+#ifndef _MSC_VER
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
-
+#else
+  pkm->dynamic_dns_url = dynamic_dns_url ? _strdup(dynamic_dns_url) : NULL;
+#endif
   pkm->ssl_ctx = ctx;
   PKS_STATE(pk_state.have_ssl = (ctx != NULL);
             pk_state.force_update = 1)
@@ -1051,7 +1060,9 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->blocking_jobs.count = 0;
 
   /* SIGPIPE is boring */
+#ifndef _MSC_VER
   signal(SIGPIPE, SIG_IGN);
+#endif
 
   pk_log(PK_LOG_MANAGER_INFO,
          "Initialized %s manager v%s/%s (using %d bytes)",
@@ -1123,7 +1134,7 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
 {
   int which;
   char *pp;
-  struct pk_pagekite* kite;
+  struct pk_pagekite* kite = NULL;
 
   PK_TRACE_FUNCTION;
 
@@ -1134,6 +1145,11 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   }
   if (which >= pkm->kite_max)
     return pk_err_null(ERR_NO_MORE_KITES);
+
+  // Saevar: fix this, return something
+  if (kite == NULL)
+	  return;
+
 
   strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
   strncpyz(kite->auth_secret, auth_secret, PK_SECRET_LENGTH);
@@ -1213,7 +1229,11 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
     return pk_err_null(ERR_NO_MORE_FRONTENDS);
 
   adding->ai = ai;
+#ifndef _MSC_VER
   adding->fe_hostname = strdup(hostname);
+#else
+  adding->fe_hostname = _strdup(hostname);
+#endif
   adding->fe_port = port;
   adding->last_ddnsup = 0;
   adding->error_count = 0;

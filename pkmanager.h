@@ -18,6 +18,12 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#ifdef _MSC_VER
+#define SHUT_RD 0
+#define SHUT_WR 1
+#define SHUT_RDWR 2
+#endif
+
 #define PK_HOUSEKEEPING_INTERVAL_MIN    15  /* Seconds */
 #define PK_HOUSEKEEPING_INTERVAL_MAX   900  /* 15 minutes */
 #define PK_CHECK_WORLD_INTERVAL       3600  /* 1 hour */
