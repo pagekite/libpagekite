@@ -63,7 +63,6 @@
  * file descriptors.
  */
 
-#include <sys/types.h>
 #include <sys/epoll.h>
 
 #define EV_EMASK_EPERM 0x80
@@ -239,7 +238,7 @@ epoll_init (EV_P_ int flags)
 #ifdef EPOLL_CLOEXEC
   backend_fd = epoll_create1 (EPOLL_CLOEXEC);
 
-  if (backend_fd <= 0)
+  if (backend_fd < 0 && (errno == EINVAL || errno == ENOSYS))
 #endif
     backend_fd = epoll_create (256);
 
@@ -248,7 +247,7 @@ epoll_init (EV_P_ int flags)
 
   fcntl (backend_fd, F_SETFD, FD_CLOEXEC);
 
-  backend_mintime = 1./1024.; /* epoll does sometimes return early, this is just to avoid the worst */
+  backend_mintime = 1e-3; /* epoll does sometimes return early, this is just to avoid the worst */
   backend_modify  = epoll_modify;
   backend_poll    = epoll_poll;
 

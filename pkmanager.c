@@ -1024,11 +1024,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 
   pkm->last_world_update = (time_t) 0;
   pkm->last_dns_update = (time_t) 0;
-#ifndef _MSC_VER
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
-#else
-  pkm->dynamic_dns_url = dynamic_dns_url ? _strdup(dynamic_dns_url) : NULL;
-#endif
   pkm->ssl_ctx = ctx;
   PKS_STATE(pk_state.have_ssl = (ctx != NULL);
             pk_state.force_update = 1)
@@ -1134,6 +1130,7 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
 {
   int which;
   char *pp;
+//  struct pk_pagekite* kite;
   struct pk_pagekite* kite = NULL;
 
   PK_TRACE_FUNCTION;
@@ -1146,10 +1143,9 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   if (which >= pkm->kite_max)
     return pk_err_null(ERR_NO_MORE_KITES);
 
-  // Saevar: fix this, return something
+/*   Saevar: need to fix this, return some error   */
   if (kite == NULL)
-	  return;
-
+	  return kite;
 
   strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
   strncpyz(kite->auth_secret, auth_secret, PK_SECRET_LENGTH);
@@ -1229,11 +1225,7 @@ struct pk_frontend* pkm_add_frontend_ai(struct pk_manager* pkm,
     return pk_err_null(ERR_NO_MORE_FRONTENDS);
 
   adding->ai = ai;
-#ifndef _MSC_VER
   adding->fe_hostname = strdup(hostname);
-#else
-  adding->fe_hostname = _strdup(hostname);
-#endif
   adding->fe_port = port;
   adding->last_ddnsup = 0;
   adding->error_count = 0;

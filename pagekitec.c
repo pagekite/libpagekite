@@ -84,7 +84,11 @@ int main(int argc, char **argv) {
   int fes_v6 = 0;
 #endif
   int use_current = 1;
+//#ifndef _MSC_VER
   int use_ssl = 1;
+//#else
+//  int use_ssl = 0;
+//#endif
   int use_evil = 0;
   int use_watchdog = 0;
   int max_conns = 25;

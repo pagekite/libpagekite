@@ -17,16 +17,19 @@ If not, see: <http://www.apache.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
+#include "common.h"
+#include <fcntl.h>
 
 #ifndef _MSC_VER
 #include <poll.h>
 #define HAVE_POLL
 #else
 //#define _WIN32_WINNT 0x501
+//#define strdup _strdup
+//#define close _close
+//#define write _write
+//#define read _read
 #endif
-
-#include "common.h"
-#include <fcntl.h>
 
 int zero_first_crlf(int length, char* data)
 {
@@ -208,11 +211,7 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
   int sockfd, rlen, bytes, total_bytes;
 
   /* http://hostname:port/foo */
-#ifndef _MSC_VER
   urlparse = strdup(url);
-#else
-  urlparse = _strdup(url);
-#endif
   hostname = urlparse+7;
   while (*hostname && *hostname == '/') hostname++;
   port = hostname;

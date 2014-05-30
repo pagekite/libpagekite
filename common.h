@@ -57,9 +57,10 @@ typedef intptr_t ssize_t;
 #define strncasecmp _stricmp
 #define strcasecmp _stricmp
 #define snprintf _snprintf // This could potentially be problematic
-#endif
-
+#define strdup _strdup
+#else
 #include <ev.h>
+#endif
 
 #ifndef ANDROID
 typedef signed char               int8_t;

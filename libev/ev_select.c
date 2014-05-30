@@ -43,9 +43,6 @@
 # ifndef __hpux
 /* for REAL unix systems */
 #  include <sys/select.h>
-#ifdef ANDROID
-	typedef int        fd_mask;
-#endif
 # endif
 #endif
 
@@ -107,7 +104,7 @@ select_modify (EV_P_ int fd, int oev, int nev)
         FD_CLR (handle, (fd_set *)vec_wi);
 
 #else
-	
+
     int     word = fd / NFDBITS;
     fd_mask mask = 1UL << (fd % NFDBITS);
 
