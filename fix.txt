@@ -1,0 +1,7 @@
+fix:
+
+get permission to use gettimeofday
+
+fix pk_make_bsalt in pkproto.c
+
+possibly fix _snprintf in common.h
