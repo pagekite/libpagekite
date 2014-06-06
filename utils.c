@@ -65,7 +65,11 @@ char *skip_http_header(int length, const char* data)
 int dbg_write(int sockfd, char *buffer, int bytes)
 {
   printf(">> %s", buffer);
+#ifndef _MSC_VER
   return write(sockfd, buffer, bytes);
+#else
+  return send(_get_osfhandle(sockfd), buffer, bytes, 0);
+#endif
 }
 
 int set_non_blocking(int sockfd)
@@ -76,7 +80,7 @@ int set_non_blocking(int sockfd)
 	  (0 <= fcntl(sockfd, F_SETFL, flags | O_NONBLOCK))) return sockfd;
 #else
   ULONG nonBlocking = 1;
-  if (ioctlsocket(sockfd, FIONBIO, &nonBlocking) == NO_ERROR) return sockfd;
+  if (ioctlsocket(_get_osfhandle(sockfd), FIONBIO, &nonBlocking) == NO_ERROR) return sockfd;
 #endif
   return -1;
 }
@@ -89,7 +93,7 @@ int set_blocking(int sockfd)
       (0 <= fcntl(sockfd, F_SETFL, flags & (~O_NONBLOCK)))) return sockfd;
 #else
   ULONG blocking = 0;
-  if (ioctlsocket(sockfd, FIONBIO, &blocking) == NO_ERROR) return sockfd;
+  if (ioctlsocket(_get_osfhandle(sockfd), FIONBIO, &blocking) == NO_ERROR) return sockfd;
 #endif
   return -1;
 }
@@ -108,7 +112,12 @@ int wait_fd(int fd, int timeout_ms)
   struct timeval tv;
 
   FD_ZERO(&rfds);
+#ifndef _MSC_VER
   FD_SET(fd, &rfds);
+#else
+  FD_SET(_get_osfhandle(fd), &rfds);
+  int ok = WSAGetLastError();
+#endif
   tv.tv_sec = (timeout_ms / 1000);
   tv.tv_usec = 1000 * (timeout_ms % 1000);
 
@@ -123,8 +132,15 @@ ssize_t timed_read(int sockfd, void* buf, size_t count, int timeout_ms)
   set_non_blocking(sockfd);
   do {
     if (0 <= (rv = wait_fd(sockfd, timeout_ms)))
+    {
+#ifndef _MSC_VER
       rv = read(sockfd, buf, count);
+#else
+	  rv = recv(_get_osfhandle(sockfd), buf, count, 0);
+#endif
+    }
   } while (errno == EINTR);
+
   set_blocking(sockfd);
 
   return rv;
@@ -242,11 +258,17 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
   hints.ai_socktype = SOCK_STREAM;
   if (0 == getaddrinfo(hostname, port, &hints, &result)) {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
+#ifndef _MSC_VER
       if ((0 > (sockfd = socket(rp->ai_family, rp->ai_socktype,
-                                rp->ai_protocol))) ||
-          (0 > connect(sockfd, rp->ai_addr, rp->ai_addrlen)) ||
-          (0 > write(sockfd, request, rlen)))
-      {
+			rp->ai_protocol))) ||
+		  (0 > connect(sockfd, rp->ai_addr, rp->ai_addrlen)) ||
+		  (0 > write(sockfd, request, rlen))) {
+#else
+	  if ((0 > (sockfd = _open_osfhandle(socket(rp->ai_family, rp->ai_socktype,
+			                                    rp->ai_protocol), 0))) ||
+		  (SOCKET_ERROR == connect(_get_osfhandle(sockfd), rp->ai_addr, rp->ai_addrlen)) ||
+		  (SOCKET_ERROR == send(_get_osfhandle(sockfd), request, rlen, 0))) {
+#endif
         if (sockfd >= 0) close(sockfd);
       }
       else {

@@ -45,7 +45,11 @@ int pk_log(int level, const char* fmt, ...)
 
   if (level & pk_state.log_mask) {
     len = sprintf(output, "ts=%x; tid=%x; ll=%x; lm=%x; msg=",
+//#ifndef _MSC_VER//remove
                           (int) time(0), (int) pthread_self(),
+//#else//remove
+//                          (int)time(0), (int)pthread_self().p, // remove
+//#endif // remove
                           logged_lines++, level);
     va_start(args, fmt);
     len += (r = vsnprintf(output + len, 4000 - len, fmt, args));

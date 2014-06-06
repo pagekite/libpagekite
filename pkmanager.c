@@ -18,6 +18,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#include <fcntl.h>
 #include "common.h"
 #include "utils.h"
 #include "pkerror.h"
@@ -50,8 +51,12 @@ void pkm_interrupt(struct pk_manager *pkm)
 
 void pkm_block(struct pk_manager *pkm)
 {
+//#ifndef _MSC_VER
   if (pthread_self() != pkm->main_thread) {
-/*
+//#else //remove
+//  if (!pthread_equal(pthread_self(), pkm->main_thread)){ //remove
+//#endif //remove
+	  /*
     while (0 != pthread_mutex_trylock(&(pkm->loop_lock))) {
       pkm_interrupt(pkm);
     }
@@ -62,8 +67,12 @@ void pkm_block(struct pk_manager *pkm)
 }
 void pkm_unblock(struct pk_manager *pkm)
 {
-  if (pthread_self() != pkm->main_thread) {
-    pthread_mutex_unlock(&(pkm->loop_lock));
+//#ifndef _MSC_VER //remove
+	if (pthread_self() != pkm->main_thread) {
+//#else //remove
+//	if (!pthread_equal(pthread_self(), pkm->main_thread)){ //remove
+//#endif //remove
+      pthread_mutex_unlock(&(pkm->loop_lock));
   }
 }
 
@@ -221,8 +230,13 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
   /* Try to connect and set non-blocking. */
   errno = sockfd = 0;
   if ((NULL == addr) ||
+#ifndef _MSC_VER
       (0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
       (0 > connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))) ||
+#else
+	  (0 > (sockfd = _open_osfhandle(socket(AF_INET, SOCK_STREAM, 0), 0))) ||
+	  (SOCKET_ERROR == connect(_get_osfhandle(sockfd), (struct sockaddr*) addr, sizeof(*addr))) ||
+#endif
       (0 > set_non_blocking(sockfd)))
   {
     if (errno != EINPROGRESS) {
@@ -243,7 +257,11 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
    *        See also: http://developerweb.net/viewtopic.php?id=3196 */
 
   pkb->kite = kite;
+#ifndef _MSC_VER
   pkb->conn.sockfd = sockfd;
+#else
+  pkb->conn.sockfd = _open_osfhandle(sockfd, 0);
+#endif
 
   ev_io_init(&(pkb->conn.watch_r), pkm_be_conn_readable_cb, sockfd, EV_READ);
   ev_io_init(&(pkb->conn.watch_w), pkm_be_conn_writable_cb, sockfd, EV_WRITE);
@@ -354,7 +372,12 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     /* Not going to read anymore, stop listening. */
     pkc->status |= (CONN_STATUS_END_READ | CONN_STATUS_CLS_READ);
     ev_io_stop(pkm->loop, &(pkc->watch_r));
-    shutdown(pkc->sockfd, SHUT_RD);
+#ifndef _MSC_VER
+	shutdown(pkc->sockfd, SHUT_RD);
+#else
+    shutdown(_get_osfhandle(pkc->sockfd), SHUT_RD);
+#endif
+
     flows -= 1;
     pk_log(loglevel, "%d: Closed for reading.", pkc->sockfd);
     if (pkb == NULL) {
@@ -385,7 +408,11 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     }
     pkc->status |= (CONN_STATUS_END_WRITE | CONN_STATUS_CLS_WRITE);
     pkc->out_buffer_pos = 0;
+#ifndef _MSC_VER
     shutdown(pkc->sockfd, SHUT_WR);
+#else
+	shutdown(_get_osfhandle(pkc->sockfd), SHUT_WR);
+#endif
     ev_io_stop(pkm->loop, &(pkc->watch_w));
     flows -= 1;
     pk_log(loglevel, "%d: Closed for writing.", pkc->sockfd);
@@ -401,7 +428,11 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     if (pkc->status & CONN_STATUS_END_WRITE) {
       /* Not blocked, no more data (sources closed), shutdown. */
       pkc->status |= CONN_STATUS_CLS_WRITE;
+#ifndef _MSC_VER
       shutdown(pkc->sockfd, SHUT_WR);
+#else
+	  shutdown(_get_osfhandle(pkc->sockfd), SHUT_WR);
+#endif
       flows -= 1;
       pk_log(loglevel, "%d: Closed for writing (remote).", pkc->sockfd);
     }
@@ -1037,7 +1068,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 
   /* Let external threads shut us down */
   ev_async_init(&(pkm->quit), pkm_quit_cb);
-  ev_async_start(loop, &(pkm->quit));
+  ev_async_start(loop, &(pkm->quit)); // CAUSING ERRORS ON WINDOWS--------------------------------------
 
   /* Let external threads control our "periodic housekeeping" */
   ev_async_init(&(pkm->tick), pkm_tick_cb);

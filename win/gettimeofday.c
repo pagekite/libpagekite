@@ -22,7 +22,7 @@ Note: For alternate license terms, see the file COPYING.md.
 // TODO: get permission to use this
 // http://www.interopcommunity.com/dictionary/gettimeofday-entry.php
 //
-#include <gettimeofday.h>
+#include "gettimeofday.h"
 #include <time.h>
 #include <windows.h>
 

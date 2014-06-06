@@ -10,6 +10,8 @@
 #include <unistd.h>
 #else
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "libeay32.lib")
+#pragma comment(lib, "ssleay32.lib")
 #include <ws2tcpip.h>
 #endif
 
@@ -47,16 +49,14 @@
 
 #ifdef _MSC_VER
 typedef intptr_t ssize_t;
-#include "win/gettimeofday.h"
-#include "win/getopt.h"
-#include "win/pthreads.h"
-#include "libev/evwrap.h"
-//#define EV_STANDALONE              /* keeps ev from requiring config.h */
-//#define EV_SELECT_IS_WINSOCKET 1   /* configure libev for windows select */
+#include <gettimeofday.h>
+#include <getopt.h>
+#include <evwrap.h>
+#include <pthreads.h>
 #define sleep Sleep
-#define strncasecmp _stricmp
+#define strncasecmp _strnicmp
 #define strcasecmp _stricmp
-#define snprintf _snprintf // This could potentially be problematic
+#define snprintf _snprintf // might cause problems?
 #define strdup _strdup
 #else
 #include <ev.h>
@@ -75,6 +75,9 @@ typedef unsigned int              uint32_t;
 #if defined(HAVE_IPV6) && (HAVE_IPV6 == 0)
 #undef HAVE_IPV6
 #endif
+
+/* FIXME: "probably" not the right way to define HAVE_OPENSSL*/
+#define HAVE_OPENSSL 1
 
 #if defined(HAVE_OPENSSL) && (HAVE_OPENSSL != 0)
 #include <openssl/ssl.h>

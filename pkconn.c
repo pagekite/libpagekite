@@ -42,7 +42,16 @@ void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
   pkc->sent_kb = 0;
   pkc->wrote_bytes = 0;
   pkc->reported_kb = 0;
-  if (pkc->sockfd >= 0) close(pkc->sockfd);
+  if (pkc->sockfd >= 0)
+  {
+	  int ok = WSAGetLastError();
+//      SOCKET sockkk = _get_osfhandle(pkc->sockfd);
+	  close(pkc->sockfd);
+	  //closesocket(_get_osfhandle(pkc->sockfd));
+	  int okt = WSAGetLastError();
+	  int kwer = 1;
+//	  WSACleanup();
+  }
   pkc->sockfd = -1;
   pkc->state = CONN_CLEAR_DATA;
 #ifdef HAVE_OPENSSL
@@ -55,15 +64,19 @@ int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
 {
   int fd;
   pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
+#ifndef _MSC_VER
   if ((0 > (fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol))) ||
       (0 > connect(fd, ai->ai_addr, ai->ai_addrlen))) {
+#else
+  if ((0 > (fd = _open_osfhandle(socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol), 0))) ||
+	  (SOCKET_ERROR == connect(_get_osfhandle(fd), ai->ai_addr, ai->ai_addrlen))) {
+#endif
     pkc->sockfd = -1;
     if (fd >= 0) close(fd);
     return (pk_error = ERR_CONNECT_CONNECT);
   }
 
   /* FIXME: Add support for chaining through socks or HTTP proxies */
-
   return (pkc->sockfd = fd);
 }
 
@@ -95,6 +108,9 @@ static void pkc_do_handshake(struct pk_conn *pkc)
   int rv;
   errno = 0;
   rv = SSL_do_handshake(pkc->ssl);
+  int ret = SSL_get_error(pkc->ssl, rv); //remove
+  int ok1 = ERR_get_error(); //remove
+  int ok = errno;//remove
   if (rv == 1) {
     pkc_end_handshake(pkc);
   }
@@ -131,7 +147,11 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx)
   SSL_set_mode(pkc->ssl, mode);
   SSL_set_connect_state(pkc->ssl);
   SSL_set_app_data(pkc->ssl, pkc);
+#ifndef _MSC_VER
   SSL_set_fd(pkc->ssl, pkc->sockfd);
+#else
+  SSL_set_fd(pkc->ssl, _get_osfhandle(pkc->sockfd));
+#endif
 
   pkc_start_handshake(pkc, SSL_ERROR_WANT_WRITE);
   pkc_do_handshake(pkc);
@@ -163,6 +183,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
     case CONN_SSL_DATA:
       errno = 0;
       bytes = SSL_read(pkc->ssl, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
+	  fprintf(stderr, "-------------------\n recv: %d\n len: %d\n------------------\n", bytes, PKC_IN_FREE(*pkc)); // remove
       if (bytes < 0) ssl_errno = SSL_get_error(pkc->ssl, bytes);
       break;
     case CONN_SSL_HANDSHAKE:
@@ -170,7 +191,13 @@ ssize_t pkc_read(struct pk_conn* pkc)
       return 0;
 #endif
     default:
+#ifndef _MSC_VER
       bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
+#else
+      bytes = recv(_get_osfhandle(pkc->sockfd), PKC_IN(*pkc), PKC_IN_FREE(*pkc), 0);
+	 // bytes = _read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
+	  fprintf(stderr, "-------------------\n recv: %d\n len: %d\n------------------\n", bytes, PKC_IN_FREE(*pkc)); // remove
+#endif
   }
 
   if (bytes > 0) {
@@ -237,6 +264,7 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
     case CONN_SSL_DATA:
       if (length) {
         wrote = SSL_write(pkc->ssl, data, length);
+		fprintf(stderr, "+++++++++++++++++++++++++\n send: %d\n length: %d \n errno: %d\n++++++++++++++++++++++++++++++++\n", wrote, length, errno); // remove
         if (wrote < 0) {
           int err = SSL_get_error(pkc->ssl, wrote);
           switch (err) {
@@ -263,7 +291,13 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
 
     default:
       if (length)
+#ifndef _MSC_VER
         wrote = write(pkc->sockfd, data, length);
+#else
+		wrote = send(_get_osfhandle(pkc->sockfd), data, length, 0);
+	   // wrote = _write(pkc->sockfd, data, length);
+	    fprintf(stderr, "+++++++++++++++++++++++++\n send: %d\n length: %d \n errno: %d\n++++++++++++++++++++++++++++++++\n", wrote, length, errno); // remove
+#endif
   }
   if (wrote > 0) pkc->wrote_bytes += wrote;
   return wrote;

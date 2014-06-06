@@ -2,6 +2,4 @@ fix:
 
 get permission to use gettimeofday
 
-fix pk_make_bsalt in pkproto.c
-
-possibly fix _snprintf in common.h
+return some error message in pkm_add_kite in pkmanager.c instead of NULL

@@ -84,11 +84,7 @@ int main(int argc, char **argv) {
   int fes_v6 = 0;
 #endif
   int use_current = 1;
-//#ifndef _MSC_VER
   int use_ssl = 1;
-//#else
-//  int use_ssl = 0;
-//#endif
   int use_evil = 0;
   int use_watchdog = 0;
   int max_conns = 25;
@@ -140,11 +136,7 @@ int main(int argc, char **argv) {
         break;
       case 'F':
         gotargs++;
-#ifndef _MSC_VER
 		fe_hostname = strdup(optarg);
-#else
-		fe_hostname = _strdup(optarg);
-#endif
         break;
       case 'B':
         gotargs++;
@@ -176,6 +168,7 @@ int main(int argc, char **argv) {
 #ifndef _MSC_VER
   signal(SIGUSR1, &raise_log_level);
 #endif
+
   pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERRORS :
                       ((verbosity < 1) ? PK_LOG_NORMAL :
                       ((verbosity < 2) ? PK_LOG_DEBUG : PK_LOG_ALL)));
@@ -187,11 +180,22 @@ int main(int argc, char **argv) {
     ssl_ctx = NULL;
   }
 
+#ifdef _MSC_VER
+  /* Initialize Winsock */
+  int r;
+  WSADATA wsa_data;
+  r = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+  if (r != 0) {
+	  fprintf(stderr, "WSAStartup failed: %d\n", r);
+	  return 1;
+  }
+#endif
+
   if (NULL == (m = pkm_manager_init(NULL, 0, NULL,
                                     1 + (argc-1-gotargs)/5, /* Kites */
                                     PAGEKITE_NET_FE_MAX,
                                     max_conns, ddns_url, ssl_ctx))) {
-    pk_perror(argv[0]);
+	pk_perror(argv[0]);
     exit(1);
   }
   m->want_spare_frontends = spare_frontends;
@@ -256,6 +260,11 @@ int main(int argc, char **argv) {
   }
 
   pkm_wait_thread(m);
+
+#ifdef _MSC_VER
+  WSACleanup();
+#endif
+
   return 0;
 }
 
