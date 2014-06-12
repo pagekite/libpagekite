@@ -301,8 +301,13 @@ void* pkb_frontend_ping(void* void_fe) {
 		(SOCKET_ERROR == send(_get_osfhandle(sockfd), PK_FRONTEND_PING, strlen(PK_FRONTEND_PING), 0)))
 #endif
     {
-      if (sockfd >= 0)
+      if (sockfd >= 0){
+#ifndef _MSC_VER
         close(sockfd);
+#else
+		closesocket(_get_osfhandle(sockfd));
+#endif
+      }
       if (fe->error_count < 999)
         fe->error_count += 1;
       pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s failed! (connect)", printip);
@@ -319,7 +324,11 @@ void* pkb_frontend_ping(void* void_fe) {
       sleep(2); /* We don't want to return first! */
       return NULL;
     }
+#ifndef _MSC_VER
     close(sockfd);
+#else
+	closesocket(_get_osfhandle(sockfd));
+#endif
     gettimeofday(&tv2, NULL);
 
     fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
@@ -352,34 +361,19 @@ void pkb_check_frontend_pingtimes(struct pk_manager* pkm)
 
   PK_TRACE_FUNCTION;
 
-//#ifndef _MSC_VER // remove
   pthread_t first = 0;
   pthread_t pt = 0;
-//#else //remove
-//  pthread_t first; //remove
-//  first.p = 0; //remove
-//  pthread_t pt; //remove
- // first.p = 0; //remove
-//#endif remove 
   for (j = 0, fe = pkm->frontends; j < pkm->frontend_max; j++, fe++) {
     if (fe->ai) {
       if (0 == pthread_create(&pt, NULL, pkb_frontend_ping, (void *) fe)) {
-//#ifndef _MSC_VER //remove
         if (first)
-//#else //remove 
-//	    if (first.p)//remove
-//#endif //remove
           pthread_detach(pt);
         else
           first = pt;
       }
     }
   }
-//#ifndef _MSC_VER //remove
   if (first) {
-//#else // remove
-//  if (first.p) { //remove
-//#endif // remove
     /* Sleep, but only wait for the first one - usually we only care about the
      * fastest anyway.  The others will return in their own good time.
      */

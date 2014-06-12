@@ -1,0 +1,7 @@
+fix:
+
+get permission to use gettimeofday
+
+return some error message in pkm_add_kite in pkmanager.c instead of NULL
+
+in parse_frame_header in pkproto.c be sure scanf does the right thing

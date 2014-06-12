@@ -24,31 +24,14 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
-/*
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <unistd.h>
-*/
 
 #ifndef __STDC__
 #define __STDC__ 1
 #endif
 
 #ifdef _MSC_VER
-typedef intptr_t ssize_t;
+typedef SSIZE_T ssize_t;
+#include <Mswsock.h>
 #include <gettimeofday.h>
 #include <getopt.h>
 #include <evwrap.h>
@@ -56,8 +39,9 @@ typedef intptr_t ssize_t;
 #define sleep Sleep
 #define strncasecmp _strnicmp
 #define strcasecmp _stricmp
-#define snprintf _snprintf // might cause problems?
+#define snprintf _snprintf /* This is probably okay */
 #define strdup _strdup
+#define HAVE_OPENSSL 1
 #else
 #include <ev.h>
 #endif
@@ -75,9 +59,6 @@ typedef unsigned int              uint32_t;
 #if defined(HAVE_IPV6) && (HAVE_IPV6 == 0)
 #undef HAVE_IPV6
 #endif
-
-/* FIXME: "probably" not the right way to define HAVE_OPENSSL*/
-#define HAVE_OPENSSL 1
 
 #if defined(HAVE_OPENSSL) && (HAVE_OPENSSL != 0)
 #include <openssl/ssl.h>
@@ -103,4 +84,3 @@ typedef unsigned int              uint32_t;
 #define PARSER_BYTES_MIN   1 * 1024
 #define PARSER_BYTES_AVG   2 * 1024
 #define PARSER_BYTES_MAX   4 * 1024  /* <= CONN_IO_BUFFER_SIZE */
-

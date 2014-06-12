@@ -17,10 +17,18 @@ If not, see: <http://www.apache.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
+
+#ifndef _MSC_VER
 #include <arpa/inet.h>
+#include <unistd.h>
+#else
+#pragma comment(lib, "ws2_32.lib")
+#include <ws2tcpip.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #include <assert.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "utils.h"
 

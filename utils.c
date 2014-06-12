@@ -23,12 +23,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #ifndef _MSC_VER
 #include <poll.h>
 #define HAVE_POLL
-#else
-//#define _WIN32_WINNT 0x501
-//#define strdup _strdup
-//#define close _close
-//#define write _write
-//#define read _read
 #endif
 
 int zero_first_crlf(int length, char* data)
@@ -112,12 +106,13 @@ int wait_fd(int fd, int timeout_ms)
   struct timeval tv;
 
   FD_ZERO(&rfds);
+
 #ifndef _MSC_VER
   FD_SET(fd, &rfds);
 #else
   FD_SET(_get_osfhandle(fd), &rfds);
-  int ok = WSAGetLastError();
 #endif
+
   tv.tv_sec = (timeout_ms / 1000);
   tv.tv_usec = 1000 * (timeout_ms % 1000);
 
@@ -269,7 +264,13 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
 		  (SOCKET_ERROR == connect(_get_osfhandle(sockfd), rp->ai_addr, rp->ai_addrlen)) ||
 		  (SOCKET_ERROR == send(_get_osfhandle(sockfd), request, rlen, 0))) {
 #endif
-        if (sockfd >= 0) close(sockfd);
+        if (sockfd >= 0) {
+#ifndef _MSC_VER
+          close(sockfd);
+#else
+          closesocket(_get_osfhandle(sockfd));
+#endif
+		}
       }
       else {
         total_bytes = 0;
@@ -282,7 +283,11 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
           }
         } while (bytes > 0);
         *bp = '\0';
-        close(sockfd);
+#ifndef _MSC_VER
+		close(sockfd);
+#else
+		closesocket(_get_osfhandle(sockfd));
+#endif
         break;
       }
     }

@@ -51,12 +51,8 @@ void pkm_interrupt(struct pk_manager *pkm)
 
 void pkm_block(struct pk_manager *pkm)
 {
-//#ifndef _MSC_VER
   if (pthread_self() != pkm->main_thread) {
-//#else //remove
-//  if (!pthread_equal(pthread_self(), pkm->main_thread)){ //remove
-//#endif //remove
-	  /*
+/*
     while (0 != pthread_mutex_trylock(&(pkm->loop_lock))) {
       pkm_interrupt(pkm);
     }
@@ -67,11 +63,7 @@ void pkm_block(struct pk_manager *pkm)
 }
 void pkm_unblock(struct pk_manager *pkm)
 {
-//#ifndef _MSC_VER //remove
 	if (pthread_self() != pkm->main_thread) {
-//#else //remove
-//	if (!pthread_equal(pthread_self(), pkm->main_thread)){ //remove
-//#endif //remove
       pthread_mutex_unlock(&(pkm->loop_lock));
   }
 }
@@ -220,8 +212,8 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
           (char*) &(addr->sin_addr.s_addr),
           backend->h_length);
 #else
-	memmove((char*)&(addr->sin_addr.s_addr),
-            (char*)backend->h_addr_list[0], 
+	memmove((char*) &(addr->sin_addr.s_addr),
+            (char*) backend->h_addr_list[0], 
             backend->h_length);
 #endif
     addr->sin_port = htons(kite->local_port);
@@ -243,7 +235,11 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
       /* FIXME:
          EINPROGRESS never happens until we swap connect/set_non_blocking
          above.  Do that later once we've figured out error handling. */
+#ifndef _MSC_VER
       close(sockfd);
+#else
+      closesocket(_get_osfhandle(sockfd));
+#endif
       pkm_free_be_conn(pkb);
       pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: Failed to connect %s:%d",
                                   kite->local_domain, kite->local_port);
@@ -257,11 +253,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
    *        See also: http://developerweb.net/viewtopic.php?id=3196 */
 
   pkb->kite = kite;
-#ifndef _MSC_VER
   pkb->conn.sockfd = sockfd;
-#else
-  pkb->conn.sockfd = _open_osfhandle(sockfd, 0);
-#endif
 
   ev_io_init(&(pkb->conn.watch_r), pkm_be_conn_readable_cb, sockfd, EV_READ);
   ev_io_init(&(pkb->conn.watch_w), pkm_be_conn_writable_cb, sockfd, EV_WRITE);
@@ -467,7 +459,13 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
 
   if (0 == flows) {
     /* Nothing to read or write, close and clean up. */
-    if (0 <= pkc->sockfd) close(pkc->sockfd);
+    if (0 <= pkc->sockfd) {
+#ifndef _MSC_VER
+      close(pkc->sockfd);
+#else
+      closesocket(_get_osfhandle(pkc->sockfd));
+#endif
+	}
     if (pkb != NULL) {
       pkm_free_be_conn(pkb);
       PKS_STATE(pk_state.live_streams -= 1);
@@ -699,8 +697,12 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
       if (0 <= fe->conn.sockfd) {
         ev_io_stop(pkm->loop, &(fe->conn.watch_r));
         ev_io_stop(pkm->loop, &(fe->conn.watch_w));
-        close(fe->conn.sockfd);
-        fe->conn.sockfd = -1;
+#ifndef _MSC_VER
+		close(fe->conn.sockfd);
+#else
+		closesocket(_get_osfhandle(fe->conn.sockfd));
+#endif
+		fe->conn.sockfd = -1;
       }
       status = fe->conn.status;
       pkc_reset_conn(&(fe->conn), 0);
@@ -795,7 +797,11 @@ int pkm_disconnect_unused(struct pk_manager *pkm) {
 
       ev_io_stop(pkm->loop, &(fe->conn.watch_r));
       ev_io_stop(pkm->loop, &(fe->conn.watch_w));
-      close(fe->conn.sockfd);
+#ifndef _MSC_VER
+	  close(fe->conn.sockfd);
+#else
+	  closesocket(_get_osfhandle(fe->conn.sockfd));
+#endif
       fe->conn.sockfd = -1;
       disconnected += 1;
 
@@ -1068,7 +1074,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 
   /* Let external threads shut us down */
   ev_async_init(&(pkm->quit), pkm_quit_cb);
-  ev_async_start(loop, &(pkm->quit)); // CAUSING ERRORS ON WINDOWS--------------------------------------
+  ev_async_start(loop, &(pkm->quit));
 
   /* Let external threads control our "periodic housekeeping" */
   ev_async_init(&(pkm->tick), pkm_tick_cb);
@@ -1161,8 +1167,11 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
 {
   int which;
   char *pp;
-//  struct pk_pagekite* kite;
+#ifndef _MSC_VER
+  struct pk_pagekite* kite;
+#else
   struct pk_pagekite* kite = NULL;
+#endif
 
   PK_TRACE_FUNCTION;
 
@@ -1174,9 +1183,11 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   if (which >= pkm->kite_max)
     return pk_err_null(ERR_NO_MORE_KITES);
 
-/*   Saevar: need to fix this, return some error   */
+#ifdef _MSC_VER
+  /* FIXME: Saevar: return some error message instead of NULL */
   if (kite == NULL)
 	  return kite;
+#endif
 
   strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
   strncpyz(kite->auth_secret, auth_secret, PK_SECRET_LENGTH);
