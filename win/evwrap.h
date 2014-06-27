@@ -32,10 +32,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #define EV_SELECT_IS_WINSOCKET 1   /* configure libev for windows select */
 #endif
 
-//#ifndef EV_USE_WSASOCKET
-//#define EV_USE_WSASOCKET 1
-//#endif
-
 #include "ev.h"
 
 #endif

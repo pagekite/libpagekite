@@ -23,6 +23,5 @@ Note: For alternate license terms, see the file COPYING.md.
 // http://www.interopcommunity.com/dictionary/gettimeofday-entry.php
 //
 #ifdef _MSC_VER
-//int gettimeofday(struct timeval *tp, void *);
 int gettimeofday(struct timeval *tv, struct timezone *tz);
 #endif

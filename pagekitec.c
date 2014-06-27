@@ -242,6 +242,7 @@ int main(int argc, char **argv) {
       exit(4);
     }
   }
+  
   int fes;
 #ifdef HAVE_IPV6
   fes = fes_v4 + fes_v6;

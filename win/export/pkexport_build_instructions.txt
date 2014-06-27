@@ -1,4 +1,4 @@
-Libpagekite - pagekitec.c
+Libpagekite Export - pkexport.c
 
 Instructions for building in Microsoft Visual Stuido 2013 (does not work with older versions)
 
@@ -6,16 +6,18 @@ Instructions for building in Microsoft Visual Stuido 2013 (does not work with ol
 
     -New Project -> Win32 ConsoleApplication
     
-    -Name the project (e.g. pagekitec)
-    
+    -Name the project (e.g. pkexport)
+
     -Press 'ok'
 
     -Press 'next'
 
+    -Under Application type check 'DLL'
+
     -Under Additional options check 'Empty Project'
 
     -Press 'ok'
-    
+
     -In the solution explorer you should now see the name of your project (pagekitec)
 
     -Right click it -> Add -> Existing Item
@@ -42,7 +44,6 @@ Instructions for building in Microsoft Visual Stuido 2013 (does not work with ol
         -evwrap.c  (in win folder)
         -getopt.c  (in win folder)
         -gettimeofday.c  (in win folder)
-        -pagekitec.c
         -pd_sha1.c
         -pkblocker.c
         -pkconn.c
@@ -54,6 +55,23 @@ Instructions for building in Microsoft Visual Stuido 2013 (does not work with ol
         -pkwatchdog.c
         -utils.c
 
+*********
+To build for release follow these additional steps, skip this to build for debug: 
+
+    -Go to Project -> Properties -> Configuration Properties
+
+        -Click "Configuration Manager..."
+
+        -Under "Configuration" choose "Release"
+
+    -Go to Project -> Properties -> Configuration Properties -> Linker -> Advanced
+
+        -Change "Image Has Safe Exception Handlers" to "No (/SAFESEH:NO)" 
+         (this will be changed, this is because OpenSLL was built using the Visual Studio 2012 compiler 
+          but we are currently compiling the code using the Visual Studio 2013 compiler, I will compile
+          the library again using the 2013 compiler to get rid of this).
+
+********** 
 
     -Now go to Project -> Properties -> Configuration Properties -> C/C++ -> General
         
@@ -62,13 +80,12 @@ Instructions for building in Microsoft Visual Stuido 2013 (does not work with ol
         - ...\libpagekite\win\OpenSSL
         - ...\libpagekite\win
         - ...\libpagekite\libev
-
+        - ...\libpagekite     
 
     -Go to Project -> Properties -> Configuration Properties -> C/C++ -> Preprocessor
 
         - Under "Preprocessor Definitions" add "_CRT_SECURE_NO_WARNINGS" (without quotation marks)
           (this disables warnings telling you to use secure microsoft specific functions)
-
 
     -Go to Project -> Properties -> Configuration Properties -> Linker
 
@@ -77,10 +94,5 @@ Instructions for building in Microsoft Visual Stuido 2013 (does not work with ol
         - ...\libpagekite\win\OpenSSL\lib
 
 
-    -Go to Project -> Properties -> Configuration Properties -> Debugging
-
-        -Under "Command Arguments" put your command line arguments like so:
-        [options] LPORT PROTO NAME.pagekite.me PPORT SECRET
-
-
-The project should now build (F7) and run (F5).
+The project should now build for debug .dll
+ 
