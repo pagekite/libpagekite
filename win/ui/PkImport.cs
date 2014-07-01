@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace pagekitec_ui_test
+namespace PageKiteUI
 {
-    public class PagekiteImport
+    public class PkImport
     {
-        private PagekiteImport() {}
+        private PkImport() {}
 
         [DllImport("PagekiteDLL.dll", EntryPoint = "pagekitec_init", CallingConvention = CallingConvention.Cdecl)]
         public static extern int pagekitec_init(int kites, int debug);

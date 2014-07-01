@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Security;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace PageKiteUI
 {
@@ -15,7 +17,7 @@ namespace PageKiteUI
 
         public int Port { get; set; }
 
-        public int Id { get; set; }
+       // public int Id { get; set; }
 
         public bool Fly { get; set; }
     }

@@ -7,15 +7,7 @@ namespace PageKiteUI
 {
     public class PageKite : Form
     {
-        [STAThread]
-        static void Main()
-        {
-            Application.EnableVisualStyles();
-            Application.Run(new PageKite());
-        }
-
         private ContextMenu trayMenu;
-       // private Label welcomeLabel;
         private Label kitesLabel;
         private Button optionsButton;
         private Button addButton;
@@ -35,17 +27,12 @@ namespace PageKiteUI
 
         public void Init()
         {
-            String fontName = "Arial";
+            //String fontName = "Arial";
+            String fontName = "Microsoft Sans Serif";
             int tabIndex = 1;
 
             this.CreateMenuStrip();
             this.CreateSystemTrayIcon();
-
-       /*     this.welcomeLabel = new Label();
-            this.welcomeLabel.Location = new Point(20, 40);
-            this.welcomeLabel.AutoSize = true;
-            this.welcomeLabel.Font = new Font(fontName, 16);
-            this.welcomeLabel.Text = "Welcome!"; */
 
             this.kitesLabel = new Label();
             this.kitesLabel.Location = new Point(20, 125);
@@ -94,7 +81,6 @@ namespace PageKiteUI
             this.groundButton.Text = "Ground";
 
             this.Controls.Add(this.menuStrip);
-   //         this.Controls.Add(this.welcomeLabel);
             this.Controls.Add(this.kitesLabel);
             this.Controls.Add(this.optionsButton);
             this.Controls.Add(this.kitePanel);
@@ -103,7 +89,7 @@ namespace PageKiteUI
             this.Controls.Add(this.flyButton);
             this.Controls.Add(this.groundButton);
 
-            this.ClientSize = new Size(500, 420);
+            this.ClientSize = new Size(600, 500);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -174,6 +160,13 @@ namespace PageKiteUI
             }
             
             base.Dispose(disposing);
+        }
+
+        [STAThread]
+        static void Main()
+        {
+            Application.EnableVisualStyles();
+            Application.Run(new PageKite());
         }
     }
 }
