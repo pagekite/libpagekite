@@ -186,8 +186,8 @@ int main(int argc, char **argv) {
   WSADATA wsa_data;
   r = WSAStartup(MAKEWORD(2, 2), &wsa_data);
   if (r != 0) {
-	  fprintf(stderr, "WSAStartup failed: %d\n", r);
-	  return 1;
+	pk_perror(argv[0]);
+    exit(1); /*fixme: should this be 1 ? */
   }
 #endif
 
