@@ -14,62 +14,74 @@ namespace PageKiteUI
         public PkKitePanel()
         {
             this.kiteDictionary = new Dictionary<string, PkKite>();
+            this.kiteDataView   = new DataGridView();
 
             this.initDataGrid();
 
             this.Controls.Add(kiteDataView);
 
-            this.Size = new Size(560, 180);
-            this.BackColor = Color.White;
+            this.Size       = new Size(560, 180);
+            this.BackColor  = Color.White;
             this.AutoScroll = true;
             this.SetStyle(ControlStyles.UserPaint, true);
+
+            // remove ------
+            SecureString ok = new SecureString();
+            char a = 'a';
+            ok.AppendChar(a);
+            this.AddKite("wow", "dom", "http", ok, 80);
+            this.AddKite("name", "doma", "ssh", ok, 80);
+            //--------------
         }
 
         private void initDataGrid()
         {
-            this.kiteDataView = new DataGridView();
-            this.kiteDataView.Location = new Point(1, 1);
-            this.kiteDataView.Size = new Size(558, 178);
-            this.kiteDataView.RowTemplate.Height = 30;
-            this.kiteDataView.BackgroundColor = Color.White;
-            this.kiteDataView.BorderStyle = BorderStyle.None;
-            this.kiteDataView.RowHeadersVisible = false;
-            this.kiteDataView.AdvancedColumnHeadersBorderStyle.All = DataGridViewAdvancedCellBorderStyle.None;
-            this.kiteDataView.AdvancedCellBorderStyle.All = DataGridViewAdvancedCellBorderStyle.None;
-            this.kiteDataView.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            this.kiteDataView.AllowUserToAddRows = false;
+            DataGridViewCheckBoxColumn fly     = new DataGridViewCheckBoxColumn();
+            DataGridViewTextBoxColumn  name    = new DataGridViewTextBoxColumn();
+            DataGridViewTextBoxColumn  domain  = new DataGridViewTextBoxColumn();
+            DataGridViewTextBoxColumn  status  = new DataGridViewTextBoxColumn();
+            DataGridViewButtonColumn   details = new DataGridViewButtonColumn();
 
-            DataGridViewCheckBoxColumn fly = new DataGridViewCheckBoxColumn();
-            fly.HeaderText = "Fly";
-            fly.Name = "Fly";
-            fly.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            fly.Width = 40;
-            fly.TrueValue = true;
+            this.kiteDataView.Location           = new Point(1, 1);
+            this.kiteDataView.Size               = new Size(558, 178);
+            this.kiteDataView.BackgroundColor    = Color.White;
+            this.kiteDataView.BorderStyle        = BorderStyle.None;
+            this.kiteDataView.RowHeadersVisible  = false;
+            this.kiteDataView.AllowUserToAddRows = false;
+            this.kiteDataView.SelectionMode      = DataGridViewSelectionMode.FullRowSelect;
+
+            this.kiteDataView.AdvancedColumnHeadersBorderStyle.All = DataGridViewAdvancedCellBorderStyle.None;
+            this.kiteDataView.AdvancedCellBorderStyle.All          = DataGridViewAdvancedCellBorderStyle.None;
+
+            this.kiteDataView.RowTemplate.Height = 30;
+            
+            this.kiteDataView.ColumnHeadersDefaultCellStyle.Font = new Font("Tahoma", 9, FontStyle.Bold);
+            this.kiteDataView.DefaultCellStyle.Font              = new Font("Tahoma", 9);
+
+            fly.HeaderText = "";
+            fly.Name       = "Fly";
+            fly.Width      = 40;
+            fly.TrueValue  = true;
             fly.FalseValue = false;
 
-            DataGridViewTextBoxColumn name = new DataGridViewTextBoxColumn();
-            name.Name = "Name";
-            name.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            name.Width = 150;
+            name.Name     = "Name";
+            name.Width    = 150;
             name.ReadOnly = true;
+            name.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
-            DataGridViewTextBoxColumn domain = new DataGridViewTextBoxColumn();
-            domain.Name = "Domain";
-            domain.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            domain.Width = 168;
+            domain.Name     = "Domain";
+            domain.Width    = 168;
             domain.ReadOnly = true;
+            domain.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
-            DataGridViewTextBoxColumn status = new DataGridViewTextBoxColumn();
-            status.Name = "Status";
-            status.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            status.Width = 100;
+            status.Name     = "Status";
+            status.Width    = 100;
             status.ReadOnly = true;
+            status.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
-            DataGridViewButtonColumn details = new DataGridViewButtonColumn();
             details.HeaderText = "";
-            details.Name = "Details";
-            details.HeaderText = "";
-            details.Width = 100;
+            details.Name       = "Details";
+            details.Width      = 100;
 
             this.kiteDataView.Columns.Add(fly);
             this.kiteDataView.Columns.Add(name);
@@ -83,12 +95,13 @@ namespace PageKiteUI
         public void AddKite(String name, String domain, String proto, SecureString secret, int port)
         {
             PkKite kite = new PkKite();
-            kite.Name = name;
+
+            kite.Name   = name;
             kite.Domain = domain;
-            kite.Proto = proto;
+            kite.Proto  = proto;
             kite.Secret = secret;
-            kite.Port = port;
-            kite.Fly = false;
+            kite.Port   = port;
+            kite.Fly    = false;
             
             if (!kiteDictionary.ContainsKey(domain))
             {
@@ -100,12 +113,16 @@ namespace PageKiteUI
 
         private void kiteDataView_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0 ||
-                e.ColumnIndex != this.kiteDataView.Columns["Details"].Index) return;
+            if (e.RowIndex < 0 || e.ColumnIndex != this.kiteDataView.Columns["Details"].Index) return;
+
 
             //MessageBox.Show(this.kiteDataView.Rows[e.RowIndex].Cells["Domain"].Value.ToString(), "ok");
-            MessageBox.Show(this.kiteDataView.Rows[e.RowIndex].Cells["Fly"].Value.ToString(), "ok");
+            //MessageBox.Show(this.kiteDataView.Rows[e.RowIndex].Cells["Fly"].Value.ToString(), "ok");
 
+            string key = this.kiteDataView.Rows[e.RowIndex].Cells["Domain"].Value.ToString();
+            PkKiteDetailsForm detailsForm = new PkKiteDetailsForm();
+            detailsForm.setDetails(this.kiteDictionary[key]);
+            detailsForm.ShowDialog();
         }
 
         protected override void OnPaint(PaintEventArgs e)
