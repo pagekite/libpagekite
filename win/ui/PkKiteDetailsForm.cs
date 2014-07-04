@@ -21,10 +21,6 @@ namespace PageKiteUI
             this.saveButton    = new Button();
             this.cancelButton  = new Button();
             this.protoComboBox = new ComboBox();
-            this.kiteTextBox   = new TextBox();
-            this.nameTextBox   = new TextBox();
-            this.portTextBox   = new TextBox();
-            this.secretTextBox = new TextBox();
 
             FlowLayoutPanel labelFlowPanel    = new FlowLayoutPanel();
             FlowLayoutPanel settingsFlowPanel = new FlowLayoutPanel();
@@ -32,15 +28,17 @@ namespace PageKiteUI
             Font font = new Font("Tahoma", 10);
             Padding labelPadding  = new Padding(2, 12, 2, 12);
             Padding textBoxMargin = new Padding(0, 10, 0, 11);
-            int textBoxWidth = 200;
 
-            Label kiteLabel   = makeLabel(font, labelPadding, "PageKite:");
-            Label nameLabel   = makeLabel(font, labelPadding, "Name:");
-            Label protoLabel  = makeLabel(font, labelPadding, "Protocol:");
-            Label portLabel   = makeLabel(font, labelPadding, "Port:");
-            Label secretLabel = makeLabel(font, labelPadding, "Secret:");
+            this.kiteTextBox   = this.MakeTextBox(200, font, textBoxMargin);
+            this.nameTextBox   = this.MakeTextBox(200, font, textBoxMargin);
+            this.portTextBox   = this.MakeTextBox(80, font, textBoxMargin);
+            this.secretTextBox = this.MakeTextBox(200, font, textBoxMargin);
 
-            this.initTextBoxes(textBoxWidth, font, textBoxMargin);
+            Label kiteLabel   = this.MakeLabel(font, labelPadding, "PageKite:");
+            Label nameLabel   = this.MakeLabel(font, labelPadding, "Name:");
+            Label protoLabel  = this.MakeLabel(font, labelPadding, "Protocol:");
+            Label portLabel   = this.MakeLabel(font, labelPadding, "Port:");
+            Label secretLabel = this.MakeLabel(font, labelPadding, "Secret:");
 
             labelFlowPanel.Location      = new Point(20, 20);
             labelFlowPanel.Size          = new Size(100, 260);
@@ -60,14 +58,16 @@ namespace PageKiteUI
             this.protoComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
 
             this.saveButton.Location = new Point(80, 280);
-            this.saveButton.Size = new Size(90, 30);
-            this.saveButton.Font = font;
-            this.saveButton.Text = "Save";
+            this.saveButton.Size     = new Size(90, 30);
+            this.saveButton.Font     = font;
+            this.saveButton.Text     = "Save";
+            this.saveButton.Click   += new EventHandler(this.OnSave_Click);
 
             this.cancelButton.Location = new Point(200, 280);
-            this.cancelButton.Size = new Size(90, 30);
-            this.cancelButton.Font = font;
-            this.cancelButton.Text = "Cancel";
+            this.cancelButton.Size     = new Size(90, 30);
+            this.cancelButton.Font     = font;
+            this.cancelButton.Text     = "Cancel";
+            this.cancelButton.Click   += new EventHandler(this.OnCancel_Click);
 
             labelFlowPanel.Controls.Add(nameLabel);
             labelFlowPanel.Controls.Add(kiteLabel);
@@ -93,10 +93,10 @@ namespace PageKiteUI
             this.Text            = "Kite details";
         }
 
-        private Label makeLabel(Font font, Padding padding, string text)
+        private Label MakeLabel(Font font, Padding padding, string text)
         {
-            Label label = new Label();
-            
+            Label label = new Label();   
+         
             label.AutoSize = true;
             label.Font     = font;
             label.Padding  = padding;
@@ -105,23 +105,25 @@ namespace PageKiteUI
             return label;
         }
 
-        private void initTextBoxes(int width, Font font, Padding margin)
+        private TextBox MakeTextBox(int width, Font font, Padding margin)
         {
-            this.nameTextBox.Width = width;
-            this.nameTextBox.Font = font;
-            this.nameTextBox.Margin = margin;
+            TextBox textBox = new TextBox();
 
-            this.secretTextBox.Width = width;
-            this.secretTextBox.Font = font;
-            this.secretTextBox.Margin = margin;
+            textBox.Width  = width;
+            textBox.Font   = font;
+            textBox.Margin = margin;
 
-            this.kiteTextBox.Width  = width;
-            this.kiteTextBox.Font   = font;
-            this.kiteTextBox.Margin = margin;
+            return textBox;
+        }
 
-            this.portTextBox.Width  = 80;
-            this.portTextBox.Font   = font;
-            this.portTextBox.Margin = margin;
+        private void OnSave_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void OnCancel_Click(object sender, EventArgs e)
+        {
+            this.Close();
         }
 
         public void setDetails(PkKite kite)

@@ -30,7 +30,7 @@ namespace PageKiteUI
             char a = 'a';
             ok.AppendChar(a);
             this.AddKite("wow", "dom", "http", ok, 80);
-            this.AddKite("name", "doma", "ssh", ok, 80);
+            this.AddKite("name", "doma", "ssh", ok, 22);
             //--------------
         }
 
@@ -114,7 +114,6 @@ namespace PageKiteUI
         private void kiteDataView_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || e.ColumnIndex != this.kiteDataView.Columns["Details"].Index) return;
-
 
             //MessageBox.Show(this.kiteDataView.Rows[e.RowIndex].Cells["Domain"].Value.ToString(), "ok");
             //MessageBox.Show(this.kiteDataView.Rows[e.RowIndex].Cells["Fly"].Value.ToString(), "ok");

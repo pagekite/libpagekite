@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Security;
-using System.Drawing;
-using System.Windows.Forms;
 
 namespace PageKiteUI
 {

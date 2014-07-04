@@ -126,7 +126,8 @@ namespace PageKiteUI
 
         private void OnOptions_Click(object sender, EventArgs e)
         {
-
+            PkOptionsForm options = new PkOptionsForm();
+            options.ShowDialog();
         }
 
         private void OnAbout(object sender, EventArgs e)
