@@ -37,15 +37,25 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #include "pagekite_net.h"
 
-__declspec(dllexport) int pagekitec_init(int kites);
+__declspec(dllexport) int libpagekite_init(int kites, int max_conns, int frontends,
+                                         int static_setup, int spare_frontends, 
+                                         int verbosity);
 
-__declspec(dllexport) int pagekitec_addKite(char* proto, char* kitename, int pport,
-                                            char* secret, char* backend, int lport);
+__declspec(dllexport) int libpagekite_useWatchdog();
 
-__declspec(dllexport) int pagekitec_addFrontend(char* domain, int port);
+__declspec(dllexport) int libpagekite_useEvil();
 
-__declspec(dllexport) int pagekitec_start();
+__declspec(dllexport) int libpagekite_addKite(char* proto, char* kitename, int pport,
+                                              char* secret, char* backend, int lport);
 
-__declspec(dllexport) int pagekitec_stop();
+__declspec(dllexport) int libpagekite_addFrontend(char* domain, int port);
+
+__declspec(dllexport) int libpagekite_start();
+
+__declspec(dllexport) int libpagekite_stop();
+
+__declspec(dllexport) int libpagekite_getStatus();
+
+__declspec(dllexport) char* libpagekite_getLog();
 
 #endif
