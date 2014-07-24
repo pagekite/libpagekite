@@ -4,46 +4,40 @@ using System.Drawing;
 using System.Security;
 using System.Windows.Forms;
 
-namespace PageKiteUI
+namespace Pagekite
 {
     public class PkKitePanel : Panel
     {
-        private Dictionary<string, PkKite> kiteDictionary;
+        public delegate void PkKiteUpdateHandler(
+            object sender, PkKiteUpdateEventArgs e);
+
+        public event PkKiteUpdateHandler KiteUpdated;
+
         private DataGridView kiteDataView;
 
         public PkKitePanel()
         {
-            this.kiteDictionary = new Dictionary<string, PkKite>();
             this.kiteDataView   = new DataGridView();
 
-            this.initDataGrid();
+            this.InitDataGrid();
 
             this.Controls.Add(kiteDataView);
 
-            this.Size       = new Size(560, 180);
             this.BackColor  = Color.White;
             this.AutoScroll = true;
             this.SetStyle(ControlStyles.UserPaint, true);
-
-            // remove ------
-            SecureString ok = new SecureString();
-            char a = 'a';
-            ok.AppendChar(a);
-            this.AddKite("wow", "dom", "http", ok, 80);
-            this.AddKite("name", "doma", "ssh", ok, 22);
-            //--------------
         }
 
-        private void initDataGrid()
+        private void InitDataGrid()
         {
             DataGridViewCheckBoxColumn fly     = new DataGridViewCheckBoxColumn();
-            DataGridViewTextBoxColumn  name    = new DataGridViewTextBoxColumn();
+  //          DataGridViewTextBoxColumn  name    = new DataGridViewTextBoxColumn();
             DataGridViewTextBoxColumn  domain  = new DataGridViewTextBoxColumn();
             DataGridViewTextBoxColumn  status  = new DataGridViewTextBoxColumn();
             DataGridViewButtonColumn   details = new DataGridViewButtonColumn();
 
             this.kiteDataView.Location           = new Point(1, 1);
-            this.kiteDataView.Size               = new Size(558, 178);
+            this.kiteDataView.Size               = new Size(588, 178);
             this.kiteDataView.BackgroundColor    = Color.White;
             this.kiteDataView.BorderStyle        = BorderStyle.None;
             this.kiteDataView.RowHeadersVisible  = false;
@@ -64,18 +58,19 @@ namespace PageKiteUI
             fly.TrueValue  = true;
             fly.FalseValue = false;
 
-            name.Name     = "Name";
-            name.Width    = 150;
+    /*        name.Name     = "Name";
+            name.Width    = 160;
             name.ReadOnly = true;
             name.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            */
 
             domain.Name     = "Domain";
-            domain.Width    = 168;
+            domain.Width    = 288;
             domain.ReadOnly = true;
             domain.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
             status.Name     = "Status";
-            status.Width    = 100;
+            status.Width    = 160;
             status.ReadOnly = true;
             status.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
 
@@ -84,7 +79,7 @@ namespace PageKiteUI
             details.Width      = 100;
 
             this.kiteDataView.Columns.Add(fly);
-            this.kiteDataView.Columns.Add(name);
+     //       this.kiteDataView.Columns.Add(name);
             this.kiteDataView.Columns.Add(domain);
             this.kiteDataView.Columns.Add(status);
             this.kiteDataView.Columns.Add(details);
@@ -92,36 +87,78 @@ namespace PageKiteUI
             this.kiteDataView.CellClick += new DataGridViewCellEventHandler(this.kiteDataView_CellClick);
         }
 
-        public void AddKite(String name, String domain, String proto, SecureString secret, int port)
+        public void AddKites(Dictionary<string, PkKite> kites)
         {
-            PkKite kite = new PkKite();
-
-            kite.Name   = name;
-            kite.Domain = domain;
-            kite.Proto  = proto;
-            kite.Secret = secret;
-            kite.Port   = port;
-            kite.Fly    = false;
-            
-            if (!kiteDictionary.ContainsKey(domain))
+            foreach (PkKite kite in kites.Values)
             {
-                kiteDictionary.Add(domain, kite);
+                this.kiteDataView.Rows.Add(false, kite.Domain, "Grounded", "Details");
+            }
+        }
+
+        public void AddKite(PkKite kite)
+        {
+            this.kiteDataView.Rows.Add(false, kite.Domain, "Grounded", "Details");
+        }
+
+        public void UpdateStatus(bool flying, Dictionary<string, PkKite> kites)
+        {
+            foreach(DataGridViewRow row in this.kiteDataView.Rows)
+            {
+                string key = this.kiteDataView.Rows[row.Index].Cells["Domain"].Value.ToString();
+
+                if(kites[key].Fly && flying)
+                {
+                    this.kiteDataView.Rows[row.Index].Cells["Status"].Value = "Flying";
+                }
+                else
+                {
+                    this.kiteDataView.Rows[row.Index].Cells["Status"].Value = "Grounded";
+                }
+            }
+        }
+
+        public bool GetChecked(Dictionary<string, PkKite> kites)
+        {
+            bool kitesSelected = false;
+
+            foreach (DataGridViewRow row in this.kiteDataView.Rows)
+            {
+                DataGridViewCheckBoxCell check = (DataGridViewCheckBoxCell)row.Cells["Fly"];
+                string key = this.kiteDataView.Rows[row.Index].Cells["Domain"].Value.ToString();
+                if(check.Value == check.TrueValue)
+                {
+                    kitesSelected = true;
+                    kites[key].Fly = true;
+                }
+                else
+                {
+                    kites[key].Fly = false;
+                }
             }
 
-            this.kiteDataView.Rows.Add(false, name, domain, "Grounded", "Details");
+            return kitesSelected;
         }
 
         private void kiteDataView_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || e.ColumnIndex != this.kiteDataView.Columns["Details"].Index) return;
-
-            //MessageBox.Show(this.kiteDataView.Rows[e.RowIndex].Cells["Domain"].Value.ToString(), "ok");
-            //MessageBox.Show(this.kiteDataView.Rows[e.RowIndex].Cells["Fly"].Value.ToString(), "ok");
-
+   
             string key = this.kiteDataView.Rows[e.RowIndex].Cells["Domain"].Value.ToString();
-            PkKiteDetailsForm detailsForm = new PkKiteDetailsForm();
-            detailsForm.setDetails(this.kiteDictionary[key]);
-            detailsForm.ShowDialog();
+            PkKite kite = new PkKite();
+            kite.Domain = key;
+
+            PkKiteUpdateEventArgs args = new PkKiteUpdateEventArgs("details", kite);
+            this.OnDetails_Click(args);
+        }
+
+        private void OnDetails_Click(PkKiteUpdateEventArgs e)
+        {
+            PkKiteUpdateHandler handler = this.KiteUpdated;
+            
+            if (handler != null)
+            {
+                handler(this, e);
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)

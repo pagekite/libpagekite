@@ -1,5 +1,5 @@
 /******************************************************************************
-pkexport.c - A wrapper for building the libpagekite library as dll.
+pkexport.c - A wrapper for building the libpagekite library as a dll.
 
 *******************************************************************************
 
@@ -20,14 +20,16 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-/* THIS FILE IS A WORK IN PROGRESS */
+/* this file is a work in progress */
 
 #include "pkexport.h"
 
+#define BUFFER_SIZE 512 * 1024
 struct pk_manager *pk_manager_global = NULL;
+char pk_manager_buffer[BUFFER_SIZE];
 
-int libpagekite_init(int kites, int max_conns, int frontends, 
-  int static_setup, int spare_frontends, int verbosity) 
+int libpagekite_init(int kites, int max_conns, int static_setup, 
+  int spare_frontends, int verbosity) 
 {
   int r;
   char* ddns_url;
@@ -48,15 +50,18 @@ int libpagekite_init(int kites, int max_conns, int frontends,
     return -1;
   }
 
-  if (static_setup)
+  if (static_setup) {
     ddns_url = NULL;
-  else
+  }
+  else {
     ddns_url = PAGEKITE_NET_DDNS;
+  }
 
   pk_state.app_id_short = "libpagekite";
   pk_state.app_id_long = PK_VERSION;
 
-  if (NULL == (pk_manager_global = pkm_manager_init(NULL, 0, NULL, 
+  if (NULL == (pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, 
+                                                    pk_manager_buffer, 
 	                                                kites, PAGEKITE_NET_FE_MAX,
 													max_conns, ddns_url, ssl_ctx))) {
     pk_log(PK_LOG_ERROR, "libpagekite: Error initializing pk_manager");
@@ -126,6 +131,25 @@ int libpagekite_addFrontend(char* domain, int port) {
   return 0;
 }
 
+int libpagekite_tick() {
+  if (pk_manager_global == NULL) return -1;
+  
+  pkm_tick(pk_manager_global);
+
+  return 0;
+}
+
+int libpagekite_poll(int timeout) {
+  if (pk_manager_global == NULL) return -1;
+
+  pthread_mutex_lock(&(pk_state.lock));
+  /* FIXME: Obey the timeout */
+  pthread_cond_wait(&(pk_state.cond), &(pk_state.lock));
+  pthread_mutex_unlock(&(pk_state.lock));
+
+  return 0;
+}
+
 int libpagekite_start() {
   if (pk_manager_global == NULL) return -1;
 
@@ -160,8 +184,14 @@ int libpagekite_getStatus() {
 }
 
 char* libpagekite_getLog() {
-	char buffer[PKS_LOG_DATA_MAX];
-	if (pk_manager_global == NULL) return strcpy(buffer, "Not running.");
-	pks_copylog(buffer);
-	return buffer;
+  char buffer[PKS_LOG_DATA_MAX];
+  
+  if (pk_manager_global == NULL) {
+    strcpy(buffer, "Not running.");
+  }
+  else {
+    pks_copylog(buffer);
+  }
+
+  return buffer;
 }

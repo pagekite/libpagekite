@@ -3,88 +3,85 @@ using System.Data;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace PageKiteUI
+namespace Pagekite
 {
-    public class PkMainForm : Form
+    public partial class PkMainForm : Form
     {
-        private Button optionsButton;
         private Button addButton;
         private Button removeButton;
         private Button flyButton;
         private Button groundButton;
         private ContextMenu trayMenu;
-        private Label kitesLabel;
+        private GroupBox mainBox;
         private MenuStrip menuStrip;
         private NotifyIcon trayIcon;
+        private PkLogPanel logPanel;
         private PkKitePanel kitePanel;
-
-        public PkMainForm()
-        {
-            this.Init();
-        }
 
         private void Init()
         {
-            this.optionsButton = new Button();
             this.addButton = new Button();
             this.removeButton = new Button();
             this.flyButton = new Button();
             this.groundButton = new Button();
             this.trayMenu = new ContextMenu();
-            this.kitesLabel = new Label();
             this.menuStrip = new MenuStrip();
             this.trayIcon = new NotifyIcon();
+            this.logPanel = new PkLogPanel();
             this.kitePanel = new PkKitePanel();
+            this.mainBox = new GroupBox();
 
             string fontName = "Tahoma";
+
+            this.mainBox.Location = new Point(10, 40);
+            this.mainBox.Size = new Size(630, 270);
+            this.mainBox.Font = new Font(fontName, 10);
+            this.mainBox.Text = "Your Kites: ";
 
             this.CreateMenuStrip();
             this.CreateSystemTrayIcon();
 
-            this.kitesLabel.Location = new Point(20, 50);
-            this.kitesLabel.AutoSize = true;
-            this.kitesLabel.Font = new Font(fontName, 10);
-            this.kitesLabel.Text = "Your Kites:";
+            this.kitePanel.Location = new Point(20, 30);
+            this.kitePanel.Size = new Size(590, 190);
 
-            this.optionsButton.Location = new Point(500, 40);
-            this.optionsButton.Size = new Size(80, 30);
-            this.optionsButton.Font = new Font(fontName, 10);
-            this.optionsButton.Text = "Options";
-            this.optionsButton.Click += new EventHandler(this.OnOptions_Click);
-
-            this.kitePanel.Location = new Point(20, 80);
-
-            this.addButton.Location = new Point(20, 270);
+            this.addButton.Location = new Point(20, 230);
             this.addButton.Size = new Size(50, 30);
             this.addButton.Font = new Font(fontName, 12);
             this.addButton.Text = "+";
+            this.addButton.Click += new EventHandler(this.OnAdd_Click);
 
-            this.removeButton.Location = new Point(80, 270);
+            this.removeButton.Location = new Point(80, 230);
             this.removeButton.Size = new Size(50, 30);
             this.removeButton.Font = new Font(fontName, 12);
             this.removeButton.Text = "-";
+            this.removeButton.Click += new EventHandler(this.OnRemove_Click);
 
-            this.flyButton.Location = new Point(410, 270);
+            this.flyButton.Location = new Point(440, 230);
             this.flyButton.Size = new Size(80, 30);
             this.flyButton.Font = new Font(fontName, 10);
             this.flyButton.Text = "Fly";
+            this.flyButton.Click += new EventHandler(this.OnFly_Click);
 
-            this.groundButton.Location = new Point(500, 270);
+            this.groundButton.Location = new Point(530, 230);
             this.groundButton.Size = new Size(80, 30);
             this.groundButton.Font = new Font(fontName, 10);
             this.groundButton.Enabled = false;
             this.groundButton.Text = "Ground";
+            this.groundButton.Click += new EventHandler(this.OnGround_Click);
+
+            this.logPanel.Location = new Point(10, 320);
+
+            this.mainBox.Controls.Add(this.kitePanel);
+            this.mainBox.Controls.Add(this.addButton);
+            this.mainBox.Controls.Add(this.removeButton);
+            this.mainBox.Controls.Add(this.flyButton);
+            this.mainBox.Controls.Add(this.groundButton);
 
             this.Controls.Add(this.menuStrip);
-            this.Controls.Add(this.kitesLabel);
-            this.Controls.Add(this.optionsButton);
-            this.Controls.Add(this.kitePanel);
-            this.Controls.Add(this.addButton);
-            this.Controls.Add(this.removeButton);
-            this.Controls.Add(this.flyButton);
-            this.Controls.Add(this.groundButton);
+            this.Controls.Add(this.mainBox);
+            this.Controls.Add(this.logPanel);
 
-            this.ClientSize = new Size(600, 500);
+            this.ClientSize = new Size(650, 560);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -93,19 +90,57 @@ namespace PageKiteUI
 
         private void CreateMenuStrip()
         {
+            ToolStripMenuItem toolsMenu = new ToolStripMenuItem();
+            ToolStripMenuItem fileMenu = new ToolStripMenuItem();
+            ToolStripMenuItem helpMenu = new ToolStripMenuItem();
+
+            ToolStripMenuItem aboutMenuItem = new ToolStripMenuItem();
             ToolStripMenuItem exitMenuItem = new ToolStripMenuItem();
-            ToolStripMenuItem fileMenuItem = new ToolStripMenuItem();
+            ToolStripMenuItem logOutMenuItem = new ToolStripMenuItem();
+            ToolStripMenuItem optionsMenuItem = new ToolStripMenuItem();
+            ToolStripMenuItem viewHelpMenuItem = new ToolStripMenuItem();
+
+            ToolStripSeparator exitSeperator = new ToolStripSeparator();
+            ToolStripSeparator helpSeperator = new ToolStripSeparator();
+
+            aboutMenuItem.Text = "About";
+            aboutMenuItem.Click += new EventHandler(this.OnAbout_Click);
 
             exitMenuItem.Text = "Exit";
-            exitMenuItem.Click += new EventHandler(this.OnExit);
+            exitMenuItem.Click += new EventHandler(this.OnExit_Click);
 
-            fileMenuItem.DropDownItems.AddRange(new ToolStripItem[] {
+            logOutMenuItem.Text = "Log Out";
+            logOutMenuItem.Click += new EventHandler(this.OnLogOut_Click);
+
+            optionsMenuItem.Text = "Options";
+            optionsMenuItem.Click += new EventHandler(this.OnOptions_Click);
+
+            viewHelpMenuItem.Text = "View Help";
+            viewHelpMenuItem.Click += new EventHandler(this.OnHelp_Click);
+
+            fileMenu.DropDownItems.AddRange(new ToolStripItem[] {
+                logOutMenuItem,
+                exitSeperator,
                 exitMenuItem
             });
-            fileMenuItem.Text = "File";
+            fileMenu.Text = "File";
+
+            toolsMenu.DropDownItems.AddRange(new ToolStripItem[] {
+                optionsMenuItem
+            });
+            toolsMenu.Text = "Tools";
+
+            helpMenu.DropDownItems.AddRange(new ToolStripItem[] {
+                viewHelpMenuItem,
+                helpSeperator,
+                aboutMenuItem
+            });
+            helpMenu.Text = "Help";
 
             this.menuStrip.Items.AddRange(new ToolStripItem[] {
-                fileMenuItem
+                fileMenu,
+                toolsMenu,
+                helpMenu,
             });
             this.menuStrip.Location = new Point(0, 0);
             this.menuStrip.BackColor = SystemColors.Control;
@@ -114,8 +149,15 @@ namespace PageKiteUI
 
         private void CreateSystemTrayIcon()
         {
-            this.trayMenu.MenuItems.Add("About...", OnAbout);
-            this.trayMenu.MenuItems.Add("Exit", OnExit);
+            this.trayMenu.MenuItems.Add("Open PageKite"); //fixme: add something to open form
+            this.trayMenu.MenuItems.Add("-");
+            this.trayMenu.MenuItems.Add("Fly", this.OnFly_Click);
+            this.trayMenu.MenuItems.Add("Ground", this.OnGround_Click);
+            this.trayMenu.MenuItems.Add("-");
+            this.trayMenu.MenuItems.Add("Options", OnOptions_Click);
+            this.trayMenu.MenuItems.Add("About...", OnAbout_Click);
+            this.trayMenu.MenuItems.Add("-");
+            this.trayMenu.MenuItems.Add("Exit", OnExit_Click);
 
             this.trayIcon.Icon = new Icon("smiley.ico", 40, 40);
             this.trayIcon.Text = "PageKite";
@@ -126,16 +168,17 @@ namespace PageKiteUI
 
         private void OnOptions_Click(object sender, EventArgs e)
         {
-            PkOptionsForm options = new PkOptionsForm();
+            //PkOptionsForm options = new PkOptionsForm();
+            PkPreferencesForm options = new PkPreferencesForm();
             options.ShowDialog();
         }
 
-        private void OnAbout(object sender, EventArgs e)
+        private void OnAbout_Click(object sender, EventArgs e)
         {
 
         }
 
-        private void OnExit(object sender, EventArgs e)
+        private void OnExit_Click(object sender, EventArgs e)
         {
             Application.Exit();
         }

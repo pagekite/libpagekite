@@ -1,10 +1,17 @@
 ﻿using System;
 
-namespace PageKiteUI
+namespace Pagekite
 {
     public class PkOptions
     {
-        private static class Defaults
+        public bool UsePageKiteNet { get; set; }
+
+        public bool RememberMe { get; set; }
+
+        public bool Debug { get; set; }
+
+        
+/*       private static class Defaults
         {
             public static readonly bool AllowEviction     = false;
             public static readonly bool BailOnError       = false;
@@ -33,7 +40,7 @@ namespace PageKiteUI
         private const int spareFrontendsValue_default = 0;
         private const string frontendPoolValue_default   = "a DNS name";
 */
-        public PkOptions()
+/*        public PkOptions()
         {
 
         }
@@ -76,6 +83,6 @@ namespace PageKiteUI
 
         public int SpareFrontendsValue { get; set; }
 
-        public string FrontendPoolValue { get; set; }
+        public string FrontendPoolValue { get; set; } */
     }
 }

@@ -1,8 +1,15 @@
-﻿using System;
+﻿
+/*
+ * 
+ * Not currently used for anything
+ * 
+ */
+
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace PageKiteUI
+namespace Pagekite
 {
     public class PkOptionsForm : Form
     {
@@ -24,9 +31,9 @@ namespace PageKiteUI
 
         public PkOptionsForm()
         {
-            this.saveButton           = new Button();
-            this.defaultsButton       = new Button();
-            this.cancelButton         = new Button();
+            this.saveButton     = new Button();
+            this.defaultsButton = new Button();
+            this.cancelButton   = new Button();
 
             Font font = new Font("Tahoma", 10);
             Padding checkBoxMargin = new Padding(0, 10, 0, 10);
@@ -134,7 +141,7 @@ namespace PageKiteUI
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.Text = "Options";
+            this.Text = "Advanced options";
         }
 
         private CheckBox MakeCheckBox(Font font, Padding margin, string text)
