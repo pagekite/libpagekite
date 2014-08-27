@@ -20,15 +20,39 @@ namespace Pagekite
 
         public Dictionary<string, PkKite> Kites { get; set; }
 
-        public PkData Load()
+        public static PkData Load()
         {
             PkData data = new PkData();
 
-            //fixme: catch exepctions
-            using (StreamReader file = File.OpenText(@"userconfig.json"))
+            string dir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            dir = Path.Combine(dir, "PageKite");
+            string filepath = Path.Combine(dir, "userconfig.json");
+
+            if(File.Exists(filepath))
             {
-                JsonSerializer serializer = new JsonSerializer();
-                data = (PkData)serializer.Deserialize(file, typeof(PkData));
+                try
+                {
+                    using (StreamReader file = File.OpenText(@filepath))
+                    {
+                        JsonSerializer serializer = new JsonSerializer();
+                        data = (PkData)serializer.Deserialize(file, typeof(PkData));
+                    }
+                }
+                catch(Exception e)
+                {
+                    PkLogging.Logger(PkLogging.Level.Error, "Unable to load settings.", true);
+                    PkLogging.Logger(PkLogging.Level.Error, "Exception: " + e.Message);
+                    data = new PkData();
+                }
+            }
+            else
+            {
+                data = new PkData();
+            }
+
+            if(data == null)
+            {
+                data = new PkData();
             }
 
             return data;
@@ -36,11 +60,38 @@ namespace Pagekite
 
         public void Save()
         {
-            //fixme: catch exceptions
-            using (StreamWriter file = File.CreateText(@"userconfig.json"))
+            //Save settings to %AppData% where we should always have read/write access
+
+            string dir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            dir = Path.Combine(dir, "PageKite");
+
+            if(!Directory.Exists(dir))
             {
-                JsonSerializer serializer = new JsonSerializer();
-                serializer.Serialize(file, this);
+                try
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                catch(Exception e)
+                {
+                    PkLogging.Logger(PkLogging.Level.Error, "Unable to save settings.", true);
+                    PkLogging.Logger(PkLogging.Level.Error, "Exception: " + e.Message);
+                }
+            }
+
+            string filepath = Path.Combine(dir, "userconfig.json");
+
+            try
+            {
+                using (StreamWriter file = File.CreateText(@filepath))
+                {
+                    JsonSerializer serializer = new JsonSerializer();
+                    serializer.Serialize(file, this);
+                }
+            }
+            catch(Exception e)
+            {
+                PkLogging.Logger(PkLogging.Level.Error, "Unable to save settings.", true);
+                PkLogging.Logger(PkLogging.Level.Error, "Exception: " + e.Message);
             }
         }
     }

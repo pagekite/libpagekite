@@ -37,6 +37,9 @@ namespace Pagekite
         [DllImport("pkexport.dll", EntryPoint = "libpagekite_tick", CallingConvention = CallingConvention.Cdecl)]
         public static extern int libpagekite_tick();
 
+        [DllImport("pkexport.dll", EntryPoint = "libpagekite_poll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int libpagekite_poll(int timeout);
+
         [DllImport("pkexport.dll", EntryPoint = "libpagekite_start", CallingConvention = CallingConvention.Cdecl)]
         public static extern int libpagekite_start();
 

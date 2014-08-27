@@ -8,6 +8,8 @@ namespace Pagekite
 {
     public class PkAddKiteForm : Form
     {
+        public string Kitename;
+
         private Button cancelButton;
         private Button addButton;
         private ComboBox domainComboBox;
@@ -51,6 +53,7 @@ namespace Pagekite
             this.addButton.Size = new Size(80, 30);
             this.addButton.Font = font;
             this.addButton.Text = "Add";
+            this.addButton.Click += new EventHandler(this.OnAdd_Click);
 
             flowPanel.Controls.Add(this.httpLabel);
             flowPanel.Controls.Add(this.domainTextBox);
@@ -66,36 +69,58 @@ namespace Pagekite
             this.Text = "New Kite";
         }
 
-        public void SetComboBox(Dictionary<string, PkKite> kites)
+        public void SetComboBox(Dictionary<string, string[]> domains)
         {
-            this.domainComboBox.Items.Add(".302.is");
-            this.domainComboBox.Items.Add(".testing.is");
-            this.domainComboBox.Items.Add(".pagekite.me (SSL ok)");
-
-            foreach (string domain in SortByLength(kites.Keys))
+            foreach (string domain in this.SortByLength(domains.Keys))
             {
-                this.domainComboBox.Items.Add("-" + domain + " (SSL ok)");
+                if(domain.Equals("pagekite.me"))
+                {
+                    this.domainComboBox.Items.Add("." + domain + " (SSL ok)");
+                    continue;
+                }
+
+                if (domain.Equals("testing.is") || domain.Equals("302.is"))
+                {
+                    this.domainComboBox.Items.Add("." + domain);
+                    continue;
+                }
+
+                if (domains[domain].Length > 1 && domain.Contains("pagekite.me"))
+                {
+                    this.domainComboBox.Items.Add("-" + domain + " (SSL ok)");
+                }
+                else
+                {
+                    this.domainComboBox.Items.Add("-" + domain);
+                }
+
                 this.domainComboBox.Items.Add("." + domain);
             }
 
-            this.domainComboBox.SelectedIndex = 0;
+            this.domainComboBox.SelectedIndex = 0; 
         }
 
         private IEnumerable<string> SortByLength(IEnumerable<string> list)
         {
             var sorted = from str in list
-                         orderby str.Length descending
+                         orderby str.Length ascending
                          select str;
             return sorted;
         }
         
         private void OnAdd_Click(object sender, EventArgs e)
         {
-
+            this.Kitename = this.domainTextBox.Text + this.domainComboBox.SelectedItem.ToString();
+            if (this.Kitename.Contains(" (SSL ok)"))
+            {
+                this.Kitename = this.Kitename.Substring(0, this.Kitename.Length - 9);
+            }
+            this.DialogResult = DialogResult.OK;
         }
 
         private void OnCancel_Click(object sender, EventArgs e)
         {
+            this.DialogResult = DialogResult.Cancel;
             this.Close();
         }
     }

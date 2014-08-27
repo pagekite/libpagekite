@@ -8,11 +8,13 @@ namespace Pagekite
 {
     public class PkKiteDetailsForm : Form
     {
-
+/*
         public delegate void PkKiteUpdateHandler(
             object sender, PkKiteUpdateEventArgs e);
 
         public event PkKiteUpdateHandler KiteUpdated;
+  */
+        public PkKite Kite;
 
         private Button   saveButton;
         private Button   cancelButton;
@@ -20,7 +22,8 @@ namespace Pagekite
         private CheckBox httpsCheckBox;
         private CheckBox sshCheckBox;
         private CheckBox minecraftCheckBox;
-        private TextBox  domainTextBox;
+        private Label    domainLabel;
+//        private TextBox  domainTextBox;
         private TextBox  httpPortTextBox;
         private TextBox  httpsPortTextBox;
         private TextBox  sshPortTextBox;
@@ -30,15 +33,18 @@ namespace Pagekite
         {
             this.saveButton    = new Button();
             this.cancelButton  = new Button();
+            this.domainLabel   = new Label();
 
             FlowLayoutPanel labelFlowPanel    = new FlowLayoutPanel();
             FlowLayoutPanel settingsFlowPanel = new FlowLayoutPanel();
+            
+            Panel domainPanel = new Panel();
 
             Font font = new Font("Tahoma", 10);
-            Padding checkBoxMargin  = new Padding(2, 12, 2, 12);
-            Padding textBoxMargin   = new Padding(0, 10, 0, 11);
+            Padding checkBoxMargin  = new Padding(2, 24, 2, 24);
+            Padding textBoxMargin   = new Padding(0, 22, 0, 22);
 
-            this.domainTextBox        = this.MakeTextBox(200, font, textBoxMargin);
+//            this.domainTextBox        = this.MakeTextBox(200, font, textBoxMargin);
             this.httpPortTextBox      = this.MakeTextBox(80, font, textBoxMargin);
             this.httpsPortTextBox     = this.MakeTextBox(80, font, textBoxMargin);
             this.sshPortTextBox       = this.MakeTextBox(80, font, textBoxMargin);
@@ -49,19 +55,51 @@ namespace Pagekite
             this.sshCheckBox       = this.MakeCheckBox(font, checkBoxMargin, " SSH");
             this.minecraftCheckBox = this.MakeCheckBox(font, checkBoxMargin, " Minecraft");
 
-            Label domainLabel = this.MakeLabel(font, checkBoxMargin, "Domain:");
-            Label protoLabel  = this.MakeLabel(font, checkBoxMargin, "Protocol:");
-            Label portLabel   = this.MakeLabel(font, checkBoxMargin, "Local port:");
+            Label httpLabel      = new Label();
+            Label httpsLabel     = new Label();
+            Label sshLabel       = new Label();
+            Label minecraftLabel = new Label();
+
+/*            Label protoLabel  = this.MakeLabel(font, checkBoxMargin, "Protocol:");
+            Label portLabel   = this.MakeLabel(font, checkBoxMargin, "Local port:"); */
    //         Label protoLabel  = this.MakeLabel(font, labelPadding, "Protocol:");
    //        Label portLabel   = this.MakeLabel(font, labelPadding, "Port:");
 
-            labelFlowPanel.Location      = new Point(20, 20);
+            labelFlowPanel.Location      = new Point(65, 60);
             labelFlowPanel.Size          = new Size(140, 300);
             labelFlowPanel.FlowDirection = FlowDirection.TopDown;
 
-            settingsFlowPanel.Location      = new Point(160, 20);
+            settingsFlowPanel.Location      = new Point(210, 60);
             settingsFlowPanel.Size          = new Size(200, 300);
             settingsFlowPanel.FlowDirection = FlowDirection.TopDown;
+
+            domainPanel.Location = new Point(0, 0);
+            domainPanel.Size     = new Size(360, 80);
+
+            httpLabel.Location = new Point(65, 110);
+            httpLabel.Font     = font;
+            httpLabel.AutoSize = true;
+            httpLabel.Text     = "The local port of your HTTP server";
+
+            httpsLabel.Location = new Point(65, 178);
+            httpsLabel.Font     = font;
+            httpsLabel.AutoSize = true;
+            httpsLabel.Text     = "The local port of your HTTPS server";
+
+            sshLabel.Location = new Point(65, 245);
+            sshLabel.Font     = font;
+            sshLabel.AutoSize = true;
+            sshLabel.Text     = "The local port of your SSH server";
+
+            minecraftLabel.Location = new Point(65, 315);
+            minecraftLabel.Font = font;
+            minecraftLabel.AutoSize = true;
+            minecraftLabel.Text = "The local port of your Minecraft server";
+
+            this.domainLabel.Font      = new Font("Tahoma", 13);
+            this.domainLabel.AutoSize  = false;
+            this.domainLabel.TextAlign = ContentAlignment.MiddleCenter;
+            this.domainLabel.Dock      = DockStyle.Fill;
 
             this.httpPortTextBox.Enabled   = false;
             this.httpPortTextBox.MaxLength = 5;
@@ -84,55 +122,76 @@ namespace Pagekite
             this.sshCheckBox.Click       += new EventHandler(this.OnSsh_Click);
             this.minecraftCheckBox.Click += new EventHandler(this.OnMinecraft_Click);
             
-
-/*            this.protoComboBox.Width  = 80;
-            this.protoComboBox.Font   = font;
-            this.protoComboBox.Margin = textBoxMargin;
-            this.protoComboBox.Items.AddRange(new object[] {
-                "HTTP",
-                "HTTPS",
-                "SSH"
-            });
-            this.protoComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-*/
-            this.saveButton.Location = new Point(80, 320);
+            this.saveButton.Location = new Point(70, 370);
             this.saveButton.Size     = new Size(90, 30);
             this.saveButton.Font     = font;
             this.saveButton.Text     = "Save";
             this.saveButton.Click   += new EventHandler(this.OnSave_Click);
 
-            this.cancelButton.Location = new Point(200, 320);
+            this.cancelButton.Location = new Point(190, 370);
             this.cancelButton.Size     = new Size(90, 30);
             this.cancelButton.Font     = font;
             this.cancelButton.Text     = "Cancel";
             this.cancelButton.Click   += new EventHandler(this.OnCancel_Click);
 
-            labelFlowPanel.Controls.Add(domainLabel);
-            labelFlowPanel.Controls.Add(protoLabel);
+            domainPanel.Controls.Add(this.domainLabel);
+
+//            labelFlowPanel.Controls.Add(this.domainLabel);
+  //          labelFlowPanel.Controls.Add(protoLabel);
   /*          labelFlowPanel.Controls.Add(portLabel); */
             labelFlowPanel.Controls.Add(this.httpCheckBox);
             labelFlowPanel.Controls.Add(this.httpsCheckBox);
             labelFlowPanel.Controls.Add(this.sshCheckBox);
             labelFlowPanel.Controls.Add(this.minecraftCheckBox);
 
-            settingsFlowPanel.Controls.Add(this.domainTextBox);
-            settingsFlowPanel.Controls.Add(portLabel);
+//            settingsFlowPanel.Controls.Add(this.domainTextBox);
+ //           settingsFlowPanel.Controls.Add(portLabel);
 //            settingsFlowPanel.Controls.Add(this.protoComboBox);
             settingsFlowPanel.Controls.Add(this.httpPortTextBox);
             settingsFlowPanel.Controls.Add(this.httpsPortTextBox);
             settingsFlowPanel.Controls.Add(this.sshPortTextBox);
             settingsFlowPanel.Controls.Add(this.minecraftPortTextBox);
 
+            this.Controls.Add(httpLabel);
+            this.Controls.Add(httpsLabel);
+            this.Controls.Add(sshLabel);
+            this.Controls.Add(minecraftLabel);
+            this.Controls.Add(domainPanel);
             this.Controls.Add(labelFlowPanel);
             this.Controls.Add(settingsFlowPanel);
             this.Controls.Add(saveButton);
             this.Controls.Add(cancelButton);
 
-            this.ClientSize      = new Size(380, 380);
+            this.ClientSize      = new Size(360, 420);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox     = false;
             this.StartPosition   = FormStartPosition.CenterScreen;
-            this.Text            = "Kite details";
+            this.Text            = "PageKite - Kite details";
+        }
+
+        public void setDetails(PkKite kite, bool flying)
+        {
+            if(flying)
+            {
+                this.saveButton.Enabled = false;
+            }
+
+            this.domainLabel.Text = kite.Domain;
+
+            this.httpCheckBox.Checked = kite.HTTP.Enabled;
+            this.httpsCheckBox.Checked = kite.HTTPS.Enabled;
+            this.sshCheckBox.Checked = kite.SSH.Enabled;
+            this.minecraftCheckBox.Checked = kite.Minecraft.Enabled;
+
+            this.httpPortTextBox.Enabled = kite.HTTP.Enabled;
+            this.httpsPortTextBox.Enabled = kite.HTTPS.Enabled;
+            this.sshPortTextBox.Enabled = kite.SSH.Enabled;
+            this.minecraftPortTextBox.Enabled = kite.Minecraft.Enabled;
+
+            this.httpPortTextBox.Text = kite.HTTP.Port.ToString();
+            this.httpsPortTextBox.Text = kite.HTTPS.Port.ToString();
+            this.sshPortTextBox.Text = kite.SSH.Port.ToString();
+            this.minecraftPortTextBox.Text = kite.Minecraft.Port.ToString();
         }
 
         private Label MakeLabel(Font font, Padding padding, string text)
@@ -219,94 +278,78 @@ namespace Pagekite
 
         private void OnSave_Click(object sender, EventArgs e)
         {
-            PkKite kite = new PkKite();
+            this.Kite = new PkKite();
 
-            kite.Domain = this.domainTextBox.Text;
+//            kite.Domain = this.domainTextBox.Text;
 
-            kite.HTTP.Enabled      = this.httpCheckBox.Checked;
-            kite.HTTPS.Enabled     = this.httpsCheckBox.Checked;
-            kite.SSH.Enabled       = this.sshCheckBox.Checked;
-            kite.Minecraft.Enabled = this.minecraftCheckBox.Checked;
+            this.Kite.Domain = this.domainLabel.Text;
 
-            if (kite.HTTP.Enabled)
+            this.Kite.HTTP.Enabled = this.httpCheckBox.Checked;
+            this.Kite.HTTPS.Enabled = this.httpsCheckBox.Checked;
+            this.Kite.SSH.Enabled = this.sshCheckBox.Checked;
+            this.Kite.Minecraft.Enabled = this.minecraftCheckBox.Checked;
+
+            if (this.Kite.HTTP.Enabled)
             {
-                kite.HTTP.Port = this.validatePort(this.httpPortTextBox.Text);
+                this.Kite.HTTP.Port = this.validatePort(this.httpPortTextBox.Text);
 
-                if(kite.HTTP.Port == 0)
+                if (this.Kite.HTTP.Port == 0)
                 {
-                    //invalid port number
+                    PkLogging.Logger(PkLogging.Level.Warning, "Invalid port number", true);
                     return;
                 }
             }
 
-            if (kite.HTTPS.Enabled)
+            if (this.Kite.HTTPS.Enabled)
             {
-                kite.HTTPS.Port = this.validatePort(this.httpsPortTextBox.Text);
+                this.Kite.HTTPS.Port = this.validatePort(this.httpsPortTextBox.Text);
 
-                if (kite.HTTPS.Port == 0)
+                if (this.Kite.HTTPS.Port == 0)
                 {
-                    //invalid port number
+                    PkLogging.Logger(PkLogging.Level.Warning, "Invalid port number", true);
                     return;
                 }
             }
 
-            if(kite.SSH.Enabled)
+            if (this.Kite.SSH.Enabled)
             {
-                kite.SSH.Port = this.validatePort(this.sshPortTextBox.Text);
+                this.Kite.SSH.Port = this.validatePort(this.sshPortTextBox.Text);
 
-                if (kite.SSH.Port == 0)
+                if (this.Kite.SSH.Port == 0)
                 {
-                    //invalid port number
+                    PkLogging.Logger(PkLogging.Level.Warning, "Invalid port number", true);
                     return;
                 }
             }
 
-            if (kite.Minecraft.Enabled)
+            if (this.Kite.Minecraft.Enabled)
             {
-                kite.Minecraft.Port = this.validatePort(this.minecraftPortTextBox.Text);
+                this.Kite.Minecraft.Port = this.validatePort(this.minecraftPortTextBox.Text);
 
-                if (kite.Minecraft.Port == 0)
+                if (this.Kite.Minecraft.Port == 0)
                 {
-                    //invalid port number
+                    PkLogging.Logger(PkLogging.Level.Warning, "Invalid port number", true);
                     return;
                 }
             }
 
-            PkKiteUpdateEventArgs args = new PkKiteUpdateEventArgs("save", kite);
+ /*           PkKiteUpdateEventArgs args = new PkKiteUpdateEventArgs("save", kite);
             PkKiteUpdateHandler handler = this.KiteUpdated;
 
             if(handler != null)
             {
                 handler(this, args);
             }
+            */
 
+            this.DialogResult = DialogResult.OK;
             this.Close();
         }   
             
         private void OnCancel_Click(object sender, EventArgs e)
         {
+            this.DialogResult = DialogResult.Cancel;
             this.Close();
-        }
-
-        public void setDetails(PkKite kite)
-        {
-            this.domainTextBox.Text = kite.Domain;
-            this.domainTextBox.Enabled = false;
-            
-            this.httpCheckBox.Checked      = kite.HTTP.Enabled;
-            this.httpsCheckBox.Checked     = kite.HTTPS.Enabled;
-            this.sshCheckBox.Checked       = kite.SSH.Enabled;
-            this.minecraftCheckBox.Checked = kite.Minecraft.Enabled;
-
-            this.httpPortTextBox.Enabled      = kite.HTTP.Enabled;
-            this.httpsPortTextBox.Enabled     = kite.HTTPS.Enabled;
-            this.sshPortTextBox.Enabled       = kite.SSH.Enabled;
-            this.minecraftPortTextBox.Enabled = kite.Minecraft.Enabled;
-
-            this.httpPortTextBox.Text      = kite.HTTP.Port.ToString();
-            this.httpsPortTextBox.Text     = kite.HTTPS.Port.ToString();
-            this.sshPortTextBox.Text       = kite.SSH.Port.ToString();
-            this.minecraftPortTextBox.Text = kite.Minecraft.Port.ToString();
         }
     }
 }

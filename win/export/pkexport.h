@@ -20,8 +20,6 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-/* THIS FILE IS A WORK IN PROGRESS */
-
 #ifndef _PAGEKITEC_DLL_H
 #define _PAGEKITEC_DLL_H
 

@@ -20,8 +20,6 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-/* this file is a work in progress */
-
 #include "pkexport.h"
 
 #define BUFFER_SIZE 512 * 1024
@@ -47,7 +45,7 @@ int libpagekite_init(int kites, int max_conns, int static_setup,
 
   if (0 != (r = WSAStartup(MAKEWORD(2, 2), &wsa_data))) {
     pk_log(PK_LOG_ERROR, "libpagekite: Error during WSAStartup: %d\n", r);
-    return -1;
+    return 1000;
   }
 
   if (static_setup) {
@@ -65,7 +63,7 @@ int libpagekite_init(int kites, int max_conns, int static_setup,
 	                                                kites, PAGEKITE_NET_FE_MAX,
 													max_conns, ddns_url, ssl_ctx))) {
     pk_log(PK_LOG_ERROR, "libpagekite: Error initializing pk_manager");
-	return -1;
+	return 2000;
   }
 
   pk_manager_global->want_spare_frontends = spare_frontends;
@@ -80,24 +78,32 @@ int libpagekite_init(int kites, int max_conns, int static_setup,
         ) {
       pk_manager_global = NULL;
       pk_log(PK_LOG_ERROR, "libpagekite: Error adding frontends");
-      return -1;
+      return 3000;
     }
   }
 
-  pkm_set_timer_enabled(pk_manager_global, 0);
+  pkm_set_timer_enabled(pk_manager_global, 1);
   pkm_tick(pk_manager_global);
 
   return 0;
 }
 
 int libpagekite_useEvil() {
+  if(pk_manager_global == NULL) return -1;
+
   pk_manager_global->housekeeping_interval_min = 5;
   pk_manager_global->housekeeping_interval_max = 20;
   pk_manager_global->check_world_interval = 30;
+
+  return 0;
 }
 
 int libpagekite_useWatchdog() {
+  if(pk_manager_global == NULL) return -1;
+
   pk_manager_global->enable_watchdog = 1;
+
+  return 0;
 }
 
 int libpagekite_addKite(char* proto, char* kitename, int pport, 
@@ -174,6 +180,7 @@ int libpagekite_stop() {
   }
 
   WSACleanup();
+  Sleep(450); /* Give logger time to get the rest of the log for debugging*/
   pk_manager_global = NULL;
   return 0;
 }

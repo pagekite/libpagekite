@@ -1,11 +1,4 @@
-﻿
-/*
- * 
- * Not currently used for anything
- * 
- */
-
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -13,7 +6,124 @@ namespace Pagekite
 {
     public class PkOptionsForm : Form
     {
-        private Button   saveButton;
+        public bool UsePagekiteNet;
+        public bool Debug;
+        public bool RememberMe;
+
+        private Button saveButton;
+        private Button cancelButton;
+        private CheckBox pagekiteNetCheckBox;
+        private CheckBox debugCheckBox;
+        private CheckBox rememberMeCheckBox;
+//        private CheckBox restartOnBootCheckBox; //maybe?
+
+        public PkOptionsForm()
+        {
+            this.saveButton   = new Button();
+            this.cancelButton = new Button();
+
+            Font font = new Font("Tahoma", 10);
+            Padding checkBoxMargin = new Padding(0, 20, 0, 5);
+            Padding labelMargin    = new Padding(0, 0, 0, 10);
+
+            FlowLayoutPanel flowPanel = new FlowLayoutPanel();
+            FlowLayoutPanel buttonPanel = new FlowLayoutPanel();
+
+            this.pagekiteNetCheckBox = this.MakeCheckBox(font, checkBoxMargin, "Use Pagekite.net");
+            this.debugCheckBox       = this.MakeCheckBox(font, checkBoxMargin, "Enable debugging");
+            this.rememberMeCheckBox  = this.MakeCheckBox(font, checkBoxMargin, "Remember me");
+
+            Label pagekiteNetLabel = this.MakeLabel(font, labelMargin, "Uncheck this if you are running your own front-end relay.");
+            Label debugLabel       = this.MakeLabel(font, labelMargin, "For developers, makes the logs far more verbose.");
+            Label rememberLabel    = this.MakeLabel(font, labelMargin, "Remember user settings and sign in automatically.");
+
+            flowPanel.Location = new Point(20, 20);
+            flowPanel.AutoSize = true;
+            flowPanel.FlowDirection = FlowDirection.TopDown;
+
+            buttonPanel.Location = new Point(95, 300);
+            buttonPanel.AutoSize = false;
+            buttonPanel.FlowDirection = FlowDirection.LeftToRight;
+
+            saveButton.Size = new Size(90, 30);
+            saveButton.Font = font;
+            saveButton.Text = "Save";
+            saveButton.Click += new EventHandler(this.OnSave_Click);
+
+            cancelButton.Size = new Size(90, 30);
+            cancelButton.Font = font;
+            cancelButton.Text = "Cancel";
+            cancelButton.Click += new EventHandler(this.OnCancel_Click);
+
+            flowPanel.Controls.Add(this.pagekiteNetCheckBox);
+            flowPanel.Controls.Add(pagekiteNetLabel);
+            flowPanel.Controls.Add(this.debugCheckBox);
+            flowPanel.Controls.Add(debugLabel);
+            flowPanel.Controls.Add(this.rememberMeCheckBox);
+            flowPanel.Controls.Add(rememberLabel);
+
+            buttonPanel.Controls.Add(this.saveButton);
+            buttonPanel.Controls.Add(this.cancelButton);
+
+            this.Controls.Add(flowPanel);
+            this.Controls.Add(buttonPanel);
+
+            this.ClientSize = new Size(380, 360);
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.Text = "PageKite - Options";
+        }
+
+        public void SetOptions(PkOptions options)
+        {
+            this.pagekiteNetCheckBox.Checked = options.UsePageKiteNet;
+            this.debugCheckBox.Checked       = options.Debug;
+            this.rememberMeCheckBox.Checked  = options.RememberMe;
+        }
+
+        private CheckBox MakeCheckBox(Font font, Padding margin, string text)
+        {
+            CheckBox checkBox = new CheckBox();
+
+            checkBox.Font = font;
+            checkBox.AutoSize = true;
+            checkBox.Margin = margin;
+            checkBox.Text = text;
+
+            return checkBox;
+        }
+
+        private Label MakeLabel(Font font, Padding margin, string text)
+        {
+            Label label = new Label();
+
+            label.Font = font;
+            label.AutoSize = true;
+            label.Margin = margin;
+            label.Text = text;
+
+            return label;
+        }
+
+        private void OnSave_Click(object sender, EventArgs e)
+        {
+            this.UsePagekiteNet = this.pagekiteNetCheckBox.Checked;
+            this.Debug = this.debugCheckBox.Checked;
+            this.RememberMe = this.rememberMeCheckBox.Checked;
+
+            this.DialogResult = DialogResult.OK;
+            this.Close();
+        }
+
+        private void OnCancel_Click(object sender, EventArgs e)
+        {
+            this.DialogResult = DialogResult.Cancel;
+            this.Close();
+        }
+
+
+/*        private Button   saveButton;
         private Button   defaultsButton;
         private Button   cancelButton;
         private CheckBox allowEvictionCheckBox;
@@ -237,5 +347,6 @@ namespace Pagekite
         {
             this.Close();
         }
+ */
     }
 }

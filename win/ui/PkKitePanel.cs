@@ -11,7 +11,7 @@ namespace Pagekite
         public delegate void PkKiteUpdateHandler(
             object sender, PkKiteUpdateEventArgs e);
 
-        public event PkKiteUpdateHandler KiteUpdated;
+        public event PkKiteUpdateHandler KiteDetail_Click;
 
         private DataGridView kiteDataView;
 
@@ -31,7 +31,6 @@ namespace Pagekite
         private void InitDataGrid()
         {
             DataGridViewCheckBoxColumn fly     = new DataGridViewCheckBoxColumn();
-  //          DataGridViewTextBoxColumn  name    = new DataGridViewTextBoxColumn();
             DataGridViewTextBoxColumn  domain  = new DataGridViewTextBoxColumn();
             DataGridViewTextBoxColumn  status  = new DataGridViewTextBoxColumn();
             DataGridViewButtonColumn   details = new DataGridViewButtonColumn();
@@ -58,12 +57,6 @@ namespace Pagekite
             fly.TrueValue  = true;
             fly.FalseValue = false;
 
-    /*        name.Name     = "Name";
-            name.Width    = 160;
-            name.ReadOnly = true;
-            name.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            */
-
             domain.Name     = "Domain";
             domain.Width    = 288;
             domain.ReadOnly = true;
@@ -79,7 +72,6 @@ namespace Pagekite
             details.Width      = 100;
 
             this.kiteDataView.Columns.Add(fly);
-     //       this.kiteDataView.Columns.Add(name);
             this.kiteDataView.Columns.Add(domain);
             this.kiteDataView.Columns.Add(status);
             this.kiteDataView.Columns.Add(details);
@@ -98,6 +90,75 @@ namespace Pagekite
         public void AddKite(PkKite kite)
         {
             this.kiteDataView.Rows.Add(false, kite.Domain, "Grounded", "Details");
+        }
+
+        public void EnableControls()
+        {
+            DataGridViewCheckBoxColumn check = (DataGridViewCheckBoxColumn)this.kiteDataView.Columns["Fly"];
+            check.ReadOnly = false;
+            check.FlatStyle = FlatStyle.Standard;
+            check.DefaultCellStyle.ForeColor = Color.Gray;
+
+            DataGridViewButtonColumn ok = (DataGridViewButtonColumn)this.kiteDataView.Columns["Details"];
+            ok.ReadOnly = false;
+            ok.FlatStyle = FlatStyle.Standard;
+            ok.DefaultCellStyle.ForeColor = Color.Gray;
+        //    ok.DefaultCellStyle.
+//            ok.DefaultCellStyle.BackColor = Color.DarkGray;
+        }
+
+        public void DisableControls()
+        {
+     /*       this.kiteDataView.Enabled = false;
+            this.kiteDataView.ForeColor = Color.Gray;
+            */
+            DataGridViewCheckBoxColumn check = (DataGridViewCheckBoxColumn)this.kiteDataView.Columns["Fly"];
+            check.ReadOnly = true;
+            check.FlatStyle = FlatStyle.Flat;
+            check.DefaultCellStyle.ForeColor = Color.Gray;
+
+   /*         DataGridViewButtonColumn ok = (DataGridViewButtonColumn)this.kiteDataView.Columns["Details"];
+            ok.ReadOnly = true;
+            ok.FlatStyle = FlatStyle.Flat;
+            ok.DefaultCellStyle.ForeColor = Color.Gray;
+            ok.DefaultCellStyle.BackColor = Color.White;
+  //          ok.DefaultCellStyle.BackColor = Color.DarkGray;
+
+            foreach (DataGridViewRow row in this.kiteDataView.Rows)
+            {
+//                (DataGridViewDisableCheckBoxCell)row.Cells["Fly"]
+//                (DataGridViewDisableButtonCell)row.Cells["Details"]
+//                row.Cells["Fly"].ReadOnly = true;
+//                row.Cells["Fly"].Style.ForeColor = Color.Gray;
+
+//              row.Cells["Details"].Style.ForeColor = Color.White;
+//              row.Cells["Fly"].ReadOnly = true;
+ //               row.
+                row.Cells["Details"].ReadOnly = true;
+            } */
+        }
+
+        public void RemoveKites()
+        {
+            foreach(DataGridViewRow row in this.kiteDataView.Rows)
+            {
+                DataGridViewCheckBoxCell check = (DataGridViewCheckBoxCell)row.Cells["Fly"];
+                if(check.Value == check.TrueValue)
+                {
+                    this.kiteDataView.Rows.Remove(row);
+                }
+            }
+
+/*            foreach (string kite in kiteNames)
+            {
+                foreach (DataGridViewRow row in this.kiteDataView.Rows)
+                {
+                    if (row.Cells["Domain"].Value.ToString().Equals(kite))
+                    {
+                        this.kiteDataView.Rows.Remove(row);
+                    }
+                }
+            } */
         }
 
         public void UpdateStatus(bool flying, Dictionary<string, PkKite> kites)
@@ -153,7 +214,7 @@ namespace Pagekite
 
         private void OnDetails_Click(PkKiteUpdateEventArgs e)
         {
-            PkKiteUpdateHandler handler = this.KiteUpdated;
+            PkKiteUpdateHandler handler = this.KiteDetail_Click;
             
             if (handler != null)
             {

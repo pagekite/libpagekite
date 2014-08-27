@@ -21,6 +21,11 @@ namespace Pagekite
             this.HTTPS.Proto     = "https";
             this.SSH.Proto       = "ssh";
             this.Minecraft.Proto = "minecraft";
+
+            this.HTTP.Port = 80;
+            this.HTTPS.Port = 443;
+            this.SSH.Port = 22;
+            this.Minecraft.Port = 25565;
         }
 
         public string Domain { get; set; }
@@ -29,52 +34,5 @@ namespace Pagekite
 
         public bool Fly { get; set; }
 
-/*        public PkTransport HTTP { get; set; }
-
-        public PkTransport HTTPS { get; set; }
-
-        public PkTransport SSH { get; set; }
-
-        public PkTransport Minecraft { get; set; }
-
-/*        public int HTTPPort { get; set; }
-
-        public int HTTPSPort { get; set; }
-
-        public int SSHPort { get; set; }
-
-        public int MinecraftPort { get; set; }
-
-        public string HTTPProto
-        {
-            get
-            {
-                return "HTTP";
-            }
-        }
-
-        public string HTTPSProto
-        {
-            get
-            {
-                return "HTTPS";
-            }
-        }
-
-        public string SSHProto
-        {
-            get
-            {
-                return "SSH";
-            }
-        }
-
-        public string MinecraftProto
-        {
-            get
-            {
-                return "Minecraft"; //fixme: ??
-            }
-        } */
     }
 }
