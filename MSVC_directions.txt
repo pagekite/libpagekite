@@ -1,0 +1,86 @@
+Libpagekite - pagekitec.c
+
+Instructions for building in Microsoft Visual Stuido 2013 (does not work with older versions)
+
+    -Start Microsoft Visual Studio
+
+    -New Project -> Win32 ConsoleApplication
+    
+    -Name the project (e.g. pagekitec)
+    
+    -Press 'ok'
+
+    -Press 'next'
+
+    -Under Additional options check 'Empty Project'
+
+    -Press 'ok'
+    
+    -In the solution explorer you should now see the name of your project (pagekitec)
+
+    -Right click it -> Add -> Existing Item
+
+    -Add the following files to the project: 
+
+        -common.h
+        -evwrap.h  (in evlib folder)
+        -getopt.h  (in win folder)
+        -gettimeofday.h  (in win folder)
+        -pagekite_net.h
+        -pd_sha1.h
+        -pkblocker.h
+        -pkconn.h
+        -pkerror.h
+        -pklogging.h
+        -pkmanager.h
+        -pkproto.h
+        -pkstate.h
+        -pkwatchdog.h
+        -pthreads.h  (in win folder)
+        -utils.h
+
+        -evwrap.c  (in evlib folder)
+        -getopt.c  (in win folder)
+        -gettimeofday.c  (in win folder)
+        -pagekitec.c
+        -pd_sha1.c
+        -pkblocker.c
+        -pkconn.c
+        -pkerror.c
+        -pklogging.c
+        -pkmanager.c
+        -pkproto.c
+        -pkstate.c
+        -pkwatchdog.c
+        -utils.c
+
+
+    -Now go to Project -> Properties -> Configuration Properties -> C/C++ -> General
+        
+        -Under "Additional Include Directories" add the following folders:
+        
+        - ...\libpagekite\win\OpenSSL
+        - ...\libpagekite\win
+        - ...\libpagekite\libev
+
+
+    -Go to Project -> Properties -> Configuration Properties -> C/C++ -> Preprocessor
+
+        - Under "Preprocessor Definitions" add "_CRT_SECURE_NO_WARNINGS" (without quotation marks)
+          (this disables warnings telling you to use secure microsoft specific functions)
+
+
+    -Go to Project -> Properties -> Configuration Properties -> Linker
+
+        -Under "Additional Library Directories" add folder 
+
+        - ...\libpagekite\win\OpenSSL\lib
+
+
+    -Go to Project -> Properties -> Configuration Properties -> Debugging
+
+        -Under "Command Arguments" put your command line arguments like so:
+        [options] LPORT PROTO NAME.pagekite.me PPORT SECRET
+
+
+The project should now build (F7) and run (F5).
