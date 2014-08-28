@@ -17,10 +17,18 @@ If not, see: <http://www.apache.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
-#include <assert.h>
 #include "common.h"
-#include "pklogging.h"
+#include <assert.h>
+
+#include "utils.h"
+#include "pkerror.h"
+#include "pkconn.h"
 #include "pkstate.h"
+#include "pkproto.h"
+#include "pkblocker.h"
+#include "pkmanager.h"
+#include "pklogging.h"
+#include "pkwatchdog.h"
 
 struct pk_global_state pk_state;
 
@@ -32,14 +40,14 @@ int pkmanager_test();
 int main(void) {
 #ifdef _MSC_VER
   pks_global_init(PK_LOG_ALL);
-  
+
   /* Initialize Winsock */
   int r;
   WSADATA wsa_data;
   r = WSAStartup(MAKEWORD(2, 2), &wsa_data);
   if (r != 0) {
-	  fprintf(stderr, "WSAStartup failed: %d\n", r);
-	  return 1;
+    fprintf(stderr, "WSAStartup failed: %d\n", r);
+    return 1;
   }
 #endif
   assert(sha1_test() &&

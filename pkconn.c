@@ -42,13 +42,7 @@ void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
   pkc->sent_kb = 0;
   pkc->wrote_bytes = 0;
   pkc->reported_kb = 0;
-  if (pkc->sockfd >= 0) {
-#ifndef _MSC_VER
-	  close(pkc->sockfd);
-#else
-	  closesocket(_get_osfhandle(pkc->sockfd));
-#endif
-  }
+  if (pkc->sockfd >= 0) PKS_close(pkc->sockfd);
   pkc->sockfd = -1;
   pkc->state = CONN_CLEAR_DATA;
 #ifdef HAVE_OPENSSL
@@ -61,21 +55,11 @@ int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
 {
   int fd;
   pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
-#ifndef _MSC_VER
-  if ((0 > (fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol))) ||
-      (0 > connect(fd, ai->ai_addr, ai->ai_addrlen))) {
-#else
-  if ((0 > (fd = _open_osfhandle(socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol), 0))) ||
-	  (SOCKET_ERROR == connect(_get_osfhandle(fd), ai->ai_addr, ai->ai_addrlen))) {
-#endif
+  if ((0 > (fd = PKS_socket(ai->ai_family, ai->ai_socktype,
+                            ai->ai_protocol))) ||
+      PKS_fail(PKS_connect(fd, ai->ai_addr, ai->ai_addrlen))) {
     pkc->sockfd = -1;
-	if (fd >= 0) {
-#ifndef _MSC_VER
-	  close(fd);
-#else
-	  closesocket(_get_osfhandle(fd));
-#endif
-	}
+    if (fd >= 0) PKS_close(fd);
     return (pk_error = ERR_CONNECT_CONNECT);
   }
 
@@ -147,11 +131,7 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx)
   SSL_set_mode(pkc->ssl, mode);
   SSL_set_connect_state(pkc->ssl);
   SSL_set_app_data(pkc->ssl, pkc);
-#ifndef _MSC_VER
-  SSL_set_fd(pkc->ssl, pkc->sockfd);
-#else
-  SSL_set_fd(pkc->ssl, _get_osfhandle(pkc->sockfd));
-#endif
+  SSL_set_fd(pkc->ssl, PKS(pkc->sockfd));
 
   pkc_start_handshake(pkc, SSL_ERROR_WANT_WRITE);
   pkc_do_handshake(pkc);
@@ -190,11 +170,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
       return 0;
 #endif
     default:
-#ifndef _MSC_VER
-      bytes = read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
-#else
-      bytes = recv(_get_osfhandle(pkc->sockfd), PKC_IN(*pkc), PKC_IN_FREE(*pkc), 0);
-#endif
+      bytes = PKS_read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
   }
 
   if (bytes > 0) {
@@ -286,13 +262,8 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
 #endif
 
     default:
-      if (length){
-#ifndef _MSC_VER
-        wrote = write(pkc->sockfd, data, length);
-#else
-	    wrote = send(_get_osfhandle(pkc->sockfd), data, length, 0);
-      }
-#endif
+      if (length)
+        wrote = PKS_write(pkc->sockfd, data, length);
   }
   if (wrote > 0) pkc->wrote_bytes += wrote;
   return wrote;

@@ -23,6 +23,8 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #include "common.h"
+#include <signal.h>
+
 #include "pkstate.h"
 #include "pkerror.h"
 #include "pkconn.h"
@@ -31,30 +33,35 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 #include "version.h"
-
 #include "pagekite_net.h"
 
-#include <signal.h>
+
+#define EXIT_ERR_MANAGER_INIT 1
+#define EXIT_ERR_USAGE 2
+#define EXIT_ERR_ADD_KITE 3
+#define EXIT_ERR_FRONTENDS 4
+#define EXIT_ERR_START_THREAD 5
+#define EXIT_ERR_WSASTARTUP 6
 
 
 void usage(int ecode) {
   fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n\n", PK_VERSION);
   fprintf(stderr, "Usage:\tpagekitec [options] LPORT PROTO"
-	              " NAME.pagekite.me PPORT SECRET ...\n"
-	              "Options:\n"
-	              "\t-q\tDecrease verbosity (less log output)\n"
-	              "\t-v\tIncrease verbosity (more log output)\n");
+                  " NAME.pagekite.me PPORT SECRET ...\n"
+                  "Options:\n"
+                  "\t-q\tDecrease verbosity (less log output)\n"
+                  "\t-v\tIncrease verbosity (more log output)\n");
 #ifdef HAVE_OPENSSL
   fprintf(stderr, "\t-I\tConnect insecurely, without SSL.\n");
 #endif
   fprintf(stderr, "\t-S\tStatic setup, disable FE failover and DDNS updates\n"
-	              "\t-c N\tSet max connection count to N (default = 25)\n"
-	              "\t-n N\tAlways connect to N spare frontends (default = 0)\n"
-	              "\t-B N\tBail out (abort) after N logged errors\n"
-	              "\t-E N\tAllow eviction of streams idle for >N seconds\n"
-	              "\t-F x\tUse x (a DNS name) as frontend pool\n"
-	              "\t-R\tChoose frontends at random, instead of pinging\n"
-	              "\t-4\tDisable IPv4 frontends\n");
+                  "\t-c N\tSet max connection count to N (default = 25)\n"
+                  "\t-n N\tAlways connect to N spare frontends (default = 0)\n"
+                  "\t-B N\tBail out (abort) after N logged errors\n"
+                  "\t-E N\tAllow eviction of streams idle for >N seconds\n"
+                  "\t-F x\tUse x (a DNS name) as frontend pool\n"
+                  "\t-R\tChoose frontends at random, instead of pinging\n"
+                  "\t-4\tDisable IPv4 frontends\n");
 #ifdef HAVE_IPV6
   fprintf(stderr, "\t-6\tDisable IPv6 frontends\n");
 #endif
@@ -136,34 +143,37 @@ int main(int argc, char **argv) {
         break;
       case 'F':
         gotargs++;
-		fe_hostname = strdup(optarg);
+        assert(fe_hostname == NULL);
+        fe_hostname = strdup(optarg);
         break;
       case 'B':
         gotargs++;
         if (1 == sscanf(optarg, "%u", &pk_state.bail_on_errors)) break;
-        usage(1);
+        usage(EXIT_ERR_USAGE);
       case 'c':
         gotargs++;
         if (1 == sscanf(optarg, "%d", &max_conns)) break;
-        usage(1);
+        usage(EXIT_ERR_USAGE);
       case 'E':
         gotargs++;
         if (1 == sscanf(optarg, "%u", &tmp_uint)) {
           pk_state.conn_eviction_idle_s = tmp_uint;
           break;
         }
-        usage(1);
+        usage(EXIT_ERR_USAGE);
       case 'n':
         gotargs++;
         if (1 == sscanf(optarg, "%d", &spare_frontends)) break;
-        usage(1);
+        usage(EXIT_ERR_USAGE);
       default:
-        usage(1);
+        usage(EXIT_ERR_USAGE);
     }
     gotargs++;
   }
 
-  if ((argc-1-gotargs) < 5 || ((argc-1-gotargs) % 5) != 0) usage(1);
+  if ((argc-1-gotargs) < 5 || ((argc-1-gotargs) % 5) != 0) {
+    usage(EXIT_ERR_USAGE);
+  }
 
 #ifndef _MSC_VER
   signal(SIGUSR1, &raise_log_level);
@@ -182,12 +192,10 @@ int main(int argc, char **argv) {
 
 #ifdef _MSC_VER
   /* Initialize Winsock */
-  int r;
   WSADATA wsa_data;
-  r = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-  if (r != 0) {
-	pk_perror(argv[0]);
-    exit(1); /*fixme: should this be 1 ? */
+  if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
+    pk_perror(argv[0]);
+    exit(EXIT_ERR_WSASTARTUP);
   }
 #endif
 
@@ -195,8 +203,8 @@ int main(int argc, char **argv) {
                                     1 + (argc-1-gotargs)/5, /* Kites */
                                     PAGEKITE_NET_FE_MAX,
                                     max_conns, ddns_url, ssl_ctx))) {
-	pk_perror(argv[0]);
-    exit(1);
+    pk_perror(argv[0]);
+    exit(EXIT_ERR_MANAGER_INIT);
   }
   m->want_spare_frontends = spare_frontends;
   if (use_evil) {
@@ -210,7 +218,7 @@ int main(int argc, char **argv) {
   for (ac = gotargs; ac+5 < argc; ac += 5) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
         (1 != sscanf(argv[ac+4], "%d", &pport))) {
-      usage(2);
+      usage(EXIT_ERR_USAGE);
     }
     proto = argv[ac+2];
     kitename = argv[ac+3];
@@ -220,7 +228,7 @@ int main(int argc, char **argv) {
         (use_current &&
          (0 > (pkm_add_frontend(m, kitename, pport, FE_STATUS_AUTO))))) {
       pk_perror(argv[0]);
-      exit(3);
+      exit(EXIT_ERR_ADD_KITE);
     }
   }
 
@@ -228,7 +236,7 @@ int main(int argc, char **argv) {
     if (fe_hostname) {
       if (0 > (fes_v4 = pkm_add_frontend(m, fe_hostname, 443, FE_STATUS_AUTO))) {
         pk_perror(argv[0]);
-        exit(4);
+        exit(EXIT_ERR_FRONTENDS);
       }
     }
     else if (((use_ipv4) &&
@@ -239,25 +247,23 @@ int main(int argc, char **argv) {
 #endif
              ) {
       pk_perror(argv[0]);
-      exit(4);
+      exit(EXIT_ERR_FRONTENDS);
     }
   }
-  
-  int fes;
+
+  int fes = fes_v4;
 #ifdef HAVE_IPV6
-  fes = fes_v4 + fes_v6;
-#else
-  fes = fes_v4;
+  fes += fes_v6;
 #endif
   if (0 == (fes)) {
     pk_error = ERR_NO_FRONTENDS;
     pk_perror(argv[0]);
-    exit(4);
+    exit(EXIT_ERR_FRONTENDS);
   }
 
   if (0 > pkm_run_in_thread(m)) {
     pk_perror(argv[0]);
-    exit(5);
+    exit(EXIT_ERR_START_THREAD);
   }
 
   pkm_wait_thread(m);
@@ -268,4 +274,3 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-

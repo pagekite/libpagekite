@@ -122,13 +122,9 @@ int parse_frame_header(struct pk_frame* frame)
   {
     frame->hdr_length = hdr_len;
     frame->data = frame->raw_frame + hdr_len;
-#ifndef _MSC_VER
-	if (1 != sscanf(frame->raw_frame, "%zx", (size_t *) &(frame->length))) {
-#else
-	if (1 != sscanf(frame->raw_frame, "%lx", (size_t *)&(frame->length))) {
-#endif
+    if (1 != sscanf(frame->raw_frame, "%lx", (size_t *) &(frame->length))) {
       return (pk_error = ERR_PARSE_BAD_FRAME);
-	}
+    }
   }
   return 0;
 }
@@ -150,14 +146,10 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk,
     if (first == 'S') {
       if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
         chunk->sid = frame->data + pos + 5;
-	  else if (0 == strncasecmp(frame->data + pos, "SKB: ", 5)) {
-#ifndef _MSC_VER
-        sscanf(frame->data + pos + 5, "%zd", &(chunk->remote_sent_kb));
-#else
+      else if (0 == strncasecmp(frame->data + pos, "SKB: ", 5)) {
         sscanf(frame->data + pos + 5, "%ld", &(chunk->remote_sent_kb));
-#endif
-	  }
-	  else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
+      }
+      else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
         sscanf(frame->data + pos + 5, "%d", &(chunk->throttle_spd));
     }
     else if (0 == strncasecmp(frame->data + pos, "NOOP: ", 6))
@@ -324,11 +316,7 @@ size_t pk_format_frame(char* buf, const char* sid,
   size_t hlen;
   if (!sid) sid = "";
   hlen = strlen(sid) + strlen(headers) - 2;
-#ifndef _MSC_VER
-  hlen = sprintf(buf, "%zx\r\n", hlen + bytes);
-#else
   hlen = sprintf(buf, "%lx\r\n", hlen + bytes);
-#endif
   return hlen + sprintf(buf + hlen, headers, sid);
 }
 
@@ -393,15 +381,8 @@ int pk_make_bsalt(struct pk_kite_request* kite_r) {
   uint8_t buffer[1024];
   char digest[41];
 
-#ifndef _MSC_VER
-  /* FIXME: This is not very random. */
-  sprintf((char*) buffer, "%x %x %x %x",
-                          rand(), getpid(), getppid(), (int) time(0));
-#else
-  /* FIXME: getppid() is not available on windows, so it's even less random */
-  sprintf((char*)buffer, "%x %x %x %x",
-                          rand(), getpid(), getpid(), (int)time(0));
-#endif
+  /* FIXME: This is not very random! */
+  sprintf((char*) buffer, "%x %x %x", rand(), getpid(), (int) time(0));
 
 #ifdef HAVE_OPENSSL
   SHA_CTX context;

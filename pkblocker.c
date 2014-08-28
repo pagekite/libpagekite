@@ -289,24 +289,13 @@ void* pkb_frontend_ping(void* void_fe) {
   }
   else {
     gettimeofday(&tv1, NULL);
-#ifndef _MSC_VER
-    if ((0 > (sockfd = socket(fe->ai->ai_family, fe->ai->ai_socktype,
-                              fe->ai->ai_protocol))) ||
-        (0 > connect(sockfd, fe->ai->ai_addr, fe->ai->ai_addrlen)) ||
-		(0 > write(sockfd, PK_FRONTEND_PING, strlen(PK_FRONTEND_PING))))
-#else
-	if ((0 > (sockfd = _open_osfhandle(socket(fe->ai->ai_family, fe->ai->ai_socktype,
-		                                 fe->ai->ai_protocol), 0))) ||
-		(SOCKET_ERROR == connect(_get_osfhandle(sockfd), fe->ai->ai_addr, fe->ai->ai_addrlen)) ||
-		(SOCKET_ERROR == send(_get_osfhandle(sockfd), PK_FRONTEND_PING, strlen(PK_FRONTEND_PING), 0)))
-#endif
+    if ((0 > (sockfd = PKS_socket(fe->ai->ai_family, fe->ai->ai_socktype,
+                                  fe->ai->ai_protocol))) ||
+        PKS_fail(PKS_connect(sockfd, fe->ai->ai_addr, fe->ai->ai_addrlen)) ||
+        PKS_fail(PKS_write(sockfd, PK_FRONTEND_PING, strlen(PK_FRONTEND_PING))))
     {
       if (sockfd >= 0){
-#ifndef _MSC_VER
-        close(sockfd);
-#else
-		closesocket(_get_osfhandle(sockfd));
-#endif
+        PKS_close(sockfd);
       }
       if (fe->error_count < 999)
         fe->error_count += 1;
@@ -324,11 +313,7 @@ void* pkb_frontend_ping(void* void_fe) {
       sleep(2); /* We don't want to return first! */
       return NULL;
     }
-#ifndef _MSC_VER
-    close(sockfd);
-#else
-	closesocket(_get_osfhandle(sockfd));
-#endif
+    PKS_close(sockfd);
     gettimeofday(&tv2, NULL);
 
     fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000

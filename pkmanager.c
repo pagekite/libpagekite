@@ -18,8 +18,9 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include <fcntl.h>
 #include "common.h"
+#include <fcntl.h>
+
 #include "utils.h"
 #include "pkerror.h"
 #include "pkconn.h"
@@ -63,8 +64,8 @@ void pkm_block(struct pk_manager *pkm)
 }
 void pkm_unblock(struct pk_manager *pkm)
 {
-	if (pthread_self() != pkm->main_thread) {
-      pthread_mutex_unlock(&(pkm->loop_lock));
+  if (pthread_self() != pkm->main_thread) {
+    pthread_mutex_unlock(&(pkm->loop_lock));
   }
 }
 
@@ -207,39 +208,24 @@ struct pk_backend_conn* pkm_connect_be(struct pk_frontend* fe,
     addr = &addr_buf;
     memset((char *) addr, 0, sizeof(addr));
     addr->sin_family = AF_INET;
-#ifndef _MSC_VER
-	bcopy((char*) backend->h_addr_list[0],
-          (char*) &(addr->sin_addr.s_addr),
-          backend->h_length);
-#else
-	memmove((char*) &(addr->sin_addr.s_addr),
-            (char*) backend->h_addr_list[0], 
+    memmove((char*) &(addr->sin_addr.s_addr),
+            (char*) backend->h_addr_list[0],
             backend->h_length);
-#endif
     addr->sin_port = htons(kite->local_port);
   }
 
   /* Try to connect and set non-blocking. */
   errno = sockfd = 0;
   if ((NULL == addr) ||
-#ifndef _MSC_VER
-      (0 > (sockfd = socket(AF_INET, SOCK_STREAM, 0))) ||
-      (0 > connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))) ||
-#else
-	  (0 > (sockfd = _open_osfhandle(socket(AF_INET, SOCK_STREAM, 0), 0))) ||
-	  (SOCKET_ERROR == connect(_get_osfhandle(sockfd), (struct sockaddr*) addr, sizeof(*addr))) ||
-#endif
+      (0 > (sockfd = PKS_socket(AF_INET, SOCK_STREAM, 0))) ||
+      PKS_fail(PKS_connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))) ||
       (0 > set_non_blocking(sockfd)))
   {
     if (errno != EINPROGRESS) {
       /* FIXME:
          EINPROGRESS never happens until we swap connect/set_non_blocking
          above.  Do that later once we've figured out error handling. */
-#ifndef _MSC_VER
-      close(sockfd);
-#else
-      closesocket(_get_osfhandle(sockfd));
-#endif
+      PKS_close(sockfd);
       pkm_free_be_conn(pkb);
       pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: Failed to connect %s:%d",
                                   kite->local_domain, kite->local_port);
@@ -364,11 +350,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     /* Not going to read anymore, stop listening. */
     pkc->status |= (CONN_STATUS_END_READ | CONN_STATUS_CLS_READ);
     ev_io_stop(pkm->loop, &(pkc->watch_r));
-#ifndef _MSC_VER
-	shutdown(pkc->sockfd, SHUT_RD);
-#else
-    shutdown(_get_osfhandle(pkc->sockfd), SHUT_RD);
-#endif
+    PKS_shutdown(pkc->sockfd, SHUT_RD);
 
     flows -= 1;
     pk_log(loglevel, "%d: Closed for reading.", pkc->sockfd);
@@ -400,11 +382,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     }
     pkc->status |= (CONN_STATUS_END_WRITE | CONN_STATUS_CLS_WRITE);
     pkc->out_buffer_pos = 0;
-#ifndef _MSC_VER
-    shutdown(pkc->sockfd, SHUT_WR);
-#else
-	shutdown(_get_osfhandle(pkc->sockfd), SHUT_WR);
-#endif
+    PKS_shutdown(pkc->sockfd, SHUT_WR);
     ev_io_stop(pkm->loop, &(pkc->watch_w));
     flows -= 1;
     pk_log(loglevel, "%d: Closed for writing.", pkc->sockfd);
@@ -420,11 +398,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
     if (pkc->status & CONN_STATUS_END_WRITE) {
       /* Not blocked, no more data (sources closed), shutdown. */
       pkc->status |= CONN_STATUS_CLS_WRITE;
-#ifndef _MSC_VER
-      shutdown(pkc->sockfd, SHUT_WR);
-#else
-	  shutdown(_get_osfhandle(pkc->sockfd), SHUT_WR);
-#endif
+      PKS_shutdown(pkc->sockfd, SHUT_WR);
       flows -= 1;
       pk_log(loglevel, "%d: Closed for writing (remote).", pkc->sockfd);
     }
@@ -459,13 +433,7 @@ int pkm_update_io(struct pk_frontend* fe, struct pk_backend_conn* pkb)
 
   if (0 == flows) {
     /* Nothing to read or write, close and clean up. */
-    if (0 <= pkc->sockfd) {
-#ifndef _MSC_VER
-      close(pkc->sockfd);
-#else
-      closesocket(_get_osfhandle(pkc->sockfd));
-#endif
-	}
+    if (0 <= pkc->sockfd) PKS_close(pkc->sockfd);
     if (pkb != NULL) {
       pkm_free_be_conn(pkb);
       PKS_STATE(pk_state.live_streams -= 1);
@@ -697,12 +665,8 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
       if (0 <= fe->conn.sockfd) {
         ev_io_stop(pkm->loop, &(fe->conn.watch_r));
         ev_io_stop(pkm->loop, &(fe->conn.watch_w));
-#ifndef _MSC_VER
-		close(fe->conn.sockfd);
-#else
-		closesocket(_get_osfhandle(fe->conn.sockfd));
-#endif
-		fe->conn.sockfd = -1;
+        PKS_close(fe->conn.sockfd);
+        fe->conn.sockfd = -1;
       }
       status = fe->conn.status;
       pkc_reset_conn(&(fe->conn), 0);
@@ -797,11 +761,7 @@ int pkm_disconnect_unused(struct pk_manager *pkm) {
 
       ev_io_stop(pkm->loop, &(fe->conn.watch_r));
       ev_io_stop(pkm->loop, &(fe->conn.watch_w));
-#ifndef _MSC_VER
-	  close(fe->conn.sockfd);
-#else
-	  closesocket(_get_osfhandle(fe->conn.sockfd));
-#endif
+      PKS_close(fe->conn.sockfd);
       fe->conn.sockfd = -1;
       disconnected += 1;
 
@@ -1167,11 +1127,7 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
 {
   int which;
   char *pp;
-#ifndef _MSC_VER
-  struct pk_pagekite* kite;
-#else
   struct pk_pagekite* kite = NULL;
-#endif
 
   PK_TRACE_FUNCTION;
 
@@ -1183,11 +1139,8 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   if (which >= pkm->kite_max)
     return pk_err_null(ERR_NO_MORE_KITES);
 
-#ifdef _MSC_VER
-  /* FIXME: Saevar: return some error message instead of NULL */
   if (kite == NULL)
-	  return kite;
-#endif
+    return pk_err_null(ERR_NO_KITE);
 
   strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
   strncpyz(kite->auth_secret, auth_secret, PK_SECRET_LENGTH);
