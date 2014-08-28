@@ -59,7 +59,7 @@ Instructions for building in Microsoft Visual Stuido 2013 (does not work with ol
         
         -Under "Additional Include Directories" add the following folders:
         
-        - ...\libpagekite\win\OpenSSL
+        - ...\libpagekite\win\OpenSSL  (Note: you need to download OpenSSL first)
         - ...\libpagekite\win
         - ...\libpagekite\libev
 
