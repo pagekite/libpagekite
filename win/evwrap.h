@@ -1,7 +1,7 @@
 /******************************************************************************
 evwrap.h - A wrapper around libev, for building on Windows.
 
-This file is Copyright 2011-2013, The Beanstalks Project ehf.
+This file is Copyright 2011-2014, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software
