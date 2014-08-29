@@ -38,6 +38,10 @@ void pks_global_init(unsigned int log_mask) {
   pk_state.have_ssl = 0;
   pk_state.app_id_long = "libpagekite";
   pk_state.app_id_short = PK_VERSION;
+
+  pk_state.quota_days = -1;
+  pk_state.quota_conns = -1;
+  pk_state.quota_mb = -1;
 }
 
 #define WRAP(p) if (p >= pk_state.log_ring_buffer+PKS_LOG_DATA_MAX) \

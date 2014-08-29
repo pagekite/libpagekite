@@ -55,6 +55,11 @@ struct pk_global_state {
   unsigned int    force_update:1;
   char*           app_id_short;
   char*           app_id_long;
+
+  /* Quota state (assuming frontends agree) */
+  int             quota_days;
+  int             quota_conns;
+  int             quota_mb;
 };
 
 #ifdef __IN_PKSTATE_C__

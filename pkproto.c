@@ -72,6 +72,9 @@ void chunk_reset_values(struct pk_chunk* chunk)
   chunk->remote_tls = NULL;
   chunk->remote_sent_kb = -1;
   chunk->throttle_spd = -1;
+  chunk->quota_days = -1;
+  chunk->quota_conns = -1;
+  chunk->quota_mb = -1;
   chunk->length = -1;
   chunk->total = -1;
   chunk->offset = 0;
@@ -174,6 +177,18 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk,
     }
     else if (0 == strncasecmp(frame->data + pos, "Host: ", 6))
       chunk->request_host = frame->data + pos + 6;
+    else if (first == 'Q') {
+      if (0 == strncasecmp(frame->data + pos, "QDays: ", 7)) {
+        if (1 == sscanf(frame->data + pos + 7, "%d", &(chunk->quota_days)))
+          pk_state.quota_days = chunk->quota_days;
+      } else if (0 == strncasecmp(frame->data + pos, "QConns: ", 8)) {
+        if (1 == sscanf(frame->data + pos + 8, "%d", &(chunk->quota_conns)))
+          pk_state.quota_conns = chunk->quota_conns;
+      } else if (0 == strncasecmp(frame->data + pos, "Quota: ", 7)) {
+        if (1 == sscanf(frame->data + pos + 7, "%d", &(chunk->quota_mb)))
+          pk_state.quota_mb = chunk->quota_mb;
+      }
+    }
     else if (chunk->header_count < PK_MAX_CHUNK_HEADERS) {
       /* Just store pointers to any other headers, for later processing. */
       chunk->headers[chunk->header_count++] = frame->data + pos;

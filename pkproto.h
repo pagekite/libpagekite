@@ -118,6 +118,9 @@ struct pk_chunk {
   char*           remote_tls;      /* RTLS:  Remote TLS encryption (string)  */
   ssize_t         remote_sent_kb;  /* SKB:   Flow control v2                 */
   int             throttle_spd;    /* SPD:   Flow control v1                 */
+  int             quota_days;      /* QDays: Quota, days left                */
+  int             quota_conns;     /* QConns: Quota, connections left        */
+  int             quota_mb;        /* Quota: Quota, megabytes left           */
   ssize_t         length;          /* Length of available chunk data.        */
   ssize_t         total;           /* Length of total chunk data.            */
   ssize_t         offset;          /* Offset of current fragment.            */
