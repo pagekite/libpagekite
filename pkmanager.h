@@ -32,7 +32,7 @@ struct pk_job_pile;
 
 /* These are also written to the conn.status field, using the fourth byte. */
 #define FE_STATUS_BITS      0xFF000000
-#define FE_STATUS_AUTO      0x00000000  /* For use in pkm_add_tunnel     */
+#define FE_STATUS_AUTO      0x00000000  /* For use in pkm_add_tunnel       */
 #define FE_STATUS_WANTED    0x01000000  /* Algorithm chose this FE         */
 #define FE_STATUS_NAILED_UP 0x02000000  /* User chose this FE              */
 #define FE_STATUS_IN_DNS    0x04000000  /* This FE is in DNS               */
@@ -40,7 +40,7 @@ struct pk_job_pile;
 #define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
 #define FE_STATUS_IS_FAST   0x20000000  /* This is a fast front-end        */
 struct pk_tunnel {
-  /* These apply to frontend connections only */
+  /* These apply to frontend connections only (on the backend) */
   char*                   fe_hostname;
   int                     fe_port;
   time_t                  last_ddnsup;
@@ -65,7 +65,7 @@ struct pk_tunnel {
 #define BE_MAX_SID_SIZE          8
 struct pk_backend_conn {
   char                sid[BE_MAX_SID_SIZE];
-  struct pk_tunnel* tunnel;
+  struct pk_tunnel*   tunnel;
   struct pk_pagekite* kite;
   struct pk_conn      conn;
 };

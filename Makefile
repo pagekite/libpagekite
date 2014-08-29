@@ -6,10 +6,14 @@ CFLAGS ?= -std=c99 -pedantic -Wall -W -fpic -fno-strict-aliasing \
 CLINK ?= -lpthread -lssl -lcrypto -lm -lev
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
+
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
       pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
        pkmanager.h pd_sha1.h pkwatchdog.h Makefile
+
+ROBJ = pkrelay.o
+RHDRS = pkrelay.h
 
 PK_TRACE ?= 0
 HAVE_OPENSSL ?= 1
@@ -23,7 +27,9 @@ NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
 default: libpagekite.so pagekitec
 
-all: runtests libpagekite.so pagekitec httpkite
+relay: pagekiter
+
+all: runtests libpagekite.so pagekitec pagekiter httpkite
 
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
@@ -38,18 +44,24 @@ tests: tests.o $(OBJ) $(TOBJ)
 libpagekite.so: $(OBJ)
 	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(CLINK)
 
+libpagekite-full: $(OBJ) $(ROBJ)
+	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(ROBJ) $(CLINK)
+
 httpkite: httpkite.o $(OBJ)
 	$(CC) $(CFLAGS) -o httpkite httpkite.o $(OBJ) $(CLINK)
 
 pagekitec: pagekitec.o $(OBJ)
 	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(OBJ) $(CLINK)
 
+pagekiter: pagekiter.o $(OBJ) $(ROBJ)
+	$(CC) $(CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)
+
 version:
 	@sed -e "s/@DATE@/`date '+%y%m%d'`/g" <version.h.in >version.h
 	@touch pkproto.h
 
 clean:
-	rm -vf tests pagekitec httpkite *.o *.so
+	rm -vf tests pagekite[cr] httpkite *.o *.so
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf
@@ -59,6 +71,7 @@ allclean: clean
 
 httpkite.o: $(HDRS)
 pagekitec.o: $(HDRS)
+pagekiter.o: $(HDRS) $(RHDRS)
 pagekite-jni.o: $(HDRS)
 pkblocker.o: $(HDRS)
 pkconn.o: common.h utils.h pkerror.h pklogging.h
