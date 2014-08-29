@@ -791,13 +791,22 @@ static void pkproto_test_callback(int *data, struct pk_chunk *chunk) {
   assert(0 == strcmp(chunk->eof, "r"));
   assert(0 == strcmp(chunk->noop, "!"));
   assert(0 == strncmp(chunk->data, "54321", chunk->length));
+  assert(-1 == chunk->quota_conns);
+  assert(55 == chunk->quota_days);
+  assert(1234 == chunk->quota_mb);
   *data += 1;
 }
 
 static int pkproto_test_parser(struct pk_parser* p, int *callback_called)
 {
-  char* testchunk = "SID: 1\r\neOf: r\r\nNOOP: !\r\n\r\n54321";
-  char buffer[100], framehead[10];
+  char* testchunk = ("SID: 1\r\n"
+                     "eOf: r\r\n"
+                     "NOOP: !\r\n"
+                     "Quota: 1234\r\n"
+                     "QDays: 55\r\n"
+                     "\r\n"
+                     "54321");
+  char buffer[1024], framehead[10];
   int length;
   int bytes_left = p->buffer_bytes_left;
 
@@ -823,6 +832,10 @@ static int pkproto_test_parser(struct pk_parser* p, int *callback_called)
   assert(*callback_called == 2);
   assert(p->buffer_bytes_left == bytes_left);
   assert(p->chunk->data == NULL);
+  assert(p->chunk->quota_days == -1);
+
+  assert(55 == pk_state.quota_days);
+  assert(1234 == pk_state.quota_mb);
 
   return 1;
 }
