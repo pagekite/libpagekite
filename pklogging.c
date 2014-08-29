@@ -159,7 +159,7 @@ void pk_dump_conn(char* prefix, struct pk_conn* conn)
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/out_buffer_pos: %d", prefix, conn->out_buffer_pos);
 }
 
-void pk_dump_frontend(char* prefix, struct pk_frontend* fe)
+void pk_dump_tunnel(char* prefix, struct pk_tunnel* fe)
 {
   char tmp[1024];
   if (NULL == fe->ai) return;
@@ -184,7 +184,7 @@ void pk_dump_be_conn(char* prefix, struct pk_backend_conn* bec)
   char tmp[1024];
 
   #define LL PK_LOG_MANAGER_DEBUG
-  pk_log(LL, "%s/fe: %s", prefix, bec->frontend->fe_hostname);
+  pk_log(LL, "%s/fe: %s", prefix, bec->tunnel->fe_hostname);
   pk_log(LL, "%s/kite: %d <- %s://%s", prefix, bec->kite->local_port,
                                                bec->kite->protocol,
                                                bec->kite->public_domain);
@@ -196,7 +196,7 @@ void pk_dump_state(struct pk_manager* pkm)
 {
   int i;
   char prefix[1024];
-  struct pk_frontend* fe;
+  struct pk_tunnel* fe;
   struct pk_backend_conn* bec;
 
   #define LL PK_LOG_MANAGER_DEBUG
@@ -204,11 +204,11 @@ void pk_dump_state(struct pk_manager* pkm)
   pk_log(LL, "pk_global_state/app_id_long: %s", pk_state.app_id_long);
   pk_log(LL, "pk_global_state/have_ssl: %d", pk_state.have_ssl);
   pk_log(LL, "pk_global_state/live_streams: %d", pk_state.live_streams);
-  pk_log(LL, "pk_global_state/live_frontends: %d", pk_state.live_frontends);
+  pk_log(LL, "pk_global_state/live_tunnels: %d", pk_state.live_tunnels);
   pk_log(LL, "pk_manager/status: %d", pkm->status);
   pk_log(LL, "pk_manager/buffer_bytes_free: %d", pkm->buffer_bytes_free);
   pk_log(LL, "pk_manager/kite_max: %d", pkm->kite_max);
-  pk_log(LL, "pk_manager/frontend_max: %d", pkm->frontend_max);
+  pk_log(LL, "pk_manager/tunnel_max: %d", pkm->tunnel_max);
   pk_log(LL, "pk_manager/be_conn_max: %d", pkm->be_conn_max);
   pk_log(LL, "pk_manager/last_world_update: %x", pkm->last_world_update);
   pk_log(LL, "pk_manager/next_tick: %d", pkm->next_tick);
@@ -217,9 +217,9 @@ void pk_dump_state(struct pk_manager* pkm)
   pk_log(LL, "pk_manager/want_spare_frontends: %d", pkm->want_spare_frontends);
   pk_log(LL, "pk_manager/dynamic_dns_url: %s", pkm->dynamic_dns_url);
 
-  for (i = 0, fe = pkm->frontends; i < pkm->frontend_max; i++, fe++) {
+  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
     sprintf(prefix, "fe_%d", i);
-    pk_dump_frontend(prefix, fe);
+    pk_dump_tunnel(prefix, fe);
   }
   for (i = 0, bec = pkm->be_conns; i < pkm->be_conn_max; i++, bec++) {
     sprintf(prefix, "beconn_%d", i);

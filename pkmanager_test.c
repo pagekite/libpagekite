@@ -52,17 +52,17 @@ int pkmanager_test(void)
   assert(NULL != m);
 
   /* Ensure the right defaults are used. */
-  assert(m->frontend_max == MIN_FE_ALLOC);
+  assert(m->tunnel_max == MIN_FE_ALLOC);
   assert(m->kite_max == MIN_KITE_ALLOC);
   assert(m->be_conn_max == MIN_CONN_ALLOC);
 
   /* Ensure memory regions don't overlap */
   memset(m->be_conns,  3, sizeof(struct pk_backend_conn) * m->be_conn_max);
-  memset(m->frontends, 2, sizeof(struct pk_frontend)     * m->frontend_max);
+  memset(m->tunnels,   2, sizeof(struct pk_tunnel)       * m->tunnel_max);
   memset(m->kites,     1, sizeof(struct pk_pagekite)     * m->kite_max);
   assert(0 == *((char*) m->buffer));
   assert(1 == *((char*) m->kites));
-  assert(2 == *((char*) m->frontends));
+  assert(2 == *((char*) m->tunnels));
   assert(3 == *((char*) m->be_conns));
 
   /* Recreate, because those memsets broke things. */

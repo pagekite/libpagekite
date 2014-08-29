@@ -24,7 +24,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_DDNS_UPDATE_INTERVAL_MIN    360  /* Less than 300 makes no sense,
                                                due to DNS caching TTLs. */
 
-struct pk_frontend;
+struct pk_tunnel;
 struct pk_backend_conn;
 struct pk_manager;
 struct pk_job;
@@ -32,21 +32,23 @@ struct pk_job_pile;
 
 /* These are also written to the conn.status field, using the fourth byte. */
 #define FE_STATUS_BITS      0xFF000000
-#define FE_STATUS_AUTO      0x00000000  /* For use in pkm_add_frontend     */
+#define FE_STATUS_AUTO      0x00000000  /* For use in pkm_add_tunnel     */
 #define FE_STATUS_WANTED    0x01000000  /* Algorithm chose this FE         */
 #define FE_STATUS_NAILED_UP 0x02000000  /* User chose this FE              */
 #define FE_STATUS_IN_DNS    0x04000000  /* This FE is in DNS               */
 #define FE_STATUS_REJECTED  0x08000000  /* Front-end rejected connection   */
 #define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
 #define FE_STATUS_IS_FAST   0x20000000  /* This is a fast front-end        */
-struct pk_frontend {
+struct pk_tunnel {
+  /* These apply to frontend connections only */
   char*                   fe_hostname;
   int                     fe_port;
+  time_t                  last_ddnsup;
+  /* These apply to all tunnels (frontend or backend) */
   char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
   struct addrinfo*        ai;
   int                     priority;
   time_t                  last_ping;
-  time_t                  last_ddnsup;
   int                     error_count;
   struct pk_conn          conn;
   struct pk_parser*       parser;
@@ -63,7 +65,7 @@ struct pk_frontend {
 #define BE_MAX_SID_SIZE          8
 struct pk_backend_conn {
   char                sid[BE_MAX_SID_SIZE];
-  struct pk_frontend* frontend;
+  struct pk_tunnel* tunnel;
   struct pk_pagekite* kite;
   struct pk_conn      conn;
 };
@@ -74,7 +76,7 @@ struct pk_backend_conn {
 #define PK_MANAGER_BUFSIZE(k, f, c, ps) \
                            (1 + sizeof(struct pk_manager) \
                             + sizeof(struct pk_pagekite) * k \
-                            + sizeof(struct pk_frontend) * f \
+                            + sizeof(struct pk_tunnel) * f \
                             + sizeof(struct pk_kite_request) * f * k \
                             + ps * f \
                             + sizeof(struct pk_backend_conn) * c \
@@ -89,7 +91,7 @@ struct pk_manager {
   char*                    buffer;
   char*                    buffer_base;
   struct pk_pagekite*      kites;
-  struct pk_frontend*      frontends;
+  struct pk_tunnel*        tunnels;
   struct pk_backend_conn*  be_conns;
 
   pthread_t                main_thread;
@@ -112,7 +114,7 @@ struct pk_manager {
 
   /* Settings */
   int                      kite_max;
-  int                      frontend_max;
+  int                      tunnel_max;
   int                      be_conn_max;
   unsigned int             fancy_pagekite_net_rejection:1;
   unsigned int             enable_watchdog:1;
@@ -144,12 +146,12 @@ struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
                                   const char*, int);
 struct pk_pagekite*  pkm_find_kite(struct pk_manager*,
                                    const char*, const char*, int);
-ssize_t              pkm_write_chunked(struct pk_frontend*,
+ssize_t              pkm_write_chunked(struct pk_tunnel*,
                                        struct pk_backend_conn*,
                                        ssize_t, char*);
 int                  pkm_add_frontend(struct pk_manager*,
                                       const char*, int, int);
-struct pk_frontend*  pkm_add_frontend_ai(struct pk_manager*, struct addrinfo*,
+struct pk_tunnel*    pkm_add_frontend_ai(struct pk_manager*, struct addrinfo*,
                                          const char*, int, int);
 void                 pkm_reset_conn(struct pk_conn*);
 
@@ -157,19 +159,19 @@ ssize_t              pkm_write_data(struct pk_conn*, ssize_t, char*);
 ssize_t              pkm_read_data(struct pk_conn*);
 ssize_t              pkm_flush(struct pk_conn*, char*, ssize_t, int, char*);
 void                 pkm_parse_eof(struct pk_backend_conn*, char*);
-int                  pkm_update_io(struct pk_frontend*, struct pk_backend_conn*);
-void                 pkm_flow_control_fe(struct pk_frontend*, flow_op);
+int                  pkm_update_io(struct pk_tunnel*, struct pk_backend_conn*);
+void                 pkm_flow_control_tunnel(struct pk_tunnel*, flow_op);
 void                 pkm_flow_control_conn(struct pk_conn*, flow_op);
 
 /* Backend connection handling */
-struct pk_backend_conn*  pkm_connect_be(struct pk_frontend*, struct pk_chunk*);
+struct pk_backend_conn*  pkm_connect_be(struct pk_tunnel*, struct pk_chunk*);
 struct pk_backend_conn*  pkm_alloc_be_conn(struct pk_manager*,
-                                           struct pk_frontend*, char*);
+                                           struct pk_tunnel*, char*);
 struct pk_backend_conn*  pkm_find_be_conn(struct pk_manager*,
-                                          struct pk_frontend*,  char*);
+                                          struct pk_tunnel*,  char*);
 void                     pkm_free_be_conn(struct pk_backend_conn*);
 
-void pkm_chunk_cb(struct pk_frontend*, struct pk_chunk *);
+void pkm_chunk_cb(struct pk_tunnel*, struct pk_chunk *);
 void pkm_tunnel_readable_cb(EV_P_ ev_io *, int);
 void pkm_tunnel_writable_cb(EV_P_ ev_io *, int);
 void pkm_be_conn_readable_cb(EV_P_ ev_io *, int);

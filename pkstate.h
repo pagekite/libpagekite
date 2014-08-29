@@ -50,7 +50,7 @@ struct pk_global_state {
 
   /* Global program state */
   unsigned int    live_streams;
-  unsigned int    live_frontends;
+  unsigned int    live_tunnels;
   unsigned int    have_ssl:1;
   unsigned int    force_update:1;
   char*           app_id_short;
