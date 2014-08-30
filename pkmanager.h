@@ -44,15 +44,15 @@ struct pk_tunnel {
   char*                   fe_hostname;
   int                     fe_port;
   time_t                  last_ddnsup;
-  /* These apply to all tunnels (frontend or backend) */
-  char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
-  struct addrinfo*        ai;
   int                     priority;
-  time_t                  last_ping;
-  int                     error_count;
+  /* These apply to all tunnels (frontend or backend) */
+  struct addrinfo*        ai;
   struct pk_conn          conn;
-  struct pk_parser*       parser;
+  int                     error_count;
+  char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
+  time_t                  last_ping;
   struct pk_manager*      manager;
+  struct pk_parser*       parser;
   int                     request_count;
   struct pk_kite_request* requests;
 };
