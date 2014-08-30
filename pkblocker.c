@@ -550,24 +550,42 @@ void* pkb_run_blocker(void *void_pkm)
         }
         break;
       case PK_QUIT:
+        /* Put the job back in the queue, in case there are many workers */
+        pkb_add_job(&(pkm->blocking_jobs), PK_QUIT, NULL);
         pk_log(PK_LOG_MANAGER_DEBUG, "Exiting blocking thread.");
         return NULL;
     }
   }
 }
 
-int pkb_start_blocker(struct pk_manager *pkm)
+int pkb_start_blockers(struct pk_manager *pkm, int n)
 {
-  if (0 > pthread_create(&(pkm->blocking_thread), NULL,
-                         pkb_run_blocker, (void *) pkm)) {
-    pk_log(PK_LOG_MANAGER_ERROR, "Failed to start blocking thread.");
-    return (pk_error = ERR_NO_THREAD);
+  int i;
+  for (i = 0; i < MAX_BLOCKING_THREADS && n > 0; i++) {
+    if (pkm->blocking_threads[i] == NULL) {
+      pkm->blocking_threads[i] = (pthread_t*) malloc(sizeof(pthread_t));
+      if (0 > pthread_create(pkm->blocking_threads[i], NULL,
+                             pkb_run_blocker, (void *) pkm)) {
+        pk_log(PK_LOG_MANAGER_ERROR, "Failed to start blocking thread.");
+        free(pkm->blocking_threads[i]);
+        pkm->blocking_threads[i] = NULL;
+        return (pk_error = ERR_NO_THREAD);
+      }
+      n--;
+    }
   }
   return 0;
 }
 
-void pkb_stop_blocker(struct pk_manager *pkm)
+void pkb_stop_blockers(struct pk_manager *pkm)
 {
+  int i;
   pkb_add_job(&(pkm->blocking_jobs), PK_QUIT, NULL);
-  pthread_join(pkm->blocking_thread, NULL);
+  for (i = 0; i < MAX_BLOCKING_THREADS; i++) {
+    if (pkm->blocking_threads[i] != NULL) {
+      pthread_join(*pkm->blocking_threads[i], NULL);
+      free(pkm->blocking_threads[i]);
+      pkm->blocking_threads[i] = NULL;
+    }
+  }
 }

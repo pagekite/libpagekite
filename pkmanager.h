@@ -70,9 +70,10 @@ struct pk_backend_conn {
   struct pk_conn      conn;
 };
 
-#define MIN_KITE_ALLOC   4
-#define MIN_FE_ALLOC     2
-#define MIN_CONN_ALLOC  16
+#define MIN_KITE_ALLOC        4
+#define MIN_FE_ALLOC          2
+#define MIN_CONN_ALLOC       16
+#define MAX_BLOCKING_THREADS 16
 #define PK_MANAGER_BUFSIZE(k, f, c, ps) \
                            (1 + sizeof(struct pk_manager) \
                             + sizeof(struct pk_pagekite) * k \
@@ -109,7 +110,7 @@ struct pk_manager {
 
   SSL_CTX*                 ssl_ctx;
   pthread_t                watchdog_thread;
-  pthread_t                blocking_thread;
+  pthread_t*               blocking_threads[MAX_BLOCKING_THREADS];
   struct pk_job_pile       blocking_jobs;
 
   /* Settings */

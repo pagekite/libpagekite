@@ -1330,13 +1330,13 @@ void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
   if (pkm->enable_watchdog) pkw_start_watchdog(pkm);
-  pkb_start_blocker(pkm);
+  pkb_start_blockers(pkm, 1);
 
   pthread_mutex_lock(&(pkm->loop_lock));
   ev_loop(pkm->loop, 0);
   pthread_mutex_unlock(&(pkm->loop_lock));
 
-  pkb_stop_blocker(pkm);
+  pkb_stop_blockers(pkm);
   if (pkm->enable_watchdog) pkw_stop_watchdog(pkm);
   pkm_reset_manager(pkm);
   pk_log(PK_LOG_MANAGER_DEBUG, "Event loop exited.");
