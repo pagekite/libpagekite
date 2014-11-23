@@ -36,6 +36,7 @@ typedef SSIZE_T ssize_t;
 int utils_test(void)
 {
   char buffer1[60];
+  PK_MEMORY_CANARY;
 
   strcpy(buffer1, "\r\n\r\n");
   assert(2 == zero_first_crlf(4, buffer1));
@@ -49,6 +50,15 @@ int utils_test(void)
 
   strcpy(buffer1, "abcd\r\nfoo\r\n\r\ndef");
   assert(strcmp(skip_http_header(strlen(buffer1), buffer1), "def") == 0);
+
+#ifdef PK_MEMORY_CANARIES
+  add_memory_canary(&canary);
+  PK_CHECK_MEMORY_CANARIES;
+  canary = (void *) 0;
+  assert(check_memory_canaries() == 1);
+  canary = *canary;
+  remove_memory_canary(&canary);
+#endif
 
   return 1;
 }

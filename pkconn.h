@@ -64,6 +64,7 @@ typedef enum {
 #define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
 #define PKC_IN_FREE(c)  (CONN_IO_BUFFER_SIZE - (c).in_buffer_pos)
 struct pk_conn {
+  PK_MEMORY_CANARY
   int        status;
   int        sockfd;
   time_t     activity;

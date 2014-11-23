@@ -31,6 +31,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
 {
+  PK_ADD_MEMORY_CANARY(pkc);
   pkc->status &= ~CONN_STATUS_BITS;
   pkc->status |= status;
   pkc->activity = time(0);

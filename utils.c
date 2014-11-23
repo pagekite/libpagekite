@@ -18,6 +18,9 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 #include "common.h"
+
+#include "assert.h"
+#include "utils.h"
 #include <fcntl.h>
 
 #ifndef _MSC_VER
@@ -285,3 +288,59 @@ void digest_to_hex(const unsigned char* digest, char *output)
     *c = '\0';
 }
 
+#ifdef PK_MEMORY_CANARIES
+#define MAX_CANARIES 102400
+void** canaries[MAX_CANARIES];
+int canary_max = 0;
+#endif
+
+void remove_memory_canary(void** canary) {
+#ifdef PK_MEMORY_CANARIES
+    for (int i = 0; i < canary_max; i++) {
+        if (canaries[i] == canary) {
+            canary_max -= 1;
+            if (canary_max > 0) {
+                fprintf(stderr, "canaries[%d] removed\n", i);
+                canaries[i] = canaries[canary_max];
+            }
+            break;
+        }
+    }
+#endif
+    (void) canary;
+}
+
+void add_memory_canary(void** canary) {
+#ifdef PK_MEMORY_CANARIES
+    if (*canary && *canary == canary) {
+        remove_memory_canary(canary);
+    }
+    *canary = canary;
+    fprintf(stderr, "canaries[%d] = %p\n", canary_max, (void*) canary);
+    canaries[canary_max++] = canary;
+    assert(canary_max < MAX_CANARIES);
+#endif
+    (void) canary;
+}
+
+int check_memory_canaries() {
+#ifdef PK_MEMORY_CANARIES
+    int i, bad;
+    for (bad = i = 0; i < canary_max; i++) {
+        if (canaries[i] != *canaries[i]) {
+            fprintf(stderr, "%p != %p\n",
+                    (void *) canaries[i], *canaries[i]);
+            bad++;
+        }
+    }
+    return bad;
+#else
+    return 0;
+#endif
+}
+
+void reset_memory_canaries() {
+#ifdef PK_MEMORY_CANARIES
+    canary_max = 0;
+#endif
+}

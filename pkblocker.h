@@ -28,6 +28,7 @@ typedef enum {
 } pk_job_t;
 
 struct pk_job {
+  PK_MEMORY_CANARY
   pk_job_t  job;
   void*     data;
 };
@@ -38,6 +39,7 @@ struct pk_job_pile {
   struct pk_job*   pile; /* A pile is not a queue, order isn't guaranteed. */
   int              max;
   int              count;
+  PK_MEMORY_CANARY
 };
 
 int   pkb_add_job      (struct pk_job_pile*, pk_job_t, void*);

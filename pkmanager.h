@@ -40,6 +40,7 @@ struct pk_job_pile;
 #define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
 #define FE_STATUS_IS_FAST   0x20000000  /* This is a fast front-end        */
 struct pk_tunnel {
+  PK_MEMORY_CANARY
   /* These apply to frontend connections only (on the backend) */
   char*                   fe_hostname;
   int                     fe_port;
@@ -64,6 +65,7 @@ struct pk_tunnel {
 #define BE_STATUS_EOF_THROTTLED  0x00040000
 #define BE_MAX_SID_SIZE          8
 struct pk_backend_conn {
+  PK_MEMORY_CANARY
   char                sid[BE_MAX_SID_SIZE];
   struct pk_tunnel*   tunnel;
   struct pk_pagekite* kite;
@@ -94,6 +96,8 @@ struct pk_manager {
   struct pk_pagekite*      kites;
   struct pk_tunnel*        tunnels;
   struct pk_backend_conn*  be_conns;
+
+  PK_MEMORY_CANARY
 
   pthread_t                main_thread;
   pthread_mutex_t          loop_lock;

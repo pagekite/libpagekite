@@ -548,6 +548,7 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
     }
     fe->conn.in_buffer_pos = 0;
   }
+  PK_CHECK_MEMORY_CANARIES;
   pkm_update_io(fe, NULL);
   /* -Wall dislikes unused arguments */
   (void) loop;
@@ -565,6 +566,7 @@ void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
       pkc_raw_write(&(fe->conn), NULL, 0);
   }
   pkc_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
+  PK_CHECK_MEMORY_CANARIES;
 
   pkm_update_io(fe, NULL);
   /* -Wall dislikes unused arguments */
@@ -591,6 +593,7 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
   else if (bytes == 0) {
     pk_log(PK_LOG_BE_DATA, ">%5.5s> EOF: read", pkb->sid);
   }
+  PK_CHECK_MEMORY_CANARIES;
   pkm_update_io(pkb->tunnel, pkb);
   /* -Wall dislikes unused arguments */
   (void) loop;
@@ -620,6 +623,7 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
     pk_log(PK_LOG_BE_DATA, "Flushed: %s:%d\n",
            pkb->kite->local_domain, pkb->kite->local_port);
   }
+  PK_CHECK_MEMORY_CANARIES;
   pkm_update_io(pkb->tunnel, pkb);
   /* -Wall dislikes unused arguments */
   (void) loop;
@@ -641,6 +645,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
   pkm_block(pkm);
   for (i = 0; i < pkm->tunnel_max; i++) {
     fe = (pkm->tunnels + i);
+    PK_ADD_MEMORY_CANARY(fe);
 
     if (fe->fe_hostname == NULL) continue;
     if (!(fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS))) continue;
@@ -720,6 +725,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
       }
     }
   }
+  PK_CHECK_MEMORY_CANARIES;
   pkm_unblock(pkm);
   return (tried - connected);
 }
@@ -770,6 +776,7 @@ int pkm_disconnect_unused(struct pk_manager *pkm) {
       fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
     }
   }
+  PK_CHECK_MEMORY_CANARIES;
   pkm_unblock(pkm);
   return disconnected;
 }
@@ -852,6 +859,8 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
   }
 
+  PK_CHECK_MEMORY_CANARIES;
+
   pkm->next_tick = next_tick;
   pkm_yield(pkm);
 
@@ -892,6 +901,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   unsigned int parse_buffer_bytes;
 
   PK_TRACE_FUNCTION;
+  PK_RESET_MEMORY_CANARIES;
 
 #ifdef HAVE_OPENSSL
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_ZERO_RETURN = %d", SSL_ERROR_ZERO_RETURN);
@@ -934,6 +944,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm = (struct pk_manager*) buffer;
   pkm->status = PK_STATUS_STARTUP;
   pkm->buffer_bytes_free = buffer_size;
+
+  PK_ADD_MEMORY_CANARY(pkm);
 
   pkm->buffer = buffer + sizeof(struct pk_manager);
   pkm->buffer_bytes_free -= sizeof(struct pk_manager);
@@ -1155,6 +1167,7 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
     sscanf(pp, "%d", &(kite->public_port));
   }
 
+  PK_CHECK_MEMORY_CANARIES;
   return kite;
 }
 
@@ -1188,6 +1201,8 @@ int pkm_add_frontend(struct pk_manager* pkm,
      * will (correctly) flag this as a leak. */
     if (count == 0) freeaddrinfo(result);
   }
+
+  PK_CHECK_MEMORY_CANARIES;
   return count;
 }
 
@@ -1294,6 +1309,8 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
       return pkb;
     }
   }
+
+  PK_CHECK_MEMORY_CANARIES;
   return NULL;
 }
 

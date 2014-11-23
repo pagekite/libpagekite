@@ -36,6 +36,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 void pk_reset_pagekite(struct pk_pagekite* kite)
 {
+  PK_ADD_MEMORY_CANARY(kite);
   kite->protocol[0] = '\0';
   kite->public_domain[0] = '\0';
   kite->public_port = 0;
@@ -46,6 +47,7 @@ void pk_reset_pagekite(struct pk_pagekite* kite)
 
 void frame_reset_values(struct pk_frame* frame)
 {
+  PK_ADD_MEMORY_CANARY(frame);
   frame->data = NULL;
   frame->length = -1;
   frame->hdr_length = -1;
@@ -60,6 +62,7 @@ void frame_reset(struct pk_frame* frame)
 
 void chunk_reset_values(struct pk_chunk* chunk)
 {
+  PK_ADD_MEMORY_CANARY(chunk);
   chunk->sid = NULL;
   chunk->eof = NULL;
   chunk->noop = NULL;
@@ -96,6 +99,8 @@ struct pk_parser* pk_parser_init(int buf_length, char* buf,
   parser = (struct pk_parser *) buf;
   parser_size = sizeof(struct pk_parser);
 
+  PK_ADD_MEMORY_CANARY(parser);
+
   parser->chunk = (struct pk_chunk *) (buf + parser_size);
   parser_size += sizeof(struct pk_chunk);
   chunk_reset(parser->chunk);
@@ -106,11 +111,13 @@ struct pk_parser* pk_parser_init(int buf_length, char* buf,
   parser->chunk_callback_data = chunk_cb_data;
   parser->buffer_bytes_left = buf_length - parser_size;
 
+  PK_CHECK_MEMORY_CANARIES;
   return(parser);
 }
 
 void pk_parser_reset(struct pk_parser *parser)
 {
+  PK_ADD_MEMORY_CANARY(parser);
   parser->buffer_bytes_left += parser->chunk->frame.raw_length;
   frame_reset_values(&(parser->chunk->frame));
   chunk_reset_values(parser->chunk);
@@ -202,9 +209,13 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk,
     chunk->length = bytes - pos;
     chunk->data = frame->data + pos;
     chunk->offset = 0;
+    PK_CHECK_MEMORY_CANARIES;
     return pos;
   }
-  else return (pk_error = ERR_PARSE_BAD_CHUNK);
+  else {
+    PK_CHECK_MEMORY_CANARIES;
+    return (pk_error = ERR_PARSE_BAD_CHUNK);
+  }
 }
 
 int pk_parser_parse_new_data(struct pk_parser *parser, int length)
@@ -286,6 +297,7 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
     }
   }
 
+  PK_CHECK_MEMORY_CANARIES;
   return length;
 }
 
@@ -319,6 +331,8 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
     length -= status;
     data += status;
   } while (length > 0);
+
+  PK_CHECK_MEMORY_CANARIES;
   return parsed;
 }
 

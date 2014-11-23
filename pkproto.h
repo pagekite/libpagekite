@@ -72,6 +72,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_DOMAIN_LENGTH   1024
 #define PK_SECRET_LENGTH    256
 struct  pk_pagekite {
+  PK_MEMORY_CANARY
   char  protocol[PK_PROTOCOL_LENGTH+1];
   char  public_domain[PK_DOMAIN_LENGTH+1];
   int   public_port;
@@ -86,6 +87,7 @@ struct  pk_pagekite {
 #define PK_KITE_REJECTED  0x0002
 #define PK_SALT_LENGTH    36
 struct pk_kite_request {
+  PK_MEMORY_CANARY
   struct pk_pagekite* kite;
   char bsalt[PK_SALT_LENGTH+1];
   char fsalt[PK_SALT_LENGTH+1];
@@ -94,6 +96,7 @@ struct pk_kite_request {
 
 /* Data structure describing a frame */
 struct pk_frame {
+  PK_MEMORY_CANARY
   ssize_t length;             /* Length of data                    */
   char*   data;               /* Pointer to beginning of data      */
   ssize_t hdr_length;         /* Length of header (including nuls) */
@@ -104,6 +107,7 @@ struct pk_frame {
 /* Data structure describing a parsed chunk */
 #define PK_MAX_CHUNK_HEADERS 64
 struct pk_chunk {
+  PK_MEMORY_CANARY
   int             header_count;    /* Raw header data, number of headers.    */
   char*           headers[PK_MAX_CHUNK_HEADERS]; /* Raw header data.         */
   char*           sid;             /* SID:   Stream ID                       */
@@ -133,6 +137,7 @@ typedef void(pkChunkCallback)(void *, struct pk_chunk *);
 
 /* Parser object. */
 struct pk_parser {
+  PK_MEMORY_CANARY
   int              buffer_bytes_left;
   struct pk_chunk* chunk;
   pkChunkCallback* chunk_callback;
@@ -164,4 +169,3 @@ int               pk_connect_ai(struct pk_conn*, struct addrinfo*, int,
 int               pk_connect(struct pk_conn*, char*, int,
                              unsigned int, struct pk_kite_request*, char*,
                              SSL_CTX*);
-

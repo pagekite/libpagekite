@@ -32,3 +32,19 @@ char *in_addr_to_str(const struct sockaddr*, char*, size_t);
 int addrcmp(const struct sockaddr *, const struct sockaddr *);
 int http_get(const char*, char*, size_t);
 void digest_to_hex(const unsigned char* digest, char *output);
+
+#ifdef PK_MEMORY_CANARIES
+# define PK_MEMORY_CANARY           void* canary;
+# define PK_RESET_MEMORY_CANARIES   reset_memory_canaries();
+# define PK_CHECK_MEMORY_CANARIES   assert(0 == check_memory_canaries());
+# define PK_ADD_MEMORY_CANARY(s)    add_memory_canary(&((s)->canary));
+#else
+# define PK_MEMORY_CANARY         /* No canaries */
+# define PK_RESET_MEMORY_CANARIES /* No canaries */
+# define PK_CHECK_MEMORY_CANARIES /* No canaries */
+# define PK_ADD_MEMORY_CANARY(s)  /* No canaries */
+#endif
+void add_memory_canary(void**);
+void remove_memory_canary(void**);
+int check_memory_canaries();
+void reset_memory_canaries();

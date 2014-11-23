@@ -50,10 +50,10 @@ int main(void) {
     return 1;
   }
 #endif
-  assert(sha1_test() &&
-         utils_test() &&
-         pkproto_test() &&
-         pkmanager_test());
+  assert(sha1_test());
+  assert(utils_test());
+  assert(pkproto_test());
+  assert(pkmanager_test());
   return 0;
 }
 

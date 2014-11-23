@@ -37,6 +37,7 @@ int pkb_add_job(struct pk_job_pile* pkj, pk_job_t job, void* data)
   pthread_mutex_lock(&(pkj->mutex));
   for (i = 0; i < pkj->max; i++) {
     if ((pkj->pile+i)->job == PK_NO_JOB) {
+      PK_ADD_MEMORY_CANARY(pkj->pile+i);
       (pkj->pile+i)->job = job;
       (pkj->pile+i)->data = data;
       pkj->count += 1;
@@ -73,6 +74,7 @@ int pkb_get_job(struct pk_job_pile* pkj, struct pk_job* dest)
   dest->job = PK_NO_JOB;
   dest->data = NULL;
   pthread_mutex_unlock(&(pkj->mutex));
+  PK_CHECK_MEMORY_CANARIES;
   return -1;
 }
 
@@ -282,6 +284,8 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
   if (in_dns < 1 && dns_fe) {
     dns_fe->conn.status |= FE_STATUS_IN_DNS;
   }
+
+  PK_CHECK_MEMORY_CANARIES;
 }
 
 void* pkb_tunnel_ping(void* void_fe) {
@@ -347,6 +351,8 @@ void* pkb_tunnel_ping(void* void_fe) {
     fe->priority /= 100;
     pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s: %dms", printip, fe->priority);
   }
+
+  PK_CHECK_MEMORY_CANARIES;
   return NULL;
 }
 
@@ -420,6 +426,7 @@ int pkb_update_dns(struct pk_manager* pkm)
         if (fe->conn.status & FE_STATUS_IN_DNS) bogus++;
     }
   }
+  PK_CHECK_MEMORY_CANARIES;
   if (!bogus) return 0;
   if (!address_list[0]) return 0;
 
@@ -460,6 +467,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   }
 
   pkm->last_dns_update = time(0);
+  PK_CHECK_MEMORY_CANARIES;
   return bogus;
 }
 
@@ -502,6 +510,7 @@ void pkb_check_world(struct pk_manager* pkm)
   pkb_check_tunnel_pingtimes(pkm);
   pkb_log_fe_status(pkm);
   pkm->last_world_update = time(0) + pkm->interval_fudge_factor;
+  PK_CHECK_MEMORY_CANARIES;
 }
 
 void pkb_check_tunnels(struct pk_manager* pkm)
