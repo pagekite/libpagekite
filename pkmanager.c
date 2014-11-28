@@ -52,7 +52,7 @@ void pkm_interrupt(struct pk_manager *pkm)
 
 void pkm_block(struct pk_manager *pkm)
 {
-  if (pthread_self() != pkm->main_thread) {
+  if (!pthread_equal(pthread_self(), pkm->main_thread)) {
 /*
     while (0 != pthread_mutex_trylock(&(pkm->loop_lock))) {
       pkm_interrupt(pkm);
@@ -64,7 +64,7 @@ void pkm_block(struct pk_manager *pkm)
 }
 void pkm_unblock(struct pk_manager *pkm)
 {
-  if (pthread_self() != pkm->main_thread) {
+  if (!pthread_equal(pthread_self(), pkm->main_thread)) {
     pthread_mutex_unlock(&(pkm->loop_lock));
   }
 }

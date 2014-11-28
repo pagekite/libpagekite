@@ -363,15 +363,18 @@ void pkb_check_tunnel_pingtimes(struct pk_manager* pkm)
 
   PK_TRACE_FUNCTION;
 
-  pthread_t first = 0;
-  pthread_t pt = 0;
+  int first = 0;
+  pthread_t first_pt;
+  pthread_t pt;
   for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
     if (fe->ai && fe->fe_hostname) {
       if (0 == pthread_create(&pt, NULL, pkb_tunnel_ping, (void *) fe)) {
         if (first)
           pthread_detach(pt);
-        else
-          first = pt;
+        else {
+          first_pt = pt;
+          first = 1;
+        }
       }
     }
   }
@@ -380,7 +383,7 @@ void pkb_check_tunnel_pingtimes(struct pk_manager* pkm)
      * fastest anyway.  The others will return in their own good time.
      */
     sleep(1);
-    pthread_join(first, NULL);
+    pthread_join(first_pt, NULL);
   }
 }
 

@@ -5,10 +5,16 @@
 #  define __STDC__ 1
 #endif
 
-#ifdef _MSC_VER
+#ifdef __MINGW32__
+#  define _MSC_VER mingw32
+#  define _WIN32_WINNT 0x0501
+#  undef __STRICT_ANSI__
+#elif defined(_MSC_VER)
 #  pragma comment(lib, "ws2_32.lib")
 #  pragma comment(lib, "libeay32.lib")
 #  pragma comment(lib, "ssleay32.lib")
+#endif
+#ifdef _MSC_VER
 #  include <ws2tcpip.h>
 #  include <assert.h>
 #  include <errno.h>
@@ -39,9 +45,26 @@
 #  include <ev.h>
 #endif
 
-#ifdef _MSC_VER
-typedef SSIZE_T ssize_t;
-#  include <Mswsock.h>
+#ifdef __MINGW32__
+#  include <mswsock.h>
+#  include <io.h>
+#  include <getopt.h>
+#  include <pthread.h>
+#  include <sys/time.h>
+#  include <mxe/evwrap.h>
+#  define sleep Sleep
+#  define strncasecmp _strnicmp
+#  define strcasecmp _stricmp
+#  define snprintf _snprintf
+#  define strdup _strdup
+#  define getpid rand
+#  define SHUT_RD 0
+#  define SHUT_WR 1
+#  define SHUT_RDWR 2
+#  define EWOULDBLOCK WSAEWOULDBLOCK
+#  define EINPROGRESS WSAEINPROGRESS
+#elif defined(_MSC_VER)
+#  include <mswsock.h>
 #  include <gettimeofday.h>
 #  include <getopt.h>
 #  include <evwrap.h>
@@ -55,6 +78,7 @@ typedef SSIZE_T ssize_t;
 #  define SHUT_RD 0
 #  define SHUT_WR 1
 #  define SHUT_RDWR 2
+typedef SSIZE_T ssize_t;
 #endif
 
 #ifndef ANDROID
@@ -90,6 +114,7 @@ typedef unsigned int              uint32_t;
 #  define PKS_close(s)          close(s)
 #  define PKS_shutdown(s, how)  shutdown(s, how)
 #endif
+
 
 #if defined(HAVE_OPENSSL) && (HAVE_OPENSSL != 0)
 #  include <openssl/ssl.h>

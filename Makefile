@@ -1,14 +1,23 @@
 #!/usr/bin/colormake
 
+# Cross-compiling magic happens here (or not)
+CC=$(CROSS)gcc
+LD=$(CROSS)ld
+AR=$(CROSS)ar
+PKG_CONFIG=$(CROSS)pkg-config
+TARGET_CFLAGS ?= -fpic -I/usr/include/libev
+TARGET_CLINK ?= -lev
+TARGET_OBJ ?= 
+
 OPT ?= -g -O3
-CFLAGS ?= -std=c99 -pedantic -Wall -W -fpic -fno-strict-aliasing \
-          -I/usr/include/libev $(OPT)
-CLINK ?= -lpthread -lssl -lcrypto -lm -lev
+CFLAGS ?= -std=c99 -fno-strict-aliasing $(TARGET_CFLAGS) $(OPT)
+CWARN ?= -pedantic -Wall -W
+CLINK ?= -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
 
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
-      pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o
+      pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o $(TARGET_OBJ)
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
        pkmanager.h pd_sha1.h pkwatchdog.h Makefile
 
@@ -56,18 +65,24 @@ pagekitec: pagekitec.o $(OBJ)
 pagekiter: pagekiter.o $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)
 
+pagekitec.exe: pagekitec
+	mv pagekitec pagekitec.exe
+
+evwrap.o: mxe/evwrap.c
+	$(CC) $(CFLAGS) -w -c mxe/evwrap.c
+
 version:
 	@sed -e "s/@DATE@/`date '+%y%m%d'`/g" <version.h.in >version.h
 	@touch pkproto.h
 
 clean:
-	rm -vf tests pagekite[cr] httpkite *.o *.so
+	rm -vf tests pagekite[cr] httpkite *.o *.so *.exe *.dll
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf
 
 .c.o:
-	$(CC) $(CFLAGS) $(DEFINES) -c $<
+	$(CC) $(CFLAGS) $(CWARN) $(DEFINES) -c $<
 
 httpkite.o: $(HDRS)
 pagekitec.o: $(HDRS)
@@ -86,3 +101,4 @@ sha1_test.o: common.h pd_sha1.h
 tests.o: pkstate.h
 utils.o: common.h
 utils_test.o: utils.h
+evwrap.o: mxe/evwrap.h

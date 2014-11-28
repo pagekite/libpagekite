@@ -139,8 +139,7 @@ char *in_ipaddr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
 {
   switch (sa->sa_family) {
     case AF_INET:
-      inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
-                s, maxlen);
+      strncpy(s, inet_ntoa(((struct sockaddr_in *)sa)->sin_addr), maxlen);
       break;
 #ifdef HAVE_IPV6
     case AF_INET6:
@@ -162,8 +161,7 @@ char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
     case AF_INET:
       p = s;
       *p++ = '[';
-      inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
-                p, maxlen-8);
+      strncpy(p, inet_ntoa(((struct sockaddr_in *)sa)->sin_addr), maxlen-8);
       p = s+strlen(s);
       *p++ = ']';
       *p++ = ':';
