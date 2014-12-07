@@ -7,7 +7,7 @@
 
 export PATH=/opt/mxe/usr/bin:$PATH
 unset `env | \
-    grep -vi '^EDITOR=\|^HOME=\|^LANG=\|MXE\|^PATH=' | \
+    grep -vi '^EDITOR=\|^HOME=\|^LANG=\|^MXE\|^PK_\|^PATH=' | \
     grep -vi 'PKG_CONFIG\|PROXY\|^PS1=\|^TERM=' | \
     cut -d '=' -f1 | tr '\n' ' '`
 export CROSS=i686-pc-mingw32-
@@ -20,9 +20,12 @@ echo "PS1='\$? \[\033[1;33m\]\\w\[\033[0m\] mxe> '" \
     > .mxe.bashrc
 
 make clean
-echo
-echo You probably want: make pagekitec.exe
-echo
-bash --rcfile .mxe.bashrc -i
-
+if [ "$1" = "" ]; then
+    echo
+    echo You probably want: make pagekitec.exe
+    echo
+    bash --rcfile .mxe.bashrc -i "$@"
+else
+    bash --rcfile .mxe.bashrc "$@"
+fi
 rm -f .mxe.bashrc
