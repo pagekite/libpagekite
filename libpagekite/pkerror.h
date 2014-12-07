@@ -47,8 +47,11 @@ Note: For alternate license terms, see the file COPYING.md.
 #define ERR_TOOBIG_BE_CONNS   -60003
 #define ERR_TOOBIG_PARSERS    -60004
 #define ERR_NO_THREAD         -60005
+#define ERR_WSA_STARTUP       -60006
 
 
-int    pk_error;
+int pk_error;
+
+int    pk_set_error(int);
 void*  pk_err_null(int);
 void   pk_perror(const char*);       

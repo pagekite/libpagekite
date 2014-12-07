@@ -20,6 +20,8 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#include "pagekite.h"
+
 #include "common.h"
 #include "utils.h"
 #include "pkstate.h"
@@ -29,198 +31,262 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
-#include "version.h"
-
-#include "pagekite_net.h"
-
-#include "pagekite.h"
 
 
-#define BUFFER_SIZE 512 * 1024
-struct pk_manager *pk_manager_global = NULL;
-char pk_manager_buffer[BUFFER_SIZE];
+static struct pk_manager* PK_MANAGER(pagekite_mgr pkm) {
+  return (struct pk_manager*) pkm;
+}
 
 
-int libpagekite_init(int kites, int max_conns, int static_setup, 
-                     int spare_frontends, int verbosity) 
+pagekite_mgr libpagekite_init(
+  const char* app_id_short,
+  const char* app_id_long,
+  int max_kites,
+  int max_frontends,
+  int max_conns,
+  const char* dyndns_url,
+  int flags,
+  int verbosity)
 {
-  char* ddns_url;
   SSL_CTX* ssl_ctx;
+  struct pk_manager *pkm_;
+
 #ifdef _MSC_VER
   WSADATA wsa_data;
+  int r;
+  if (0 != (r = WSAStartup(MAKEWORD(2, 2), &wsa_data))) {
+    pk_log(PK_LOG_ERROR, "libpagekite: Error during WSAStartup: %d\n", r);
+    return pk_set_error(ERR_WSA_STARTUP);
+  }
 #endif
 
-  srand(time(0) ^ getpid());
   pks_global_init(PK_LOG_NORMAL);
-
   pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERRORS :
                       ((verbosity < 1) ? PK_LOG_NORMAL :
                       ((verbosity < 2) ? PK_LOG_DEBUG : PK_LOG_ALL)));
 
-  PKS_SSL_INIT(ssl_ctx);
-
-#ifdef _MSC_VER
-  int r;
-  if (0 != (r = WSAStartup(MAKEWORD(2, 2), &wsa_data))) {
-    pk_log(PK_LOG_ERROR, "libpagekite: Error during WSAStartup: %d\n", r);
-    return 1000;
-  }
-#endif
-
-  if (static_setup) {
-    ddns_url = NULL;
+  if (flags & PK_WITH_SSL) {
+    PKS_SSL_INIT(ssl_ctx);
   }
   else {
-    ddns_url = PAGEKITE_NET_DDNS;
+    ssl_ctx = NULL;
   }
 
-  pk_state.app_id_short = "libpagekite";
-  pk_state.app_id_long = PK_VERSION;
+  /* Note: This will leak memory if used. */
+  if (app_id_short != NULL) pk_state.app_id_short = strdup(app_id_short);
+  if (app_id_long != NULL) pk_state.app_id_long = strdup(app_id_long);
 
-  if (NULL == (pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, 
-                                                    pk_manager_buffer, 
-                                             kites, PAGEKITE_NET_FE_MAX,
-                                             max_conns, ddns_url, ssl_ctx))) {
-    pk_log(PK_LOG_ERROR, "libpagekite: Error initializing pk_manager");
-    return 2000;
+  if (NULL == (pkm_ = pkm_manager_init(NULL, 0, NULL,
+                                       max_kites,
+                                       max_frontends,
+                                       max_conns,
+                                       dyndns_url,
+                                       ssl_ctx))) {
+    return NULL;
   }
 
-  pk_manager_global->want_spare_frontends = spare_frontends;
-
-  if (ddns_url != NULL) {
-    if ((0 > (pkm_add_frontend(pk_manager_global, 
-                               PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO)))
-#ifdef HAVE_IPV6
-        || (0 > (pkm_add_frontend(pk_manager_global, 
-                                  PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO)))
-#endif
-        ) {
-      pk_manager_global = NULL;
-      pk_log(PK_LOG_ERROR, "libpagekite: Error adding frontends");
-      return 3000;
+  if (flags & PK_WITH_SERVICE_FRONTENDS) {
+    if (0 > libpagekite_add_service_frontends((pagekite_mgr) pkm_, flags)) {
+      pkm_manager_free(pkm_);
+      return NULL;
     }
   }
 
-  pkm_set_timer_enabled(pk_manager_global, 1);
-  pkm_tick(pk_manager_global);
+  pkm_set_timer_enabled(pkm_, 1);
+  pkm_tick(pkm_);
 
-  return 0;
+  return (pagekite_mgr) pkm_;
 }
 
-int libpagekite_useEvil() {
-  if(pk_manager_global == NULL) return -1;
-
-  pk_manager_global->housekeeping_interval_min = 5;
-  pk_manager_global->housekeeping_interval_max = 20;
-  pk_manager_global->check_world_interval = 30;
-
-  return 0;
-}
-
-int libpagekite_useWatchdog() {
-  if(pk_manager_global == NULL) return -1;
-
-  pk_manager_global->enable_watchdog = 1;
-
-  return 0;
-}
-
-int libpagekite_addKite(char* proto, char* kitename, int pport, 
-  char* secret, char* backend, int lport) 
+pagekite_mgr libpagekite_init_pagekitenet(
+  const char* app_id_short,
+  const char* app_id_long,
+  int max_kites,
+  int max_conns,
+  int flags,
+  int verbosity)
 {
-  if (pk_manager_global == NULL) return -1;
+  pagekite_mgr pkm;
 
-  pk_log(PK_LOG_MANAGER_DEBUG, "libpagekite: Adding kite: %s://%s:%d -> %s:%d",
-                               proto, kitename, pport, backend, lport);
+  if (NULL == (pkm = libpagekite_init(app_id_short, app_id_long,
+                                      max_kites,
+                                      PAGEKITE_NET_FE_MAX,
+                                      max_conns,
+                                      PAGEKITE_NET_DDNS,
+                                      flags, verbosity))) {
+    return NULL;
+  }
 
-  if (NULL == pkm_add_kite(pk_manager_global, proto, kitename, pport, 
-                           secret, backend, lport)) {
-    pk_log(PK_LOG_ERROR, "libpagekite: Error adding kite");
+  /* If flags say anything about service frontends, do nothing: either
+     it was already done, or we're not supposed to do anything. */
+  if (!(flags & (PK_WITHOUT_SERVICE_FRONTENDS|PK_WITH_SERVICE_FRONTENDS))) {
+    if (0 > libpagekite_add_service_frontends(pkm, flags)) {
+      pkm_manager_free(PK_MANAGER(pkm));
+      return NULL;
+    }
+  }
+
+  return pkm;
+}
+
+int libpagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
+  int fes_v4 = 0;
+#ifdef HAVE_IPV6
+  int fes_v6 = 0;
+#endif
+
+  if (((flags & PK_WITH_IPV4) &&
+       (0 > (fes_v4 = pkm_add_frontend(PK_MANAGER(pkm),
+                                       PAGEKITE_NET_V4FRONTENDS,
+                                       FE_STATUS_AUTO))))
+#ifdef HAVE_IPV6
+         ||
+       ((flags & PK_WITH_IPV4) &&
+        (0 > (fes_v6 = pkm_add_frontend(PK_MANAGER(pkm),
+                                        PAGEKITE_NET_V6FRONTENDS,
+                                        FE_STATUS_AUTO))))
+#endif
+  ) {
     return -1;
   }
 
-  return 0;
-}
-
-int libpagekite_addFrontend(char* domain, int port) {
-
-  if(pk_manager_global == NULL) return -1;
-
-  pk_log(PK_LOG_MANAGER_DEBUG, "libpagekite: Adding frontend: %s:%d", domain, port);
-
-  if (0 > pkm_add_frontend(pk_manager_global, domain, port, FE_STATUS_AUTO)) {
-    pk_log(PK_LOG_ERROR, "libpagekite: Error adding frontend");
+#ifdef HAVE_IPV6
+  int fes = fes_v4 + fes_v6;
+#else
+  int fes = fes_v4;
+#endif
+  if (0 == fes) {
+    pk_set_error(ERR_NO_FRONTENDS);
     return -1;
   }
+  return fes;
+}
 
+int libpagekite_free(pagekite_mgr pkm) {
+  if (pkm == NULL) return -1;
+  pkm_manager_free(PK_MANAGER(pkm));
+#ifdef _MSC_VER
+  Sleep(100); /* Give logger time to get the rest of the log for debugging */
+  WSACleanup();
+#endif
   return 0;
 }
 
-int libpagekite_tick() {
-  if (pk_manager_global == NULL) return -1;
-  
-  pkm_tick(pk_manager_global);
-
+int libpagekite_set_log_mask(pagekite_mgr pkm, int mask)
+{
+  (void) pkm;
+  pk_state.log_mask = mask;
   return 0;
 }
 
-int libpagekite_poll(int timeout) {
-  if (pk_manager_global == NULL) return -1;
+int libpagekite_enable_watchdog(pagekite_mgr pkm, int enable)
+{
+  if (pkm == NULL) return -1;
+  PK_MANAGER(pkm)->enable_watchdog = (enable > 0);
+  return 0;
+}
 
+int libpagekite_enable_fake_ping(pagekite_mgr pkm, int enable)
+{
+  (void) pkm;
+  pk_state.fake_ping = enable;
+  return 0;
+}
+
+int libpagekite_set_bail_on_errors(pagekite_mgr pkm, int errors)
+{
+  (void) pkm;
+  pk_state.bail_on_errors = errors;
+  return 0;
+}
+
+int libpagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int seconds)
+{
+  (void) pkm;
+  pk_state.conn_eviction_idle_s = seconds;
+  return 0;
+}
+
+int libpagekite_want_spare_frontends(pagekite_mgr pkm, int spares)
+{
+  if (pkm == NULL) return -1;
+  PK_MANAGER(pkm)->want_spare_frontends = spares;
+  return 0;
+}
+
+
+int libpagekite_add_kite(pagekite_mgr pkm,
+  const char* proto,
+  const char* kitename,
+  int pport, 
+  const char* secret,
+  const char* backend,
+  int lport) 
+{
+  if (pkm == NULL) return -1;
+  return (NULL != pkm_add_kite(PK_MANAGER(pkm),
+                               proto, kitename, pport, secret, backend, lport)
+          ) ? 0 : -1;
+}
+
+int libpagekite_add_frontend(pagekite_mgr pkm,
+  char* domain,
+  int port)
+{
+  if (pkm == NULL) return -1;
+  return pkm_add_frontend(PK_MANAGER(pkm), domain, port, FE_STATUS_AUTO);
+}
+
+int libpagekite_tick(pagekite_mgr pkm)
+{
+  if (pkm == NULL) return -1;
+  pkm_tick(PK_MANAGER(pkm));
+  return 0;
+}
+
+int libpagekite_poll(pagekite_mgr pkm, int timeout) {
+  if (pkm == NULL) return -1;
   pthread_mutex_lock(&(pk_state.lock));
   /* FIXME: Obey the timeout */
   pthread_cond_wait(&(pk_state.cond), &(pk_state.lock));
   pthread_mutex_unlock(&(pk_state.lock));
-
   return 0;
 }
 
-int libpagekite_start() {
-  if (pk_manager_global == NULL) return -1;
+int libpagekite_start(pagekite_mgr pkm) {
+  if (pkm == NULL) return -1;
+  return pkm_run_in_thread(PK_MANAGER(pkm));
+}
 
-  pk_log(PK_LOG_MANAGER_DEBUG, "libpagekite: Starting worker thread");
+int libpagekite_wait(pagekite_mgr pkm) {
+  if (pkm == NULL) return -1;
+  return pkm_wait_thread(PK_MANAGER(pkm));
+}
 
-  if (0 > pkm_run_in_thread(pk_manager_global)) {
-    pk_log(PK_LOG_ERROR, "libpagekite: Error starting worker thread");
-    return -1;
-  }
-
+int libpagekite_stop(pagekite_mgr pkm) {
+  if (pkm == NULL) return -1;
+  if (0 > pkm_stop_thread(PK_MANAGER(pkm))) return -1;
   return 0;
 }
 
-int libpagekite_stop() {
-  if (pk_manager_global == NULL) return -1;
-
-  pk_log(PK_LOG_MANAGER_DEBUG, "libpagekite: Stopping worker thread");
-
-  if (0 > pkm_stop_thread(pk_manager_global)) {
-    pk_log(PK_LOG_ERROR, "libpagekite: Error stopping worker thread");
-    return -1;
-  }
-
-#ifdef _MSC_VER
-  WSACleanup();
-  Sleep(450); /* Give logger time to get the rest of the log for debugging*/
-#endif
-  pk_manager_global = NULL;
-  return 0;
+int libpagekite_get_status(pagekite_mgr pkm) {
+  if (pkm == NULL) return -1;
+  return PK_MANAGER(pkm)->status;
 }
 
-int libpagekite_getStatus() {
-  if (pk_manager_global == NULL) return -1;
-  return pk_manager_global->status;
+void libpagekite_perror(pagekite_mgr pkm, const char* prefix) {
+  (void) pkm;
+  pk_perror(prefix);
 }
 
-char* libpagekite_getLog() {
+char* libpagekite_get_log(pagekite_mgr pkm) {
   static char buffer[PKS_LOG_DATA_MAX+1];
-  
-  if (pk_manager_global == NULL) {
+  if (pkm == NULL) {
     strcpy(buffer, "Not running.");
   }
   else {
     pks_copylog(buffer);
   }
-
   buffer[PKS_LOG_DATA_MAX] = '\0';
   return buffer;
 }

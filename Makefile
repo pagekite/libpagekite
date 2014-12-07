@@ -1,8 +1,12 @@
-optimized:
-	@make all OPT="-O3 -s"
+default:
+	@make native PK_TESTS=0
 
-debug:
-	@make all PK_MEMORY_CANARIES=1 PK_TRACE=1
+optimized: buildclean
+	@make all OPT="-O3 -s" PK_TESTS=0
+
+debug: buildclean
+	@cd libpagekite && make tests
+	@make all PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
 
 all: native windows
 
@@ -16,8 +20,8 @@ native: buildclean
 windows: buildclean
 	@echo '=== Building for win32 ==='
 	@cd libpagekite && ../tools/bash.mxe -c 'make pagekitec.exe'
-	@mv -v libpagekite/*.{dll,a} lib
-	@mv -v libpagekite/*.exe bin
+	@mv -v libpagekite/*.dll libpagekite/*.a lib/
+	@mv -v libpagekite/*.exe bin/
 	@echo
 
 buildclean:

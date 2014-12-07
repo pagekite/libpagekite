@@ -18,7 +18,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "version.h"
+#include "pagekite.h"
 
 /* This magic number is a high estimate of how much overhead we expect the
  * PageKite frame and chunk headers to add to each sent packet.

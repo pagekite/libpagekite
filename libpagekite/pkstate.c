@@ -19,9 +19,12 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 #define __IN_PKSTATE_C__
 
-#include "version.h"
+#define PAGEKITE_CONSTANTS_ONLY
+#include "pagekite.h"
+
 #include "common.h"
 #include "pkstate.h"
+
 
 void pks_global_init(unsigned int log_mask) {
   memset(&pk_state, 0, sizeof(struct pk_global_state));

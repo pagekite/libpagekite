@@ -18,6 +18,9 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#define PAGEKITE_CONSTANTS_ONLY
+#include "pagekite.h"
+
 #include "common.h"
 #include <fcntl.h>
 
@@ -1167,7 +1170,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
                                     const char* dynamic_dns_url, SSL_CTX* ctx)
 {
   struct pk_manager* pkm;
-  int i;
+  int i, malloced;
   unsigned int parse_buffer_bytes;
 
   PK_TRACE_FUNCTION;
@@ -1191,6 +1194,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   if (buffer == NULL) {
     buffer_size = PK_MANAGER_BUFSIZE(kites, tunnels, conns, PARSER_BYTES_AVG);
     buffer = malloc(buffer_size);
+    malloced = 1;
   }
   else {
     i = PK_MANAGER_BUFSIZE(kites, tunnels, conns, PARSER_BYTES_MIN);
@@ -1200,27 +1204,33 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
              buffer_size, i);
       return pk_err_null(ERR_TOOBIG_PARSERS);
     }
+    malloced = 0;
   }
   if (buffer == NULL) {
     pk_log(PK_LOG_MANAGER_ERROR, "pkm_manager_init: No buffer! Malloc failed?");
     return NULL;
   }
 
-  /* FIXME: We never free this, so we have a memory leak here. */
-  if (loop == NULL) loop = ev_loop_new(0);
-
   memset(buffer, 0, buffer_size);
 
   pkm = (struct pk_manager*) buffer;
   pkm->status = PK_STATUS_STARTUP;
   pkm->buffer_bytes_free = buffer_size;
+  pkm->was_malloced = malloced;
+  if (loop == NULL) {
+      loop = ev_loop_new(0);
+      pkm->ev_loop_malloced = 1;
+  }
+  else {
+      pkm->ev_loop_malloced = 0;
+  }
+  pkm->loop = loop;
 
   PK_ADD_MEMORY_CANARY(pkm);
 
   pkm->buffer = buffer + sizeof(struct pk_manager);
   pkm->buffer_bytes_free -= sizeof(struct pk_manager);
   pkm->buffer_base = pkm->buffer;
-  pkm->loop = loop;
   if (pkm->buffer_bytes_free < 0) return pk_err_null(ERR_TOOBIG_MANAGER);
 
   /* Allocate space for the kites */
@@ -1345,6 +1355,16 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   return pkm;
 }
 
+void pkm_manager_free(struct pk_manager* pkm)
+{
+  if (pkm->ev_loop_malloced) {
+    ev_loop_destroy(pkm->loop);
+  }
+  if (pkm->was_malloced) {
+    free(pkm);
+  }
+}
+
 void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
@@ -1456,6 +1476,9 @@ int pkmanager_test(void)
   assert(CONN_IO_BUFFER_SIZE == PKC_OUT_FREE(c->conn));
   pkm_free_be_conn(c);
   assert(NULL == pkm_find_be_conn(m, NULL, "abc"));
+
+  /* Cleanup */
+  pkm_manager_free(m);
 #endif
   return 1;
 }

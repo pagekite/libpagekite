@@ -20,8 +20,10 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "common.h"
+#define PAGEKITE_CONSTANTS_ONLY
+#include "pagekite.h"
 
+#include "common.h"
 #include "utils.h"
 #include "pkstate.h"
 #include "pkerror.h"

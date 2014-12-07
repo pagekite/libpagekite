@@ -121,6 +121,8 @@ struct pk_manager {
   int                      kite_max;
   int                      tunnel_max;
   int                      be_conn_max;
+  unsigned int             was_malloced:1;
+  unsigned int             ev_loop_malloced:1;
   unsigned int             fancy_pagekite_net_rejection:1;
   unsigned int             enable_watchdog:1;
   int                      want_spare_frontends;
@@ -135,6 +137,7 @@ struct pk_manager {
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
                                       int, char*, int, int, int,
                                       const char*, SSL_CTX*);
+void pkm_manager_free(struct pk_manager*);
 
 int                  pkm_add_frontend(struct pk_manager*,
                                       const char*, int, int);

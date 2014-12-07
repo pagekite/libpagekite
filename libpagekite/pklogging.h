@@ -18,26 +18,6 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#define PK_LOG_TUNNEL_DATA     0x0001
-#define PK_LOG_TUNNEL_HEADERS  0x0002
-#define PK_LOG_TUNNEL_CONNS    0x0004
-#define PK_LOG_BE_DATA         0x0010
-#define PK_LOG_BE_HEADERS      0x0020
-#define PK_LOG_BE_CONNS        0x0040
-#define PK_LOG_MANAGER_ERROR   0x0100
-#define PK_LOG_MANAGER_INFO    0x0200
-#define PK_LOG_MANAGER_DEBUG   0x0400
-
-#define PK_LOG_TRACE           0x0800
-#define PK_LOG_ERROR           0x1000
-
-#define PK_LOG_ERRORS          (PK_LOG_ERROR|PK_LOG_MANAGER_ERROR)
-#define PK_LOG_MANAGER         (PK_LOG_MANAGER_ERROR|PK_LOG_MANAGER_INFO)
-#define PK_LOG_CONNS           (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
-#define PK_LOG_NORMAL          (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER)
-#define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG)
-#define PK_LOG_ALL             0xffff
-
 #if defined(PK_TRACE) && (PK_TRACE >= 1)
 #define PK_TRACE_FUNCTION pk_log(PK_LOG_TRACE, "trace/%s", __FUNCTION__)
 #define PK_TRACE_LOOP(msg) pk_log(PK_LOG_TRACE, "trace/%s: %s", __FUNCTION__, msg)

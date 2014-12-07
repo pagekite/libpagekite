@@ -20,7 +20,7 @@ OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
       pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o pagekite.o \
       $(TARGET_OBJ)
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
-       pkmanager.h pd_sha1.h pkwatchdog.h Makefile
+       pkmanager.h pd_sha1.h pkwatchdog.h Makefile ../include/pagekite.h
 
 ROBJ = pkrelay.o
 RHDRS = pkrelay.h
@@ -83,9 +83,8 @@ evwrap.o: mxe/evwrap.c
 pagekite.o: pagekite.c
 	$(CC) $(CFLAGS) $(CWARN) $(DEFINES) -DBUILDING_PAGEKITE_DLL=1 -c $<
 
-version:
-	@sed -e "s/@DATE@/`date '+%y%m%d'`/g" <version.h.in >version.h
-	@touch pkproto.h
+../include/pagekite.h: pagekite.h.in
+	sed -e "s/@DATE@/`date '+%y%m%d'`/g" <pagekite.h.in >../include/pagekite.h
 
 clean:
 	rm -vf tests pagekite[cr] httpkite *.[oa] *.so *.exe *.dll

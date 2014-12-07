@@ -9,7 +9,7 @@ This code is a work in progress.
 ## What is PageKite? ##
 
 PageKite is a protocol for dynamic, tunneled reverse proxying of arbitrary
-TCP byte streams.  It is particularly well suited for making a HTTP server
+TCP byte streams. It is particularly well suited for making a HTTP server
 on a device without a public IP address visible to the wider Internet, but
 can also be used for a variety of other things, including SSH access.
 
@@ -90,7 +90,7 @@ code differently and massage the Android.mk files a bit.
 
 ## License and Copyright ##
 
-libpagekite is Copyright 2011, 2012, The Beanstalks Project ehf.
+libpagekite is Copyright 2011-2014, The Beanstalks Project ehf.
 
 This code is released under the Apache License 2.0, but may also be used
 according to the terms of the GNU Affero General Public License.  Please

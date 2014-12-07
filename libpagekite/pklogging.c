@@ -18,6 +18,8 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#define PAGEKITE_CONSTANTS_ONLY
+#include "pagekite.h"
 #include "common.h"
 
 #ifdef ANDROID
@@ -68,6 +70,7 @@ int pk_log(int level, const char* fmt, ...)
         } else
 #endif
           fprintf(log_file, "%.4000s\n", output);
+          if (level & PK_LOG_ERRORS) fflush(log_file);
       }
     }
   }

@@ -201,6 +201,7 @@ jboolean Java_net_pagekite_lib_PageKiteAPI_stop(JNIEnv* env, jclass cl)
   if (pk_manager_global == NULL) return JNI_FALSE;
   pk_log(PK_LOG_MANAGER_DEBUG, "JNI: Stopping worker thread.");
   rv = pkm_stop_thread(pk_manager_global);
+  if (0 == rv) pkm_manager_free(pk_manager_global);
   pk_manager_global = NULL;
   return (0 == rv) ? JNI_TRUE : JNI_FALSE;
 }

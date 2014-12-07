@@ -17,6 +17,9 @@ If not, see: <http://www.apache.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
+#define PAGEKITE_CONSTANTS_ONLY
+#include "pagekite.h"
+
 #include "common.h"
 #include <assert.h>
 

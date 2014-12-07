@@ -23,6 +23,7 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #include "common.h"
+#include "pagekite.h"
 #include <signal.h>
 
 #include "utils.h"
@@ -34,8 +35,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pkrelay.h"
 #include "pklogging.h"
-#include "version.h"
-#include "pagekite_net.h"
 
 
 #define EXIT_ERR_MANAGER_INIT 1

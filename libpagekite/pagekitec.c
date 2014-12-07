@@ -22,19 +22,8 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#include "pagekite.h"
 #include "common.h"
-#include <signal.h>
-
-#include "utils.h"
-#include "pkstate.h"
-#include "pkerror.h"
-#include "pkconn.h"
-#include "pkproto.h"
-#include "pkblocker.h"
-#include "pkmanager.h"
-#include "pklogging.h"
-#include "version.h"
-#include "pagekite_net.h"
 
 
 #define EXIT_ERR_MANAGER_INIT 1
@@ -42,7 +31,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #define EXIT_ERR_ADD_KITE 3
 #define EXIT_ERR_FRONTENDS 4
 #define EXIT_ERR_START_THREAD 5
-#define EXIT_ERR_WSASTARTUP 6
 
 
 void usage(int ecode) {
@@ -68,32 +56,38 @@ void usage(int ecode) {
 #endif
   fprintf(stderr, "\t-C\tDisable auto-adding current DNS IP as a front-end\n"
                   "\t-W\tEnable watchdog thread (dumps core if we lock up)\n"
-                  "\t-Z\tEvil mode: Very low intervals for reconnect/ping\n"
                   "\n");
   exit(ecode);
 }
 
 void raise_log_level(int sig) {
-  if (sig) pk_state.log_mask = PK_LOG_ALL;
+  if (sig) libpagekite_set_log_mask(NULL, PK_LOG_ALL);
+}
+
+void safe_exit(int code) {
+#ifdef _MSC_VER
+  fprintf(stderr, "Exiting with status code %d.\n", code);
+#endif
+  fclose(stderr);
+  exit(code);
 }
 
 int main(int argc, char **argv) {
-  struct pk_manager *m;
-  unsigned int tmp_uint;
+  pagekite_mgr m;
+  unsigned int bail_on_errors = 0;
+  unsigned int conn_eviction_idle_s = 0;
   char* proto;
   char* kitename;
   char* secret;
   int gotargs = 0;
   int verbosity = 0;
   int use_ipv4 = 1;
-  int fes_v4 = 0;
 #ifdef HAVE_IPV6
   int use_ipv6 = 1;
-  int fes_v6 = 0;
 #endif
   int use_current = 1;
   int use_ssl = 1;
-  int use_evil = 0;
+  int use_fake_ping = 0;
   int use_watchdog = 0;
   int max_conns = 25;
   int spare_frontends = 0;
@@ -102,11 +96,9 @@ int main(int argc, char **argv) {
   int ac;
   int pport;
   int lport;
-  SSL_CTX* ssl_ctx;
 
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
-  pks_global_init(PK_LOG_NORMAL);
 
   while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:In:qRSvWZ"))) {
     switch (ac) {
@@ -131,16 +123,13 @@ int main(int argc, char **argv) {
         use_ssl = 0;
         break;
       case 'R':
-        pk_state.fake_ping = 1;
+        use_fake_ping = 1;
         break;
       case 'S':
         ddns_url = NULL;
         break;
       case 'W':
         use_watchdog = 1;
-        break;
-      case 'Z':
-        use_evil = 1;
         break;
       case 'F':
         gotargs++;
@@ -149,7 +138,7 @@ int main(int argc, char **argv) {
         break;
       case 'B':
         gotargs++;
-        if (1 == sscanf(optarg, "%u", &pk_state.bail_on_errors)) break;
+        if (1 == sscanf(optarg, "%u", &bail_on_errors)) break;
         usage(EXIT_ERR_USAGE);
       case 'c':
         gotargs++;
@@ -157,10 +146,7 @@ int main(int argc, char **argv) {
         usage(EXIT_ERR_USAGE);
       case 'E':
         gotargs++;
-        if (1 == sscanf(optarg, "%u", &tmp_uint)) {
-          pk_state.conn_eviction_idle_s = tmp_uint;
-          break;
-        }
+        if (1 == sscanf(optarg, "%u", &conn_eviction_idle_s)) break;
         usage(EXIT_ERR_USAGE);
       case 'n':
         gotargs++;
@@ -180,41 +166,30 @@ int main(int argc, char **argv) {
   signal(SIGUSR1, &raise_log_level);
 #endif
 
-  pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERRORS :
-                      ((verbosity < 1) ? PK_LOG_NORMAL :
-                      ((verbosity < 2) ? PK_LOG_DEBUG : PK_LOG_ALL)));
-
-  if (use_ssl) {
-    PKS_SSL_INIT(ssl_ctx);
-  }
-  else {
-    ssl_ctx = NULL;
-  }
-
-#ifdef _MSC_VER
-  /* Initialize Winsock */
-  WSADATA wsa_data;
-  if (WSAStartup(MAKEWORD(2, 2), &wsa_data) != 0) {
-    pk_perror(argv[0]);
-    exit(EXIT_ERR_WSASTARTUP);
-  }
+  int flags = 0;
+  if (use_ssl) flags |= PK_WITH_SSL;
+  if (use_ipv4) flags |= PK_WITH_IPV4;
+#ifdef HAVE_IPV6
+  if (use_ipv6) flags |= PK_WITH_IPV6;
 #endif
 
-  if (NULL == (m = pkm_manager_init(NULL, 0, NULL,
+  if (NULL == (m = libpagekite_init("pagekitec", NULL,
                                     1 + (argc-1-gotargs)/5, /* Kites */
                                     PAGEKITE_NET_FE_MAX,
-                                    max_conns, ddns_url, ssl_ctx))) {
-    pk_perror(argv[0]);
-    exit(EXIT_ERR_MANAGER_INIT);
+                                    max_conns,
+                                    ddns_url,
+                                    flags,
+                                    verbosity))) {
+    libpagekite_perror(m, argv[0]);
+    safe_exit(EXIT_ERR_MANAGER_INIT);
   }
-  m->want_spare_frontends = spare_frontends;
-  if (use_evil) {
-    m->housekeeping_interval_min = 5;
-    m->housekeeping_interval_max = 20;
-    m->check_world_interval = 30;
-  }
-  if (use_watchdog)
-    m->enable_watchdog = 1;
+
+  /* Set all the parameters */
+  libpagekite_want_spare_frontends(m, spare_frontends);
+  libpagekite_enable_watchdog(m, use_watchdog);
+  libpagekite_enable_fake_ping(m, use_fake_ping);
+  libpagekite_set_bail_on_errors(m, bail_on_errors);
+  libpagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
 
   for (ac = gotargs; ac+5 < argc; ac += 5) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
@@ -224,54 +199,37 @@ int main(int argc, char **argv) {
     proto = argv[ac+2];
     kitename = argv[ac+3];
     secret = argv[ac+5];
-    if ((NULL == (pkm_add_kite(m, proto, kitename, 0, secret,
-                               "localhost", lport))) ||
-        (use_current &&
-         (0 > (pkm_add_frontend(m, kitename, pport, FE_STATUS_AUTO))))) {
-      pk_perror(argv[0]);
-      exit(EXIT_ERR_ADD_KITE);
+    if ((0 > libpagekite_add_kite(m, proto, kitename, 0, secret,
+                                  "localhost", lport)) ||
+        (use_current && (0 > (libpagekite_add_frontend(m, kitename, pport)))))
+    {
+      libpagekite_perror(m, argv[0]);
+      safe_exit(EXIT_ERR_ADD_KITE);
     }
   }
 
-  if (ddns_url != NULL) {
-    if (fe_hostname) {
-      if (0 > (fes_v4 = pkm_add_frontend(m, fe_hostname, 443, FE_STATUS_AUTO))) {
-        pk_perror(argv[0]);
-        exit(EXIT_ERR_FRONTENDS);
-      }
+  /* The API could do this stuff on INIT, but since we allow for manually
+     specifying a front-end hostname, we do things by hand. */
+  if (fe_hostname) {
+    if (0 > libpagekite_add_frontend(m, fe_hostname, 443)) {
+      libpagekite_perror(m, argv[0]);
+      safe_exit(EXIT_ERR_FRONTENDS);
     }
-    else if (((use_ipv4) &&
-              (0 >= (fes_v4 = pkm_add_frontend(m, PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO))))
-#ifdef HAVE_IPV6
-         ||  ((use_ipv6) &&
-              (0 >= (fes_v6 = pkm_add_frontend(m, PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO))))
-#endif
-             ) {
-      pk_perror(argv[0]);
-      exit(EXIT_ERR_FRONTENDS);
+  }
+  else if (ddns_url != NULL) {
+    if (0 > libpagekite_add_service_frontends(m, flags)) {
+      libpagekite_perror(m, argv[0]);
+      safe_exit(EXIT_ERR_FRONTENDS);
     }
   }
 
-  int fes = fes_v4;
-#ifdef HAVE_IPV6
-  fes += fes_v6;
-#endif
-  if (0 == (fes)) {
-    pk_error = ERR_NO_FRONTENDS;
-    pk_perror(argv[0]);
-    exit(EXIT_ERR_FRONTENDS);
+  if (0 > libpagekite_start(m)) {
+    libpagekite_perror(m, argv[0]);
+    safe_exit(EXIT_ERR_START_THREAD);
   }
 
-  if (0 > pkm_run_in_thread(m)) {
-    pk_perror(argv[0]);
-    exit(EXIT_ERR_START_THREAD);
-  }
-
-  pkm_wait_thread(m);
-
-#ifdef _MSC_VER
-  WSACleanup();
-#endif
+  libpagekite_wait(m);
+  libpagekite_free(m);
 
   return 0;
 }

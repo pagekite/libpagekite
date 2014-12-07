@@ -18,6 +18,9 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#define PAGEKITE_CONSTANTS_ONLY
+#include "pagekite.h"
+
 #include "common.h"
 #include "utils.h"
 #include "pkerror.h"
@@ -29,6 +32,10 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pklogging.h"
 
 
+int pk_set_error(int error) {
+  return (pk_error = error);
+}
+
 void* pk_err_null(int error) {
   pk_error = error;
   return NULL;
@@ -38,12 +45,47 @@ void pk_perror(const char* prefix) {
   if (ERR_ALL_IS_WELL == pk_error) return;
 
   switch (pk_error) {
-    /* FIXME: Make this prettier */
-    case ERR_NO_FRONTENDS:
-      pk_log(PK_LOG_ERROR, "%s: No frontends configured!", prefix);
+    case ERR_PARSE_BAD_FRAME:
+    case ERR_PARSE_BAD_CHUNK:
+    case ERR_PARSE_NO_MEMORY:
+    case ERR_PARSE_NO_KITENAME:
+    case ERR_PARSE_NO_BSALT:
+    case ERR_PARSE_NO_FSALT:
+      pk_log(PK_LOG_ERROR, "%s: Internal protocol error %d", prefix, pk_error);
       break;
     case ERR_CONNECT_CONNECT:
       pk_log(PK_LOG_ERROR, "%s: %s", prefix, strerror(errno));
+      break;
+    case ERR_CONNECT_DUPLICATE:
+      pk_log(PK_LOG_ERROR, "%s: Rejected as a duplicate by front-end", prefix);
+      break;
+    case ERR_CONNECT_REJECTED:
+      pk_log(PK_LOG_ERROR, "%s: Rejected by front-end", prefix);
+      break;
+    case ERR_CONNECT_LOOKUP:
+    case ERR_CONNECT_REQUEST:
+    case ERR_CONNECT_REQ_END:
+      pk_log(PK_LOG_ERROR, "%s: Connection error %d", prefix, pk_error);
+      break;
+    case ERR_NO_MORE_KITES:
+      pk_log(PK_LOG_ERROR, "%s: Out of kite slots", prefix);
+      break;
+    case ERR_NO_MORE_FRONTENDS:
+      pk_log(PK_LOG_ERROR, "%s: Out of frontend slots", prefix);
+      break;
+    case ERR_NO_KITE:
+      pk_log(PK_LOG_ERROR, "%s: No kites configured!", prefix);
+      break;
+    case ERR_NO_FRONTENDS:
+      pk_log(PK_LOG_ERROR, "%s: No frontends configured!", prefix);
+      break;
+    case ERR_TOOBIG_MANAGER:
+    case ERR_TOOBIG_KITES:
+    case ERR_TOOBIG_FRONTENDS:
+    case ERR_TOOBIG_BE_CONNS:
+    case ERR_TOOBIG_PARSERS:
+      pk_log(PK_LOG_ERROR, "%s: Insufficient allocated memory (%d)",
+                           prefix, pk_error);
       break;
     default:
       pk_log(PK_LOG_ERROR, "%s: pk_error = %d", prefix, pk_error);
