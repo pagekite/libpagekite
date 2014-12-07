@@ -51,12 +51,12 @@ int utils_test(void)
   strcpy(buffer1, "abcd\r\nfoo\r\n\r\ndef");
   assert(strcmp(skip_http_header(strlen(buffer1), buffer1), "def") == 0);
 
-#ifdef PK_MEMORY_CANARIES
+#if PK_MEMORY_CANARIES
   add_memory_canary(&canary);
   PK_CHECK_MEMORY_CANARIES;
-  canary = (void *) 0;
+  canary = (void*) 0;
   assert(check_memory_canaries() == 1);
-  canary = *canary;
+  canary = (void*) *canary;
   remove_memory_canary(&canary);
 #endif
 

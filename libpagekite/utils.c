@@ -286,7 +286,7 @@ void digest_to_hex(const unsigned char* digest, char *output)
     *c = '\0';
 }
 
-#ifdef PK_MEMORY_CANARIES
+#if PK_MEMORY_CANARIES
 #define MAX_CANARIES 102400
 void** canaries[MAX_CANARIES];
 int canary_max = 0;
@@ -294,7 +294,7 @@ pthread_mutex_t canary_lock;
 #endif
 
 void remove_memory_canary(void** canary) {
-#ifdef PK_MEMORY_CANARIES
+#if PK_MEMORY_CANARIES
     pthread_mutex_lock(&canary_lock);
     for (int i = 0; i < canary_max; i++) {
         if (canaries[i] == canary) {
@@ -313,7 +313,7 @@ void remove_memory_canary(void** canary) {
 }
 
 void add_memory_canary(void** canary) {
-#ifdef PK_MEMORY_CANARIES
+#if PK_MEMORY_CANARIES
     if (*canary && (*canary == canary)) {
         remove_memory_canary(canary);
     }
@@ -327,7 +327,7 @@ void add_memory_canary(void** canary) {
 }
 
 int check_memory_canaries() {
-#ifdef PK_MEMORY_CANARIES
+#if PK_MEMORY_CANARIES
     int i, bad;
     pthread_mutex_lock(&canary_lock);
     for (bad = i = 0; i < canary_max; i++) {
@@ -345,7 +345,7 @@ int check_memory_canaries() {
 }
 
 void reset_memory_canaries() {
-#ifdef PK_MEMORY_CANARIES
+#if PK_MEMORY_CANARIES
     pthread_mutex_lock(&canary_lock);
     canary_max = 0;
     pthread_mutex_unlock(&canary_lock);
@@ -353,7 +353,7 @@ void reset_memory_canaries() {
 }
 
 void init_memory_canaries() {
-#ifdef PK_MEMORY_CANARIES
+#if PK_MEMORY_CANARIES
     pthread_mutex_init(&canary_lock, NULL);
 #endif
 }

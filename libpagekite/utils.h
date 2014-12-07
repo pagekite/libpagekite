@@ -33,7 +33,7 @@ int addrcmp(const struct sockaddr *, const struct sockaddr *);
 int http_get(const char*, char*, size_t);
 void digest_to_hex(const unsigned char* digest, char *output);
 
-#ifdef PK_MEMORY_CANARIES
+#if PK_MEMORY_CANARIES
 # define PK_MEMORY_CANARY           void* canary;
 # define PK_INIT_MEMORY_CANARIES    init_memory_canaries();
 # define PK_RESET_MEMORY_CANARIES   reset_memory_canaries();

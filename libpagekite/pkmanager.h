@@ -155,3 +155,5 @@ int pkm_disconnect_unused           (struct pk_manager*);
 
 void pkm_set_timer_enabled          (struct pk_manager*, int);
 void pkm_tick                       (struct pk_manager*);
+
+int pkmanager_test(void);

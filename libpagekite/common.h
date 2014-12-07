@@ -140,3 +140,7 @@ typedef unsigned int              uint32_t;
 #define PARSER_BYTES_MIN   1 * 1024
 #define PARSER_BYTES_AVG   2 * 1024
 #define PARSER_BYTES_MAX   4 * 1024  /* <= CONN_IO_BUFFER_SIZE */
+
+#ifndef PK_MEMORY_CANARIES
+#define PK_MEMORY_CANARIES 0
+#endif
