@@ -52,7 +52,7 @@
 #  include <pthread.h>
 #  include <sys/time.h>
 #  include <mxe/evwrap.h>
-#  define sleep Sleep
+#  define sleep(n) Sleep(n*1000)
 #  define strncasecmp _strnicmp
 #  define strcasecmp _stricmp
 #  define snprintf _snprintf
@@ -69,7 +69,7 @@
 #  include <getopt.h>
 #  include <evwrap.h>
 #  include <pthreads.h>
-#  define sleep Sleep
+#  define sleep(n) Sleep(n*1000)
 #  define strncasecmp _strnicmp
 #  define strcasecmp _stricmp
 #  define snprintf _snprintf /* This is probably okay */
@@ -143,4 +143,10 @@ typedef unsigned int              uint32_t;
 
 #ifndef PK_MEMORY_CANARIES
 #define PK_MEMORY_CANARIES 0
+#endif
+#ifndef PK_TRACE
+#define PK_TRACE 0
+#endif
+#ifndef PK_TESTS
+#define PK_TESTS 0
 #endif
