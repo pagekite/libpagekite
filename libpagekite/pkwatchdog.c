@@ -51,6 +51,7 @@ void* pkw_run_watchdog(void *void_pkm)
     if (last_ticker == pk_global_watchdog_ticker) {
       pk_log(PK_LOG_MANAGER_DEBUG, "Watchdog is angry! Dumping core.");
       *segfaulter = 0xDEADBEEF;
+      assert(0);
     }
     pk_log(PK_LOG_MANAGER_DEBUG, "Watchdog is content, sleeping.");
     last_ticker = pk_global_watchdog_ticker;
