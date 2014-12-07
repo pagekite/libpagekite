@@ -12,12 +12,13 @@ TARGET_OBJ ?=
 OPT ?= -g -O3
 CFLAGS ?= -std=c99 -fno-strict-aliasing $(TARGET_CFLAGS) $(OPT)
 CWARN ?= -pedantic -Wall -W
-CLINK ?= -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
+CLINK ?= -L. -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
 
 TOBJ = pkproto_test.o pkmanager_test.o sha1_test.o utils_test.o
 
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
-      pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o $(TARGET_OBJ)
+      pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o pagekite.o \
+      $(TARGET_OBJ)
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
        pkmanager.h pd_sha1.h pkwatchdog.h Makefile
 
@@ -59,24 +60,31 @@ libpagekite-full: $(OBJ) $(ROBJ)
 httpkite: httpkite.o $(OBJ)
 	$(CC) $(CFLAGS) -o httpkite httpkite.o $(OBJ) $(CLINK)
 
-pagekitec: pagekitec.o $(OBJ)
-	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(OBJ) $(CLINK)
+pagekitec: pagekitec.o libpagekite.so
+	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(CLINK) -lpagekite
 
 pagekiter: pagekiter.o $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)
 
-pagekitec.exe: pagekitec
-	mv pagekitec pagekitec.exe
+pagekitec.exe: pagekitec.o libpagekite.dll
+	$(CC) $(CFLAGS) -o pagekitec.exe pagekitec.o $(CLINK) -lpagekite_dll
+
+libpagekite.dll: $(OBJ)
+	$(CC) -shared -o libpagekite.dll $(OBJ) $(CLINK) \
+              -Wl,--out-implib,libpagekite_dll.a
 
 evwrap.o: mxe/evwrap.c
 	$(CC) $(CFLAGS) -w -c mxe/evwrap.c
+
+pagekite.o: pagekite.c
+	$(CC) $(CFLAGS) $(CWARN) $(DEFINES) -DBUILDING_PAGEKITE_DLL=1 -c $<
 
 version:
 	@sed -e "s/@DATE@/`date '+%y%m%d'`/g" <version.h.in >version.h
 	@touch pkproto.h
 
 clean:
-	rm -vf tests pagekite[cr] httpkite *.o *.so *.exe *.dll
+	rm -vf tests pagekite[cr] httpkite *.[oa] *.so *.exe *.dll
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf
@@ -85,6 +93,7 @@ allclean: clean
 	$(CC) $(CFLAGS) $(CWARN) $(DEFINES) -c $<
 
 httpkite.o: $(HDRS)
+pagekite.o: $(HDRS)
 pagekitec.o: $(HDRS)
 pagekiter.o: $(HDRS) $(RHDRS)
 pagekite-jni.o: $(HDRS)

@@ -20,19 +20,36 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "pkexport.h"
+#include "common.h"
+#include "utils.h"
+#include "pkstate.h"
+#include "pkerror.h"
+#include "pkconn.h"
+#include "pkproto.h"
+#include "pkblocker.h"
+#include "pkmanager.h"
+#include "pklogging.h"
+#include "version.h"
+
+#include "pagekite_net.h"
+
+#include "pagekite.h"
+
 
 #define BUFFER_SIZE 512 * 1024
 struct pk_manager *pk_manager_global = NULL;
 char pk_manager_buffer[BUFFER_SIZE];
 
+
 int libpagekite_init(int kites, int max_conns, int static_setup, 
-  int spare_frontends, int verbosity) 
+                     int spare_frontends, int verbosity) 
 {
   int r;
   char* ddns_url;
   SSL_CTX* ssl_ctx;
+#ifdef _MSC_VER
   WSADATA wsa_data;
+#endif
 
   srand(time(0) ^ getpid());
   pks_global_init(PK_LOG_NORMAL);
@@ -43,10 +60,12 @@ int libpagekite_init(int kites, int max_conns, int static_setup,
 
   PKS_SSL_INIT(ssl_ctx);
 
+#ifdef _MSC_VER
   if (0 != (r = WSAStartup(MAKEWORD(2, 2), &wsa_data))) {
     pk_log(PK_LOG_ERROR, "libpagekite: Error during WSAStartup: %d\n", r);
     return 1000;
   }
+#endif
 
   if (static_setup) {
     ddns_url = NULL;
@@ -60,10 +79,10 @@ int libpagekite_init(int kites, int max_conns, int static_setup,
 
   if (NULL == (pk_manager_global = pkm_manager_init(NULL, BUFFER_SIZE, 
                                                     pk_manager_buffer, 
-	                                                kites, PAGEKITE_NET_FE_MAX,
-													max_conns, ddns_url, ssl_ctx))) {
+                                             kites, PAGEKITE_NET_FE_MAX,
+                                             max_conns, ddns_url, ssl_ctx))) {
     pk_log(PK_LOG_ERROR, "libpagekite: Error initializing pk_manager");
-	return 2000;
+    return 2000;
   }
 
   pk_manager_global->want_spare_frontends = spare_frontends;
@@ -72,8 +91,8 @@ int libpagekite_init(int kites, int max_conns, int static_setup,
     if ((0 > (pkm_add_frontend(pk_manager_global, 
                                PAGEKITE_NET_V4FRONTENDS, FE_STATUS_AUTO)))
 #ifdef HAVE_IPV6
-        || 0 > (pkm_add_frontend(pk_manager_global, 
-                                 PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO)))
+        || (0 > (pkm_add_frontend(pk_manager_global, 
+                                  PAGEKITE_NET_V6FRONTENDS, FE_STATUS_AUTO)))
 #endif
         ) {
       pk_manager_global = NULL;
@@ -117,7 +136,7 @@ int libpagekite_addKite(char* proto, char* kitename, int pport,
   if (NULL == pkm_add_kite(pk_manager_global, proto, kitename, pport, 
                            secret, backend, lport)) {
     pk_log(PK_LOG_ERROR, "libpagekite: Error adding kite");
-	return -1;
+    return -1;
   }
 
   return 0;
@@ -179,8 +198,10 @@ int libpagekite_stop() {
     return -1;
   }
 
+#ifdef _MSC_VER
   WSACleanup();
   Sleep(450); /* Give logger time to get the rest of the log for debugging*/
+#endif
   pk_manager_global = NULL;
   return 0;
 }
@@ -191,7 +212,7 @@ int libpagekite_getStatus() {
 }
 
 char* libpagekite_getLog() {
-  char buffer[PKS_LOG_DATA_MAX];
+  static char buffer[PKS_LOG_DATA_MAX+1];
   
   if (pk_manager_global == NULL) {
     strcpy(buffer, "Not running.");
@@ -200,5 +221,6 @@ char* libpagekite_getLog() {
     pks_copylog(buffer);
   }
 
+  buffer[PKS_LOG_DATA_MAX] = '\0';
   return buffer;
 }

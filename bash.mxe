@@ -21,7 +21,7 @@ echo "PS1='\$? \[\033[1;33m\]\\w\[\033[0m\] mxe> '" \
 
 make clean
 echo
-echo You probably want: make pagekitec.exe pagekite.dll
+echo You probably want: make pagekitec.exe
 echo
 bash --rcfile .mxe.bashrc -i
 
