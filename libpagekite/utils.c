@@ -357,3 +357,37 @@ void init_memory_canaries() {
     pthread_mutex_init(&canary_lock, NULL);
 #endif
 }
+
+
+/* *** Tests *************************************************************** */
+
+int utils_test(void)
+{
+#if PK_TESTS
+  char buffer1[60];
+  PK_MEMORY_CANARY;
+
+  strcpy(buffer1, "\r\n\r\n");
+  assert(2 == zero_first_crlf(4, buffer1));
+
+  strcpy(buffer1, "abcd\r\n\r\ndefghijklmnop");
+  int length = zero_first_crlf(strlen(buffer1), buffer1);
+
+  assert(length == 6);
+  assert((buffer1[4] == '\0') && (buffer1[5] == '\0') && (buffer1[6] == '\r'));
+  assert(strcmp(buffer1, "abcd") == 0);
+
+  strcpy(buffer1, "abcd\r\nfoo\r\n\r\ndef");
+  assert(strcmp(skip_http_header(strlen(buffer1), buffer1), "def") == 0);
+
+#if PK_MEMORY_CANARIES
+  add_memory_canary(&canary);
+  PK_CHECK_MEMORY_CANARIES;
+  canary = (void*) 0;
+  assert(check_memory_canaries() == 1);
+  canary = (void*) *canary;
+  remove_memory_canary(&canary);
+#endif
+#endif
+  return 1;
+}

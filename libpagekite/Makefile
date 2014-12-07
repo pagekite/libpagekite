@@ -14,7 +14,7 @@ CFLAGS ?= -std=c99 -fno-strict-aliasing -I../include/ $(TARGET_CFLAGS) $(OPT)
 CWARN ?= -pedantic -Wall -W
 CLINK ?= -L. -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
 
-TOBJ = pkproto_test.o sha1_test.o utils_test.o
+TOBJ = sha1_test.o
 
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
       pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o pagekite.o \
@@ -27,13 +27,15 @@ RHDRS = pkrelay.h
 
 PK_TRACE ?= 0
 PK_MEMORY_CANARIES ?= 0
+PK_TESTS ?= 1
 HAVE_OPENSSL ?= 1
 HAVE_IPV6 ?= 1
 
 DEFINES=-DHAVE_IPV6=$(HAVE_IPV6) \
         -DHAVE_OPENSSL=$(HAVE_OPENSSL) \
         -DPK_MEMORY_CANARIES=$(PK_MEMORY_CANARIES) \
-        -DPK_TRACE=$(PK_TRACE)
+        -DPK_TRACE=$(PK_TRACE) \
+        -DPK_TESTS=$(PK_TESTS)
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
@@ -105,10 +107,8 @@ pkerror.o: common.h utils.h pkerror.h pklogging.h
 pklogging.o: common.h pkstate.h pkconn.h pkproto.h pklogging.h
 pkmanager.o: $(HDRS)
 pkproto.o: common.h pd_sha1.h utils.h pkconn.h pkproto.h pklogging.h pkerror.h
-pkproto_test.o: common.h pkerror.h pkconn.h pkproto.h utils.h
 pd_sha1.o: common.h pd_sha1.h
 sha1_test.o: common.h pd_sha1.h
 tests.o: pkstate.h
 utils.o: common.h
-utils_test.o: utils.h
 evwrap.o: mxe/evwrap.h

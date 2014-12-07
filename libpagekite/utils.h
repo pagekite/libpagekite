@@ -51,3 +51,5 @@ void remove_memory_canary(void**);
 int check_memory_canaries();
 void reset_memory_canaries();
 void init_memory_canaries();
+
+int utils_test(void);

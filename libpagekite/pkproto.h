@@ -169,3 +169,5 @@ int               pk_connect_ai(struct pk_conn*, struct addrinfo*, int,
 int               pk_connect(struct pk_conn*, char*, int,
                              unsigned int, struct pk_kite_request*, char*,
                              SSL_CTX*);
+
+int pkproto_test(void);

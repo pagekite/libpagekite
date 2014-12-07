@@ -1379,6 +1379,7 @@ int pkm_stop_thread(struct pk_manager* pkm) {
 
 int pkmanager_test(void)
 {
+#if PK_TESTS
   void *N = NULL;
   char buffer[PK_MANAGER_MINSIZE];
   struct pk_manager* m;
@@ -1455,6 +1456,6 @@ int pkmanager_test(void)
   assert(CONN_IO_BUFFER_SIZE == PKC_OUT_FREE(c->conn));
   pkm_free_be_conn(c);
   assert(NULL == pkm_find_be_conn(m, NULL, "abc"));
-
+#endif
   return 1;
 }
