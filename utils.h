@@ -35,11 +35,13 @@ void digest_to_hex(const unsigned char* digest, char *output);
 
 #ifdef PK_MEMORY_CANARIES
 # define PK_MEMORY_CANARY           void* canary;
+# define PK_INIT_MEMORY_CANARIES    init_memory_canaries();
 # define PK_RESET_MEMORY_CANARIES   reset_memory_canaries();
 # define PK_CHECK_MEMORY_CANARIES   assert(0 == check_memory_canaries());
 # define PK_ADD_MEMORY_CANARY(s)    add_memory_canary(&((s)->canary));
 #else
 # define PK_MEMORY_CANARY         /* No canaries */
+# define PK_INIT_MEMORY_CANARIES  /* No canaries */
 # define PK_RESET_MEMORY_CANARIES /* No canaries */
 # define PK_CHECK_MEMORY_CANARIES /* No canaries */
 # define PK_ADD_MEMORY_CANARY(s)  /* No canaries */
@@ -48,3 +50,4 @@ void add_memory_canary(void**);
 void remove_memory_canary(void**);
 int check_memory_canaries();
 void reset_memory_canaries();
+void init_memory_canaries();

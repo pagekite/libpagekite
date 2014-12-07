@@ -901,7 +901,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   unsigned int parse_buffer_bytes;
 
   PK_TRACE_FUNCTION;
-  PK_RESET_MEMORY_CANARIES;
+  PK_INIT_MEMORY_CANARIES;
 
 #ifdef HAVE_OPENSSL
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_ZERO_RETURN = %d", SSL_ERROR_ZERO_RETURN);

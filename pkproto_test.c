@@ -200,7 +200,7 @@ int pkproto_test(void)
   char buffer[64000];
   int callback_called = 0;
 
-  PK_RESET_MEMORY_CANARIES;
+  PK_INIT_MEMORY_CANARIES;
 
   struct pk_parser* p = pk_parser_init(64000, buffer,
                                        (pkChunkCallback*) &pkproto_test_callback,

@@ -290,33 +290,38 @@ void digest_to_hex(const unsigned char* digest, char *output)
 #define MAX_CANARIES 102400
 void** canaries[MAX_CANARIES];
 int canary_max = 0;
+pthread_mutex_t canary_lock;
 #endif
 
 void remove_memory_canary(void** canary) {
 #ifdef PK_MEMORY_CANARIES
+    pthread_mutex_lock(&canary_lock);
     for (int i = 0; i < canary_max; i++) {
         if (canaries[i] == canary) {
-            canary_max -= 1;
-            if (canary_max > 0) {
-                fprintf(stderr, "canaries[%d] removed\n", i);
-                canaries[i] = canaries[canary_max];
+            if (canary_max > 1) {
+                canaries[i] = canaries[--canary_max];
+            }
+            else {
+                canary_max -= 1;
             }
             break;
         }
     }
+    pthread_mutex_unlock(&canary_lock);
 #endif
     (void) canary;
 }
 
 void add_memory_canary(void** canary) {
 #ifdef PK_MEMORY_CANARIES
-    if (*canary && *canary == canary) {
+    if (*canary && (*canary == canary)) {
         remove_memory_canary(canary);
     }
+    pthread_mutex_lock(&canary_lock);
     *canary = canary;
-    fprintf(stderr, "canaries[%d] = %p\n", canary_max, (void*) canary);
     canaries[canary_max++] = canary;
     assert(canary_max < MAX_CANARIES);
+    pthread_mutex_unlock(&canary_lock);
 #endif
     (void) canary;
 }
@@ -324,6 +329,7 @@ void add_memory_canary(void** canary) {
 int check_memory_canaries() {
 #ifdef PK_MEMORY_CANARIES
     int i, bad;
+    pthread_mutex_lock(&canary_lock);
     for (bad = i = 0; i < canary_max; i++) {
         if (canaries[i] != *canaries[i]) {
             fprintf(stderr, "%p != %p\n",
@@ -331,6 +337,7 @@ int check_memory_canaries() {
             bad++;
         }
     }
+    pthread_mutex_unlock(&canary_lock);
     return bad;
 #else
     return 0;
@@ -339,6 +346,14 @@ int check_memory_canaries() {
 
 void reset_memory_canaries() {
 #ifdef PK_MEMORY_CANARIES
+    pthread_mutex_lock(&canary_lock);
     canary_max = 0;
+    pthread_mutex_unlock(&canary_lock);
+#endif
+}
+
+void init_memory_canaries() {
+#ifdef PK_MEMORY_CANARIES
+    pthread_mutex_init(&canary_lock, NULL);
 #endif
 }
