@@ -25,7 +25,10 @@ if [ "$1" = "" ]; then
     echo You probably want: make pagekitec.exe
     echo
     bash --rcfile .mxe.bashrc -i "$@"
+    RV=$?
 else
     bash --rcfile .mxe.bashrc "$@"
+    RV=$?
 fi
 rm -f .mxe.bashrc
+exit $RV

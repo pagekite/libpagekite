@@ -8,7 +8,7 @@ all: native windows
 
 native: buildclean
 	@echo '=== Building for '`uname`' ==='
-	cd libpagekite && make
+	@cd libpagekite && make
 	@mv -v libpagekite/*.so lib/
 	@mv -v libpagekite/pagekitec bin/
 	@echo
@@ -16,13 +16,12 @@ native: buildclean
 windows: buildclean
 	@echo '=== Building for win32 ==='
 	@cd libpagekite && ../tools/bash.mxe -c 'make pagekitec.exe'
-	@mv -v libpagekite/*dll lib
-	@mv -v libpagekite/*exe bin
+	@mv -v libpagekite/*.{dll,a} lib
+	@mv -v libpagekite/*.exe bin
 	@echo
 
 buildclean:
 	@cd libpagekite && make clean
-	@echo
 
 clean: buildclean
 	rm -rf bin/* lib/*

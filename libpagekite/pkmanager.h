@@ -132,53 +132,26 @@ struct pk_manager {
 };
 
 
-void* pkm_run                       (void *);
-int pkm_run_in_thread               (struct pk_manager*);
-int pkm_wait_thread                 (struct pk_manager*);
-int pkm_stop_thread                 (struct pk_manager*);
-int pkm_reconnect_all               (struct pk_manager*);
-int pkm_disconnect_unused           (struct pk_manager*);
-
 struct pk_manager*   pkm_manager_init(struct ev_loop*,
                                       int, char*, int, int, int,
                                       const char*, SSL_CTX*);
-void                 pkm_reset_timer(struct pk_manager*);
-void                 pkm_set_timer_enabled(struct pk_manager*, int);
-void                 pkm_quit(struct pk_manager*);
-void                 pkm_tick(struct pk_manager*);
-struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
-                                  const char*, const char*, int, const char*,
-                                  const char*, int);
-struct pk_pagekite*  pkm_find_kite(struct pk_manager*,
-                                   const char*, const char*, int);
-ssize_t              pkm_write_chunked(struct pk_tunnel*,
-                                       struct pk_backend_conn*,
-                                       ssize_t, char*);
+
 int                  pkm_add_frontend(struct pk_manager*,
                                       const char*, int, int);
 struct pk_tunnel*    pkm_add_frontend_ai(struct pk_manager*, struct addrinfo*,
                                          const char*, int, int);
-void                 pkm_reset_conn(struct pk_conn*);
 
-ssize_t              pkm_write_data(struct pk_conn*, ssize_t, char*);
-ssize_t              pkm_read_data(struct pk_conn*);
-ssize_t              pkm_flush(struct pk_conn*, char*, ssize_t, int, char*);
-void                 pkm_parse_eof(struct pk_backend_conn*, char*);
-int                  pkm_update_io(struct pk_tunnel*, struct pk_backend_conn*);
-void                 pkm_flow_control_tunnel(struct pk_tunnel*, flow_op);
-void                 pkm_flow_control_conn(struct pk_conn*, flow_op);
+struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
+                                  const char*, const char*, int, const char*,
+                                  const char*, int);
 
-/* Backend connection handling */
-struct pk_backend_conn*  pkm_connect_be(struct pk_tunnel*, struct pk_chunk*);
-struct pk_backend_conn*  pkm_alloc_be_conn(struct pk_manager*,
-                                           struct pk_tunnel*, char*);
-struct pk_backend_conn*  pkm_find_be_conn(struct pk_manager*,
-                                          struct pk_tunnel*,  char*);
-void                     pkm_free_be_conn(struct pk_backend_conn*);
+void* pkm_run                       (void *);
+int pkm_run_in_thread               (struct pk_manager*);
+int pkm_wait_thread                 (struct pk_manager*);
+int pkm_stop_thread                 (struct pk_manager*);
 
-void pkm_chunk_cb(struct pk_tunnel*, struct pk_chunk *);
-void pkm_tunnel_readable_cb(EV_P_ ev_io *, int);
-void pkm_tunnel_writable_cb(EV_P_ ev_io *, int);
-void pkm_be_conn_readable_cb(EV_P_ ev_io *, int);
-void pkm_be_conn_writable_cb(EV_P_ ev_io *, int);
-void pkm_timer_cb(EV_P_ ev_timer *w, int);
+int pkm_reconnect_all               (struct pk_manager*);
+int pkm_disconnect_unused           (struct pk_manager*);
+
+void pkm_set_timer_enabled          (struct pk_manager*, int);
+void pkm_tick                       (struct pk_manager*);

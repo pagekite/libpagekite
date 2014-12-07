@@ -1,5 +1,5 @@
 /******************************************************************************
-pkexport.c - A wrapper for building the libpagekite library as a dll.
+pagekite.c - High level library interface
 
 *******************************************************************************
 
@@ -44,7 +44,6 @@ char pk_manager_buffer[BUFFER_SIZE];
 int libpagekite_init(int kites, int max_conns, int static_setup, 
                      int spare_frontends, int verbosity) 
 {
-  int r;
   char* ddns_url;
   SSL_CTX* ssl_ctx;
 #ifdef _MSC_VER
@@ -61,6 +60,7 @@ int libpagekite_init(int kites, int max_conns, int static_setup,
   PKS_SSL_INIT(ssl_ctx);
 
 #ifdef _MSC_VER
+  int r;
   if (0 != (r = WSAStartup(MAKEWORD(2, 2), &wsa_data))) {
     pk_log(PK_LOG_ERROR, "libpagekite: Error during WSAStartup: %d\n", r);
     return 1000;

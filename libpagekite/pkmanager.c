@@ -32,7 +32,42 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkwatchdog.h"
 
 
-void pkm_yield(struct pk_manager *pkm)
+/* Forward declarations of all the functions we don't want made public. */
+static void pkm_yield(struct pk_manager *pkm);
+static void pkm_interrupt_cb(EV_P_ ev_async *w, int revents);
+static void pkm_interrupt(struct pk_manager *pkm);
+static void pkm_block(struct pk_manager *pkm);
+static void pkm_unblock(struct pk_manager *pkm);
+static void pkm_quit_cb(EV_P_ ev_async *w, int revents);
+static void pkm_quit(struct pk_manager* pkm);
+static void pkm_chunk_cb(struct pk_tunnel*, struct pk_chunk*);
+static struct pk_backend_conn* pkm_connect_be(struct pk_tunnel*,
+                                              struct pk_chunk*);
+static ssize_t pkm_write_chunked(struct pk_tunnel*, struct pk_backend_conn*,
+                                 ssize_t, char*);
+static int pkm_update_io(struct pk_tunnel*, struct pk_backend_conn*);
+static void pkm_flow_control_tunnel(struct pk_tunnel*, flow_op);
+static void pkm_flow_control_conn(struct pk_conn*, flow_op);
+static void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof);
+static void pkm_tunnel_readable_cb(EV_P_ ev_io*, int);
+static void pkm_tunnel_writable_cb(EV_P_ ev_io*, int);
+static void pkm_be_conn_readable_cb(EV_P_ ev_io*, int);
+static void pkm_be_conn_writable_cb(EV_P_ ev_io*, int);
+static void pkm_tick_cb(EV_P_ ev_async*, int);
+static void pkm_timer_cb(EV_P_ ev_timer*, int);
+static void pkm_reset_timer(struct pk_manager*);
+static void pkm_reset_manager(struct pk_manager*);
+static struct pk_pagekite* pkm_find_kite(struct pk_manager*,
+                                         const char*, const char*, int);
+static unsigned char pkm_sid_shift(char *);
+struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager*,
+                                          struct pk_tunnel*, char *);
+static void pkm_free_be_conn(struct pk_backend_conn* pkb);
+static struct pk_backend_conn* pkm_find_be_conn(struct pk_manager*,
+                                                struct pk_tunnel*, char*);
+
+
+static void pkm_yield(struct pk_manager *pkm)
 {
   pthread_mutex_unlock(&(pkm->loop_lock));
   pthread_mutex_lock(&(pkm->loop_lock));
@@ -45,12 +80,12 @@ static void pkm_interrupt_cb(EV_P_ ev_async *w, int revents)
   (void) loop;
   (void) (revents);
 }
-void pkm_interrupt(struct pk_manager *pkm)
+static void pkm_interrupt(struct pk_manager *pkm)
 {
   ev_async_send(pkm->loop, &(pkm->interrupt));
 }
 
-void pkm_block(struct pk_manager *pkm)
+static void pkm_block(struct pk_manager *pkm)
 {
   if (!pthread_equal(pthread_self(), pkm->main_thread)) {
 /*
@@ -62,7 +97,7 @@ void pkm_block(struct pk_manager *pkm)
     pthread_mutex_trylock(&(pkm->loop_lock));
   }
 }
-void pkm_unblock(struct pk_manager *pkm)
+static void pkm_unblock(struct pk_manager *pkm)
 {
   if (!pthread_equal(pthread_self(), pkm->main_thread)) {
     pthread_mutex_unlock(&(pkm->loop_lock));
@@ -76,13 +111,13 @@ static void pkm_quit_cb(EV_P_ ev_async *w, int revents)
   (void) w;
   (void) revents;
 }
-void pkm_quit(struct pk_manager* pkm)
+static void pkm_quit(struct pk_manager* pkm)
 {
   ev_async_send(pkm->loop, &(pkm->quit));
 }
 
 
-void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
+static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
 {
   struct pk_backend_conn* pkb; /* FIXME: What if we are a front-end? */
   char reply[PK_REJECT_MAXSIZE], pre[PK_REJECT_MAXSIZE], rej[PK_REJECT_MAXSIZE];
@@ -252,8 +287,9 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
   return pkb;
 }
 
-ssize_t pkm_write_chunked(struct pk_tunnel* fe, struct pk_backend_conn* pkb,
-                          ssize_t length, char* data)
+static ssize_t pkm_write_chunked(struct pk_tunnel* fe,
+                                 struct pk_backend_conn* pkb,
+                                 ssize_t length, char* data)
 {
   ssize_t overhead = 0;
   struct pk_conn* pkc = &(fe->conn);
@@ -274,40 +310,7 @@ ssize_t pkm_write_chunked(struct pk_tunnel* fe, struct pk_backend_conn* pkb,
   return pkc_write(pkc, data, length);
 }
 
-int pkm_post_read(struct pk_conn* pkc, int bytes, int err)
-{
-  ssize_t delta;
-  PK_TRACE_FUNCTION;
-  if (bytes > 0) {
-    pkc->in_buffer_pos += bytes;
-
-    /* Update KB counter and window... this is a bit messy. */
-    pkc->read_bytes += bytes;
-    while (pkc->read_bytes > 1024) {
-      pkc->read_kb += 1;
-      pkc->read_bytes -= 1024;
-      if ((pkc->read_kb & 0x1f) == 0x00) {
-        delta = (CONN_WINDOW_SIZE_KB_MAXIMUM - pkc->send_window_kb);
-        if (delta < 0) delta = 0;
-        pkc->send_window_kb += (delta/CONN_WINDOW_SIZE_STEPFACTOR);
-      }
-    }
-  }
-  else if (bytes == 0) {
-    pkc->status |= CONN_STATUS_CLS_READ;
-  }
-  else switch (err) {
-    case EINTR:
-    case EAGAIN:
-      break;
-    default:
-      pkc->status |= CONN_STATUS_BROKEN;
-      break;
-  }
-  return bytes;
-}
-
-int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
+static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
 {
   int i;
   int bytes;
@@ -457,7 +460,7 @@ int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
   return flows;
 }
 
-void pkm_flow_control_tunnel(struct pk_tunnel* fe, flow_op op)
+static void pkm_flow_control_tunnel(struct pk_tunnel* fe, flow_op op)
 {
   int i;
   struct pk_backend_conn* pkb;
@@ -483,7 +486,7 @@ void pkm_flow_control_tunnel(struct pk_tunnel* fe, flow_op op)
   }
 }
 
-void pkm_flow_control_conn(struct pk_conn* pkc, flow_op op)
+static void pkm_flow_control_conn(struct pk_conn* pkc, flow_op op)
 {
   PK_TRACE_FUNCTION;
   if (pkc->status & CONN_STATUS_DST_BLOCKED) {
@@ -499,7 +502,7 @@ void pkm_flow_control_conn(struct pk_conn* pkc, flow_op op)
     }
 }
 
-void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
+static void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
 {
   struct pk_conn* pkc = &(pkb->conn);
   int eof_read = 0;
@@ -529,7 +532,7 @@ void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
   }
 }
 
-void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
+static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 {
   int rv;
   struct pk_tunnel* fe = (struct pk_tunnel*) w->data;
@@ -555,7 +558,7 @@ void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
   (void) revents;
 }
 
-void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
+static void pkm_tunnel_writable_cb(EV_P_ ev_io* w, int revents)
 {
   struct pk_tunnel* fe = (struct pk_tunnel*) w->data;
 
@@ -574,7 +577,7 @@ void pkm_tunnel_writable_cb(EV_P_ ev_io *w, int revents)
   (void) revents;
 }
 
-void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
+static void pkm_be_conn_readable_cb(EV_P_ ev_io* w, int revents)
 {
   struct pk_backend_conn* pkb = (struct pk_backend_conn*) w->data;
   size_t bytes;
@@ -600,7 +603,7 @@ void pkm_be_conn_readable_cb(EV_P_ ev_io *w, int revents)
   (void) revents;
 }
 
-void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
+static void pkm_be_conn_writable_cb(EV_P_ ev_io* w, int revents)
 {
   struct pk_backend_conn* pkb = (struct pk_backend_conn*) w->data;
 
@@ -630,7 +633,7 @@ void pkm_be_conn_writable_cb(EV_P_ ev_io *w, int revents)
   (void) revents;
 }
 
-int pkm_reconnect_all(struct pk_manager *pkm) {
+int pkm_reconnect_all(struct pk_manager* pkm) {
   struct pk_tunnel *fe;
   struct pk_kite_request *kite_r;
   unsigned int status;
@@ -730,7 +733,7 @@ int pkm_reconnect_all(struct pk_manager *pkm) {
   return (tried - connected);
 }
 
-int pkm_disconnect_unused(struct pk_manager *pkm) {
+int pkm_disconnect_unused(struct pk_manager* pkm) {
   struct pk_tunnel *fe;
   struct pk_backend_conn* pkb;
   char buffer[1025];
@@ -786,7 +789,7 @@ void pkm_tick(struct pk_manager* pkm)
 {
   ev_async_send(pkm->loop, &(pkm->tick));
 }
-static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
+static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
 {
   int i, pingsize;
   char ping[PK_REJECT_MAXSIZE];
@@ -869,7 +872,7 @@ static void pkm_tick_cb(EV_P_ ev_async *w, int revents)
   (void) revents;
 }
 
-void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
+static void pkm_timer_cb(EV_P_ ev_timer* w, int revents)
 {
   struct pk_manager* pkm = (struct pk_manager*) w->data;
   pkm_tick(pkm);
@@ -877,7 +880,7 @@ void pkm_timer_cb(EV_P_ ev_timer *w, int revents)
   (void) loop;
   (void) revents;
 }
-void pkm_reset_timer(struct pk_manager* pkm) {
+static void pkm_reset_timer(struct pk_manager* pkm) {
   ev_timer_set(&(pkm->timer), 0.0, 1 + pkm->housekeeping_interval_min);
   ev_timer_start(pkm->loop, &(pkm->timer));
   pkm->next_tick = 1 + pkm->housekeeping_interval_min;
@@ -890,6 +893,273 @@ void pkm_set_timer_enabled(struct pk_manager* pkm, int enabled) {
   else ev_timer_stop(pkm->loop, &(pkm->timer));
 }
 
+static void pkm_reset_manager(struct pk_manager* pkm) {
+  int i;
+  struct pk_conn* pkc;
+
+  PK_TRACE_FUNCTION;
+
+  for (i = 0; i < pkm->kite_max; i++) {
+    pk_reset_pagekite(pkm->kites+i);
+  }
+  for (i = 0; i < pkm->tunnel_max; i++) {
+    pkc = &((pkm->tunnels+i)->conn);
+    if (pkc->status != CONN_STATUS_UNKNOWN) {
+      ev_io_stop(pkm->loop, &(pkc->watch_r));
+      ev_io_stop(pkm->loop, &(pkc->watch_w));
+      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
+    }
+  }
+  for (i = 0; i < pkm->be_conn_max; i++) {
+    pkc = &((pkm->be_conns+i)->conn);
+    if (pkc->status != CONN_STATUS_UNKNOWN) {
+      ev_io_stop(pkm->loop, &(pkc->watch_r));
+      ev_io_stop(pkm->loop, &(pkc->watch_w));
+      pkc_reset_conn(pkc, 0);
+    }
+  }
+  ev_async_stop(pkm->loop, &(pkm->quit));
+}
+
+static struct pk_pagekite* pkm_find_kite(struct pk_manager* pkm,
+                                         const char* protocol,
+                                         const char* domain,
+                                         int port)
+{
+  int which;
+  struct pk_pagekite* kite;
+  struct pk_pagekite* found;
+
+  PK_TRACE_FUNCTION;
+
+  /* FIXME: This is O(N), we'll need a nicer data structure for tunnels */
+  found = NULL;
+  for (which = 0; which < pkm->kite_max; which++) {
+    kite = pkm->kites+which;
+    if (kite->protocol[0] != '\0') {
+      if ((0 == strcasecmp(domain, kite->public_domain)) &&
+          (0 == strcasecmp(protocol, kite->protocol))) {
+        if (kite->public_port <= 0)
+          found = kite;
+        else if (kite->public_port == port)
+          return kite;
+      }
+    }
+  }
+  return found;
+}
+
+struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
+                                 const char* protocol,
+                                 const char* public_domain, int public_port,
+                                 const char* auth_secret,
+                                 const char* local_domain, int local_port)
+{
+  int which;
+  char *pp;
+  struct pk_pagekite* kite = NULL;
+
+  PK_TRACE_FUNCTION;
+
+  /* FIXME: This is O(N), we'll need a nicer data structure for tunnels */
+  for (which = 0; which < pkm->kite_max; which++) {
+    kite = pkm->kites+which;
+    if (kite->protocol[0] == '\0') break;
+  }
+  if (which >= pkm->kite_max)
+    return pk_err_null(ERR_NO_MORE_KITES);
+
+  if (kite == NULL)
+    return pk_err_null(ERR_NO_KITE);
+
+  strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
+  strncpyz(kite->auth_secret, auth_secret, PK_SECRET_LENGTH);
+  strncpyz(kite->public_domain, public_domain, PK_DOMAIN_LENGTH);
+  kite->public_port = public_port;
+  strncpyz(kite->local_domain, local_domain, PK_DOMAIN_LENGTH);
+  kite->local_port = local_port;
+
+  /* Allow the public port to be specified as part of the protocol */
+  if ((0 == public_port) && (NULL != (pp = strchr(kite->protocol, '-')))) {
+    *pp++ = '\0';
+    sscanf(pp, "%d", &(kite->public_port));
+  }
+
+  PK_CHECK_MEMORY_CANARIES;
+  return kite;
+}
+
+int pkm_add_frontend(struct pk_manager* pkm,
+                     const char* hostname, int port, int flags)
+{
+  struct addrinfo hints;
+  struct addrinfo *result, *rp;
+  char printip[128], sport[128];
+  int rv, count;
+
+  PK_TRACE_FUNCTION;
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  sprintf(sport, "%d", port);
+
+  rv = getaddrinfo(hostname, sport, &hints, &result);
+  count = 0;
+  if (rv == 0) {
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+      if (NULL != pkm_add_frontend_ai(pkm, rp, hostname, port, flags)) {
+        pk_log(PK_LOG_MANAGER_DEBUG, "Front-end IP: %s",
+               in_addr_to_str(rp->ai_addr, printip, 128));
+        count++;
+      }
+    }
+    /* Note: We only free the addrinfo buffers if no tunnels were
+     * added, otherwise, the structures are still in use.  Valgrind
+     * will (correctly) flag this as a leak. */
+    if (count == 0) freeaddrinfo(result);
+  }
+
+  PK_CHECK_MEMORY_CANARIES;
+  return count;
+}
+
+struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
+                                      struct addrinfo *ai,
+                                      const char* hostname, int port,
+                                      int flags)
+{
+  int which;
+  struct pk_tunnel* fe;
+  struct pk_tunnel* adding = NULL;
+
+  PK_TRACE_FUNCTION;
+
+  /* Scan the front-end list to see if we already have this IP or,
+   * if not, find an available slot.
+   */
+  for (which = 0; which < pkm->tunnel_max; which++) {
+    fe = pkm->tunnels+which;
+    if (fe->ai == NULL) {
+      if (adding == NULL) adding = fe;
+    }
+    else if ((ai->ai_addrlen > 0) &&
+             (0 == addrcmp(fe->ai->ai_addr, ai->ai_addr)))
+    {
+      return NULL;
+    }
+  }
+  if (adding == NULL)
+    return pk_err_null(ERR_NO_MORE_FRONTENDS);
+
+  adding->ai = ai;
+  adding->fe_hostname = strdup(hostname);
+  adding->fe_port = port;
+  adding->last_ddnsup = 0;
+  adding->error_count = 0;
+  adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
+  adding->request_count = 0;
+  adding->priority = 0;
+
+  return adding;
+}
+
+static unsigned char pkm_sid_shift(char *sid)
+{
+  unsigned char shift;
+  char *c;
+
+  for (c = sid, shift = 0; *c != '\0'; c++) {
+    shift = (shift << 3) | (shift >> 5);
+    shift ^= *c;
+  }
+  return shift;
+}
+
+struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
+                                          struct pk_tunnel* fe, char *sid)
+{
+  int i, evicting;
+  time_t max_age;
+  unsigned char shift;
+  struct pk_backend_conn* pkb;
+  struct pk_backend_conn* pkb_oldest;
+
+  PK_TRACE_FUNCTION;
+
+  max_age = time(0);
+  pkb_oldest = NULL;
+  shift = pkm_sid_shift(sid);
+  for (i = 0; i < pkm->be_conn_max; i++) {
+    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
+    if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
+      pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
+      pkb->tunnel = fe;
+      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
+      return pkb;
+    }
+    if (pkb->conn.activity <= max_age) {
+      max_age = pkb->conn.activity;
+      pkb_oldest = pkb;
+    }
+  }
+
+  /* If we get this far, we found no empty slots. Let's complain to the
+   * log and, if so configured, kick out the oldest idle connection. */
+  if (NULL != (pkb = pkb_oldest)) {
+    max_age = time(0) - pkb->conn.activity;
+    evicting = (pk_state.conn_eviction_idle_s &&
+               (pk_state.conn_eviction_idle_s < max_age));
+
+    /* Eviction is an error, as it means we're unable to do our job and
+     * may have been configured with too few connection slots. */
+    pk_log(evicting ? PK_LOG_MANAGER_ERROR : PK_LOG_MANAGER_DEBUG,
+           "Idlest conn: %s (idle %ds, evicting=%d)",
+           pkb->sid, max_age, evicting);
+    pk_dump_be_conn("be", pkb);
+
+    if (evicting) {
+      pkb->conn.status |= (CONN_STATUS_CLS_WRITE|CONN_STATUS_CLS_READ);
+      pkm_update_io(fe, pkb);
+      pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
+      pkb->tunnel = fe;
+      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
+      return pkb;
+    }
+  }
+
+  PK_CHECK_MEMORY_CANARIES;
+  return NULL;
+}
+
+static void pkm_free_be_conn(struct pk_backend_conn* pkb)
+{
+  pkb->conn.status = CONN_STATUS_UNKNOWN;
+}
+
+static struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
+                                                struct pk_tunnel* fe, char* sid)
+{
+  int i;
+  unsigned char shift;
+  struct pk_backend_conn* pkb;
+
+  PK_TRACE_FUNCTION;
+
+  shift = pkm_sid_shift(sid);
+  for (i = 0; i < pkm->be_conn_max; i++) {
+    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
+    if ((pkb->conn.status & CONN_STATUS_ALLOCATED) &&
+        (pkb->tunnel == fe) &&
+        (0 == strncmp(pkb->sid, sid, BE_MAX_SID_SIZE))) {
+      return pkb;
+    }
+  }
+  return NULL;
+}
+
+
+/*** High level API stuff ****************************************************/
 
 struct pk_manager* pkm_manager_init(struct ev_loop* loop,
                                     int buffer_size, char* buffer,
@@ -1074,274 +1344,6 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
          pk_state.app_id_long, PK_VERSION, pk_state.app_id_short, buffer_size);
   return pkm;
 }
-
-static void pkm_reset_manager(struct pk_manager* pkm) {
-  int i;
-  struct pk_conn* pkc;
-
-  PK_TRACE_FUNCTION;
-
-  for (i = 0; i < pkm->kite_max; i++) {
-    pk_reset_pagekite(pkm->kites+i);
-  }
-  for (i = 0; i < pkm->tunnel_max; i++) {
-    pkc = &((pkm->tunnels+i)->conn);
-    if (pkc->status != CONN_STATUS_UNKNOWN) {
-      ev_io_stop(pkm->loop, &(pkc->watch_r));
-      ev_io_stop(pkm->loop, &(pkc->watch_w));
-      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
-    }
-  }
-  for (i = 0; i < pkm->be_conn_max; i++) {
-    pkc = &((pkm->be_conns+i)->conn);
-    if (pkc->status != CONN_STATUS_UNKNOWN) {
-      ev_io_stop(pkm->loop, &(pkc->watch_r));
-      ev_io_stop(pkm->loop, &(pkc->watch_w));
-      pkc_reset_conn(pkc, 0);
-    }
-  }
-  ev_async_stop(pkm->loop, &(pkm->quit));
-}
-
-struct pk_pagekite* pkm_find_kite(struct pk_manager* pkm,
-                                  const char* protocol,
-                                  const char* domain,
-                                  int port)
-{
-  int which;
-  struct pk_pagekite* kite;
-  struct pk_pagekite* found;
-
-  PK_TRACE_FUNCTION;
-
-  /* FIXME: This is O(N), we'll need a nicer data structure for tunnels */
-  found = NULL;
-  for (which = 0; which < pkm->kite_max; which++) {
-    kite = pkm->kites+which;
-    if (kite->protocol[0] != '\0') {
-      if ((0 == strcasecmp(domain, kite->public_domain)) &&
-          (0 == strcasecmp(protocol, kite->protocol))) {
-        if (kite->public_port <= 0)
-          found = kite;
-        else if (kite->public_port == port)
-          return kite;
-      }
-    }
-  }
-  return found;
-}
-
-struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
-                                 const char* protocol,
-                                 const char* public_domain, int public_port,
-                                 const char* auth_secret,
-                                 const char* local_domain, int local_port)
-{
-  int which;
-  char *pp;
-  struct pk_pagekite* kite = NULL;
-
-  PK_TRACE_FUNCTION;
-
-  /* FIXME: This is O(N), we'll need a nicer data structure for tunnels */
-  for (which = 0; which < pkm->kite_max; which++) {
-    kite = pkm->kites+which;
-    if (kite->protocol[0] == '\0') break;
-  }
-  if (which >= pkm->kite_max)
-    return pk_err_null(ERR_NO_MORE_KITES);
-
-  if (kite == NULL)
-    return pk_err_null(ERR_NO_KITE);
-
-  strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
-  strncpyz(kite->auth_secret, auth_secret, PK_SECRET_LENGTH);
-  strncpyz(kite->public_domain, public_domain, PK_DOMAIN_LENGTH);
-  kite->public_port = public_port;
-  strncpyz(kite->local_domain, local_domain, PK_DOMAIN_LENGTH);
-  kite->local_port = local_port;
-
-  /* Allow the public port to be specified as part of the protocol */
-  if ((0 == public_port) && (NULL != (pp = strchr(kite->protocol, '-')))) {
-    *pp++ = '\0';
-    sscanf(pp, "%d", &(kite->public_port));
-  }
-
-  PK_CHECK_MEMORY_CANARIES;
-  return kite;
-}
-
-int pkm_add_frontend(struct pk_manager* pkm,
-                     const char* hostname, int port, int flags)
-{
-  struct addrinfo hints;
-  struct addrinfo *result, *rp;
-  char printip[128], sport[128];
-  int rv, count;
-
-  PK_TRACE_FUNCTION;
-
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
-  sprintf(sport, "%d", port);
-
-  rv = getaddrinfo(hostname, sport, &hints, &result);
-  count = 0;
-  if (rv == 0) {
-    for (rp = result; rp != NULL; rp = rp->ai_next) {
-      if (NULL != pkm_add_frontend_ai(pkm, rp, hostname, port, flags)) {
-        pk_log(PK_LOG_MANAGER_DEBUG, "Front-end IP: %s",
-               in_addr_to_str(rp->ai_addr, printip, 128));
-        count++;
-      }
-    }
-    /* Note: We only free the addrinfo buffers if no tunnels were
-     * added, otherwise, the structures are still in use.  Valgrind
-     * will (correctly) flag this as a leak. */
-    if (count == 0) freeaddrinfo(result);
-  }
-
-  PK_CHECK_MEMORY_CANARIES;
-  return count;
-}
-
-struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
-                                      struct addrinfo *ai,
-                                      const char* hostname, int port,
-                                      int flags)
-{
-  int which;
-  struct pk_tunnel* fe;
-  struct pk_tunnel* adding = NULL;
-
-  PK_TRACE_FUNCTION;
-
-  /* Scan the front-end list to see if we already have this IP or,
-   * if not, find an available slot.
-   */
-  for (which = 0; which < pkm->tunnel_max; which++) {
-    fe = pkm->tunnels+which;
-    if (fe->ai == NULL) {
-      if (adding == NULL) adding = fe;
-    }
-    else if ((ai->ai_addrlen > 0) &&
-             (0 == addrcmp(fe->ai->ai_addr, ai->ai_addr)))
-    {
-      return NULL;
-    }
-  }
-  if (adding == NULL)
-    return pk_err_null(ERR_NO_MORE_FRONTENDS);
-
-  adding->ai = ai;
-  adding->fe_hostname = strdup(hostname);
-  adding->fe_port = port;
-  adding->last_ddnsup = 0;
-  adding->error_count = 0;
-  adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
-  adding->request_count = 0;
-  adding->priority = 0;
-
-  return adding;
-}
-
-unsigned char pkm_sid_shift(char *sid)
-{
-  unsigned char shift;
-  char *c;
-
-  for (c = sid, shift = 0; *c != '\0'; c++) {
-    shift = (shift << 3) | (shift >> 5);
-    shift ^= *c;
-  }
-  return shift;
-}
-
-struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
-                                          struct pk_tunnel* fe, char *sid)
-{
-  int i, evicting;
-  time_t max_age;
-  unsigned char shift;
-  struct pk_backend_conn* pkb;
-  struct pk_backend_conn* pkb_oldest;
-
-  PK_TRACE_FUNCTION;
-
-  max_age = time(0);
-  pkb_oldest = NULL;
-  shift = pkm_sid_shift(sid);
-  for (i = 0; i < pkm->be_conn_max; i++) {
-    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
-    if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
-      pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
-      pkb->tunnel = fe;
-      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
-      return pkb;
-    }
-    if (pkb->conn.activity <= max_age) {
-      max_age = pkb->conn.activity;
-      pkb_oldest = pkb;
-    }
-  }
-
-  /* If we get this far, we found no empty slots. Let's complain to the
-   * log and, if so configured, kick out the oldest idle connection. */
-  if (NULL != (pkb = pkb_oldest)) {
-    max_age = time(0) - pkb->conn.activity;
-    evicting = (pk_state.conn_eviction_idle_s &&
-               (pk_state.conn_eviction_idle_s < max_age));
-
-    /* Eviction is an error, as it means we're unable to do our job and
-     * may have been configured with too few connection slots. */
-    pk_log(evicting ? PK_LOG_MANAGER_ERROR : PK_LOG_MANAGER_DEBUG,
-           "Idlest conn: %s (idle %ds, evicting=%d)",
-           pkb->sid, max_age, evicting);
-    pk_dump_be_conn("be", pkb);
-
-    if (evicting) {
-      pkb->conn.status |= (CONN_STATUS_CLS_WRITE|CONN_STATUS_CLS_READ);
-      pkm_update_io(fe, pkb);
-      pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
-      pkb->tunnel = fe;
-      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
-      return pkb;
-    }
-  }
-
-  PK_CHECK_MEMORY_CANARIES;
-  return NULL;
-}
-
-void pkm_free_be_conn(struct pk_backend_conn* pkb)
-{
-  pkb->conn.status = CONN_STATUS_UNKNOWN;
-}
-
-struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
-                                         struct pk_tunnel* fe, char* sid)
-{
-  int i;
-  unsigned char shift;
-  struct pk_backend_conn* pkb;
-
-  PK_TRACE_FUNCTION;
-
-  shift = pkm_sid_shift(sid);
-  for (i = 0; i < pkm->be_conn_max; i++) {
-    pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
-    if ((pkb->conn.status & CONN_STATUS_ALLOCATED) &&
-        (pkb->tunnel == fe) &&
-        (0 == strncmp(pkb->sid, sid, BE_MAX_SID_SIZE))) {
-      return pkb;
-    }
-  }
-  return NULL;
-}
-
-
-/*** High level API stuff ****************************************************/
 
 void* pkm_run(void *void_pkm) {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
