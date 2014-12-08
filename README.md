@@ -43,14 +43,17 @@ This project has a Wiki page: <https://pagekite.net/wiki/Floss/LibPageKite/>
 
 ## Getting started on Windows ##
 
-Libpagekite can be cross-compiled for Windows by installing the MXE
-environment, built with pthread and openssl at least.
+Libpagekite can be cross-compiled from Linux to Windows by installing
+the MXE environment, built with pthread and openssl at least.
 
 You can the cross-compile Windows binaries and a DLL like so:
 
     $ make windows
 
-Check `docs/` for more details and `include/pagekite.h` for the interface.
+Check `docs/API.txt` for more details.
+
+Releases include pre-built executables and DLLs in the `bin/` and `lib/`
+folders for your convenience.
 
 
 ## Getting started on Android ##
