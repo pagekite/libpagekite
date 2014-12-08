@@ -24,12 +24,12 @@ Note: For alternate license terms, see the file COPYING.md.
 #define _PAGEKITEC_DLL_H
 
 #ifdef ANDROID
-#define PK_VERSION "0.9.141208A"
+#define PK_VERSION "0.90.141208A"
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.9.141208W"
+#define PK_VERSION "0.90.141208W"
 #else
-#define PK_VERSION "0.9.141208C"
+#define PK_VERSION "0.90.141208C"
 #endif
 #endif
 
@@ -43,25 +43,25 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_WITHOUT_SERVICE_FRONTENDS 0x0010
 
 /* PageKite logging constants */
-#define PK_LOG_TUNNEL_DATA     0x0001
-#define PK_LOG_TUNNEL_HEADERS  0x0002
-#define PK_LOG_TUNNEL_CONNS    0x0004
-#define PK_LOG_BE_DATA         0x0010
-#define PK_LOG_BE_HEADERS      0x0020
-#define PK_LOG_BE_CONNS        0x0040
-#define PK_LOG_MANAGER_ERROR   0x0100
-#define PK_LOG_MANAGER_INFO    0x0200
-#define PK_LOG_MANAGER_DEBUG   0x0400
+#define PK_LOG_TUNNEL_DATA     0x000100
+#define PK_LOG_TUNNEL_HEADERS  0x000200
+#define PK_LOG_TUNNEL_CONNS    0x000400
+#define PK_LOG_BE_DATA         0x001000
+#define PK_LOG_BE_HEADERS      0x002000
+#define PK_LOG_BE_CONNS        0x004000
+#define PK_LOG_MANAGER_ERROR   0x010000
+#define PK_LOG_MANAGER_INFO    0x020000
+#define PK_LOG_MANAGER_DEBUG   0x040000
 
-#define PK_LOG_TRACE           0x0800
-#define PK_LOG_ERROR           0x1000
+#define PK_LOG_TRACE           0x080000
+#define PK_LOG_ERROR           0x100000
 
 #define PK_LOG_ERRORS          (PK_LOG_ERROR|PK_LOG_MANAGER_ERROR)
 #define PK_LOG_MANAGER         (PK_LOG_MANAGER_ERROR|PK_LOG_MANAGER_INFO)
 #define PK_LOG_CONNS           (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
 #define PK_LOG_NORMAL          (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER)
 #define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG)
-#define PK_LOG_ALL             0xffff
+#define PK_LOG_ALL             0xffff00
 
 /* Pagekite.net service related constants */
 #define PAGEKITE_NET_DDNS "http://up.pagekite.net/?hostname=%s&myip=%s&sign=%s"
