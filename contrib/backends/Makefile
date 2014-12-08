@@ -33,6 +33,9 @@ windows: pagekitec.exe
 httpkite: .unix httpkite.o
 	$(CC) $(CFLAGS) -o httpkite httpkite.o $(CLINK) -lpagekite
 
+hello: .unix hello.o
+	$(CC) $(CFLAGS) -o hello hello.o $(CLINK) -lpagekite
+
 pagekitec: .unix pagekitec.o
 	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(CLINK) -lpagekite
 
@@ -40,7 +43,7 @@ pagekitec.exe: .win32 pagekitec.o
 	$(CC) $(CFLAGS) -o pagekitec.exe pagekitec.o $(CLINK) -lpagekite_dll
 
 clean:
-	rm -vf tests pagekite[cr] httpkite *.exe *.o .win32 .unix
+	rm -vf tests pagekite[cr] hello httpkite *.exe *.o .win32 .unix
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf

@@ -24,12 +24,18 @@ Note: For alternate license terms, see the file COPYING.md.
 #define _PAGEKITEC_DLL_H
 
 #ifdef ANDROID
-#define PK_VERSION "141208A"
+#define PK_VERSION "0.9.141208A"
 #else
-#define PK_VERSION "141208C"
+#ifdef _MSC_VER
+#define PK_VERSION "0.9.141208W"
+#else
+#define PK_VERSION "0.9.141208C"
+#endif
 #endif
 
-/* Flags for libpagekite_init and friends. */
+/* Flags for pagekite_init and friends. */
+#define PK_WITH_DEFAULTS             0x0000
+#define PK_WITHOUT_DEFAULTS          0x1000
 #define PK_WITH_SSL                  0x0001
 #define PK_WITH_IPV4                 0x0002
 #define PK_WITH_IPV6                 0x0004
@@ -83,9 +89,8 @@ extern "C" {
 
 typedef void* pagekite_mgr;
 
-DECLSPEC_DLL pagekite_mgr libpagekite_init(
-  const char* app_id_short,
-  const char* app_id_long,
+DECLSPEC_DLL pagekite_mgr pagekite_init(
+  const char* app_id,
   int max_kites,
   int max_frontends,
   int max_conns,
@@ -93,15 +98,14 @@ DECLSPEC_DLL pagekite_mgr libpagekite_init(
   int flags,
   int verbosity);
 
-DECLSPEC_DLL pagekite_mgr libpagekite_init_pagekitenet(
-  const char* app_id_short,
-  const char* app_id_long,
+DECLSPEC_DLL pagekite_mgr pagekite_init_pagekitenet(
+  const char* app_id,
   int max_kites,
   int max_conns,
   int flags,
   int verbosity);
 
-DECLSPEC_DLL int libpagekite_add_kite(pagekite_mgr,
+DECLSPEC_DLL int pagekite_add_kite(pagekite_mgr,
   const char* proto,
   const char* kitename,
   int pport,
@@ -109,26 +113,26 @@ DECLSPEC_DLL int libpagekite_add_kite(pagekite_mgr,
   const char* backend,
   int lport);
 
-DECLSPEC_DLL int libpagekite_add_service_frontends(pagekite_mgr pkm, int);
-DECLSPEC_DLL int libpagekite_add_frontend(pagekite_mgr,
+DECLSPEC_DLL int pagekite_add_service_frontends(pagekite_mgr pkm, int);
+DECLSPEC_DLL int pagekite_add_frontend(pagekite_mgr,
   char* domain,
   int port);
 
-DECLSPEC_DLL int libpagekite_set_log_mask(pagekite_mgr, int);
-DECLSPEC_DLL int libpagekite_enable_watchdog(pagekite_mgr, int enable);
-DECLSPEC_DLL int libpagekite_enable_fake_ping(pagekite_mgr pkm, int enable);
-DECLSPEC_DLL int libpagekite_set_bail_on_errors(pagekite_mgr pkm, int errors);
-DECLSPEC_DLL int libpagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int);
-DECLSPEC_DLL int libpagekite_want_spare_frontends(pagekite_mgr, int spares);
-DECLSPEC_DLL int libpagekite_tick(pagekite_mgr);
-DECLSPEC_DLL int libpagekite_poll(pagekite_mgr, int timeout);
-DECLSPEC_DLL int libpagekite_start(pagekite_mgr);
-DECLSPEC_DLL int libpagekite_wait(pagekite_mgr);
-DECLSPEC_DLL int libpagekite_stop(pagekite_mgr);
-DECLSPEC_DLL int libpagekite_get_status(pagekite_mgr);
-DECLSPEC_DLL char* libpagekite_get_log(pagekite_mgr);
-DECLSPEC_DLL int libpagekite_free(pagekite_mgr);
-DECLSPEC_DLL void libpagekite_perror(pagekite_mgr, const char*);
+DECLSPEC_DLL int pagekite_set_log_mask(pagekite_mgr, int);
+DECLSPEC_DLL int pagekite_enable_watchdog(pagekite_mgr, int enable);
+DECLSPEC_DLL int pagekite_enable_fake_ping(pagekite_mgr pkm, int enable);
+DECLSPEC_DLL int pagekite_set_bail_on_errors(pagekite_mgr pkm, int errors);
+DECLSPEC_DLL int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int);
+DECLSPEC_DLL int pagekite_want_spare_frontends(pagekite_mgr, int spares);
+DECLSPEC_DLL int pagekite_tick(pagekite_mgr);
+DECLSPEC_DLL int pagekite_poll(pagekite_mgr, int timeout);
+DECLSPEC_DLL int pagekite_start(pagekite_mgr);
+DECLSPEC_DLL int pagekite_wait(pagekite_mgr);
+DECLSPEC_DLL int pagekite_stop(pagekite_mgr);
+DECLSPEC_DLL int pagekite_get_status(pagekite_mgr);
+DECLSPEC_DLL char* pagekite_get_log(pagekite_mgr);
+DECLSPEC_DLL int pagekite_free(pagekite_mgr);
+DECLSPEC_DLL void pagekite_perror(pagekite_mgr, const char*);
 
 #ifdef __cplusplus
 }

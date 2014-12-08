@@ -61,7 +61,7 @@ void usage(int ecode) {
 }
 
 void raise_log_level(int sig) {
-  if (sig) libpagekite_set_log_mask(NULL, PK_LOG_ALL);
+  if (sig) pagekite_set_log_mask(NULL, PK_LOG_ALL);
 }
 
 void safe_exit(int code) {
@@ -173,23 +173,24 @@ int main(int argc, char **argv) {
   if (use_ipv6) flags |= PK_WITH_IPV6;
 #endif
 
-  if (NULL == (m = libpagekite_init("pagekitec", NULL,
-                                    1 + (argc-1-gotargs)/5, /* Kites */
-                                    PAGEKITE_NET_FE_MAX,
-                                    max_conns,
-                                    ddns_url,
-                                    flags,
-                                    verbosity))) {
-    libpagekite_perror(m, argv[0]);
+  if (NULL == (m = pagekite_init("pagekitec",
+                                 1 + (argc-1-gotargs)/5, /* Kites */
+                                 PAGEKITE_NET_FE_MAX,
+                                 max_conns,
+                                 ddns_url,
+                                 flags,
+                                 verbosity)))
+  {
+    pagekite_perror(m, argv[0]);
     safe_exit(EXIT_ERR_MANAGER_INIT);
   }
 
   /* Set all the parameters */
-  libpagekite_want_spare_frontends(m, spare_frontends);
-  libpagekite_enable_watchdog(m, use_watchdog);
-  libpagekite_enable_fake_ping(m, use_fake_ping);
-  libpagekite_set_bail_on_errors(m, bail_on_errors);
-  libpagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
+  pagekite_want_spare_frontends(m, spare_frontends);
+  pagekite_enable_watchdog(m, use_watchdog);
+  pagekite_enable_fake_ping(m, use_fake_ping);
+  pagekite_set_bail_on_errors(m, bail_on_errors);
+  pagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
 
   for (ac = gotargs; ac+5 < argc; ac += 5) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
@@ -199,11 +200,11 @@ int main(int argc, char **argv) {
     proto = argv[ac+2];
     kitename = argv[ac+3];
     secret = argv[ac+5];
-    if ((0 > libpagekite_add_kite(m, proto, kitename, 0, secret,
-                                  "localhost", lport)) ||
-        (use_current && (0 > (libpagekite_add_frontend(m, kitename, pport)))))
+    if ((0 > pagekite_add_kite(m, proto, kitename, 0, secret,
+                               "localhost", lport)) ||
+        (use_current && (0 > (pagekite_add_frontend(m, kitename, pport)))))
     {
-      libpagekite_perror(m, argv[0]);
+      pagekite_perror(m, argv[0]);
       safe_exit(EXIT_ERR_ADD_KITE);
     }
   }
@@ -211,25 +212,25 @@ int main(int argc, char **argv) {
   /* The API could do this stuff on INIT, but since we allow for manually
      specifying a front-end hostname, we do things by hand. */
   if (fe_hostname) {
-    if (0 > libpagekite_add_frontend(m, fe_hostname, 443)) {
-      libpagekite_perror(m, argv[0]);
+    if (0 > pagekite_add_frontend(m, fe_hostname, 443)) {
+      pagekite_perror(m, argv[0]);
       safe_exit(EXIT_ERR_FRONTENDS);
     }
   }
   else if (ddns_url != NULL) {
-    if (0 > libpagekite_add_service_frontends(m, flags)) {
-      libpagekite_perror(m, argv[0]);
+    if (0 > pagekite_add_service_frontends(m, flags)) {
+      pagekite_perror(m, argv[0]);
       safe_exit(EXIT_ERR_FRONTENDS);
     }
   }
 
-  if (0 > libpagekite_start(m)) {
-    libpagekite_perror(m, argv[0]);
+  if (0 > pagekite_start(m)) {
+    pagekite_perror(m, argv[0]);
     safe_exit(EXIT_ERR_START_THREAD);
   }
 
-  libpagekite_wait(m);
-  libpagekite_free(m);
+  pagekite_wait(m);
+  pagekite_free(m);
 
   return 0;
 }

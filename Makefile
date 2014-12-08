@@ -30,6 +30,9 @@ windows:
 	@mv -v contrib/backends/*.exe bin/
 	@echo
 
+version:
+	@cd libpagekite && make version
+
 buildclean:
 	@cd contrib && make clean
 	@cd libpagekite && make clean

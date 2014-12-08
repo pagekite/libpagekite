@@ -86,7 +86,7 @@ evwrap.o: mxe/evwrap.c
 pagekite.o: pagekite.c
 	$(CC) $(CFLAGS) $(CWARN) $(DEFINES) -DBUILDING_PAGEKITE_DLL=1 -c $<
 
-../include/pagekite.h: pagekite.h.in
+version: pagekite.h.in
 	sed -e "s/@DATE@/`date '+%y%m%d'`/g" <pagekite.h.in >../include/pagekite.h
 
 clean:
