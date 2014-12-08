@@ -387,7 +387,7 @@ int utils_test(void)
   PK_CHECK_MEMORY_CANARIES;
   canary = (void*) 0;
   assert(check_memory_canaries() == 1);
-  canary = (void*) *canary;
+  canary = &canary;
   remove_memory_canary(&canary);
 #endif
 #endif

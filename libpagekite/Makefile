@@ -39,11 +39,11 @@ DEFINES=-DHAVE_IPV6=$(HAVE_IPV6) \
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
-default: libpagekite.so pagekitec
+default: libpagekite.so
 
 relay: pagekiter
 
-all: runtests libpagekite.so pagekitec pagekiter httpkite
+all: runtests libpagekite.so
 
 runtests: tests
 	@./tests && echo Tests passed || echo Tests FAILED.
@@ -52,28 +52,31 @@ runtests: tests
 android:
 	@$(NDK_PROJECT_PATH)/ndk-build
 
-tests: tests.o $(OBJ) $(TOBJ)
+windows: .win32 libpagekite.dll
+
+.win32:
+	@echo Switching to win32 build mode
+	@make clean
+	@touch .win32
+
+.unix:
+	@echo Switching to unix build mode
+	@make clean
+	@touch .unix
+
+tests: .unix tests.o $(OBJ) $(TOBJ)
 	$(CC) $(CFLAGS) -o tests tests.o $(OBJ) $(TOBJ) $(CLINK)
 
-libpagekite.so: $(OBJ)
+libpagekite.so: .unix $(OBJ)
 	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(CLINK)
 
-libpagekite-full: $(OBJ) $(ROBJ)
+libpagekite-full: .unix $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(ROBJ) $(CLINK)
-
-httpkite: httpkite.o $(OBJ)
-	$(CC) $(CFLAGS) -o httpkite httpkite.o $(OBJ) $(CLINK)
-
-pagekitec: pagekitec.o libpagekite.so
-	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(CLINK) -lpagekite
 
 pagekiter: pagekiter.o $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)
 
-pagekitec.exe: pagekitec.o libpagekite.dll
-	$(CC) $(CFLAGS) -o pagekitec.exe pagekitec.o $(CLINK) -lpagekite_dll
-
-libpagekite.dll: $(OBJ)
+libpagekite.dll: .win32 $(OBJ)
 	$(CC) -shared -o libpagekite.dll $(OBJ) $(CLINK) \
               -Wl,--out-implib,libpagekite_dll.a
 
@@ -87,7 +90,7 @@ pagekite.o: pagekite.c
 	sed -e "s/@DATE@/`date '+%y%m%d'`/g" <pagekite.h.in >../include/pagekite.h
 
 clean:
-	rm -vf tests pagekite[cr] httpkite *.[oa] *.so *.exe *.dll
+	rm -vf tests pagekiter *.[oa] *.so *.exe *.dll .unix .win32
 
 allclean: clean
 	find . -name '*.o' |xargs rm -vf
@@ -95,9 +98,7 @@ allclean: clean
 .c.o:
 	$(CC) $(CFLAGS) $(CWARN) $(DEFINES) -c $<
 
-httpkite.o: $(HDRS)
 pagekite.o: $(HDRS)
-pagekitec.o: $(HDRS)
 pagekiter.o: $(HDRS) $(RHDRS)
 pagekite-jni.o: $(HDRS)
 pkblocker.o: $(HDRS)

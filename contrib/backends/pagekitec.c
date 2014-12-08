@@ -22,7 +22,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "pagekite.h"
+#include <pagekite.h>
 #include "common.h"
 
 

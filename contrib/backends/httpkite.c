@@ -22,16 +22,18 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "common.h"
-#include "pagekite.h"
-#include "pkstate.h"
+#include <pagekite.h>
+#include <common.h>
+
+#include "utils.h"
 #include "pkerror.h"
 #include "pkconn.h"
+#include "pkstate.h"
 #include "pkproto.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
-#include "utils.h"
+#include "pkwatchdog.h"
 
 
 void usage(void) {

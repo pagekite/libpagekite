@@ -3,8 +3,6 @@
 This is a tight, fast implementation of the PageKite protocol in C,
 suitable for high-performance or embedded applications.
 
-This code is a work in progress.
-
 
 ## What is PageKite? ##
 
@@ -18,36 +16,46 @@ For more information about PageKite, see http://pagekite.org/
 
 ## What is in the box? ##
 
-Things that work:
+The structure is as follows:
 
-    httpkite.c      Sample implementation of a very basic HTTP server
+    Makefile            A few recipes for building common targets
+    bindings/           Library bindings for other programming languages
+    contrib/            Things that use libpagekite
+    doc/                Documentation
+    include/pagekite.h  The public interface of libpagekite
+    libpagekite/        The source code
+    tools/              Helper scripts for building and working
+
+In contrib/backends/ you'll find:
+
+    httpkite.c      A sample implementation of a very basic HTTP server
     pagekitec.c     Basic standalone pagekite back-end connector/proxy.
-
-Works in progress:
-
-    pagekite-jni.c  JNI wrapper for use in Android development
-    libpagekite.py  A simple Python wrapper
-
-Everything else is either support code or documentation.
 
 
 ## Getting started ##
 
-Playing with `httpkite.c` is probably the easiest way to get started hacking.
-You can build it like so:
+The best example of how to work with the library is `pagekitec.c`.
 
-    $ make httpkite
-
-Running the program will give some hints on how to use it.  It does not do
-anything useful on its own, the idea is to provide a basic implementation
-which can extended and build upon.
-
-A more complete implementation of a PageKite proxy is in `pagekitec.c`.
+For more low-level fun, `httpkite.c` can also be of some value.
 
 This project has a Wiki page: <https://pagekite.net/wiki/Floss/LibPageKite/>
 
 
+## Getting started on Windows ##
+
+Libpagekite can be cross-compiled for Windows by installing the MXE
+environment, built with pthread and openssl at least.
+
+You can the cross-compile Windows binaries and a DLL like so:
+
+    $ make windows
+
+Check `docs/` for more details and `include/pagekite.h` for the interface.
+
+
 ## Getting started on Android ##
+
+**WARNING:** This section is outdated and needs to be rewritten!
 
 This source tree can be included in an Android project using the NDK.  It
 has been tested and verified to work with revision 8 of the NDK, targetting

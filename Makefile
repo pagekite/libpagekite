@@ -1,30 +1,33 @@
 default:
 	@make native PK_TESTS=0
 
-optimized: buildclean
+optimized:
 	@make all OPT="-O3 -s" PK_TESTS=0
 
-debug: buildclean
-	@cd libpagekite && make tests
+debug:
+	@cd libpagekite && make tests PK_MEMORY_CANARIES=1 PK_TESTS=1
 	@make all PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
 
 all: native windows
 
-native: buildclean
+native:
 	@echo '=== Building for '`uname`' ==='
-	@cd libpagekite && make
+	cd libpagekite && make
+	cd contrib/backends/ && make
 	@mv -v libpagekite/*.so lib/
-	@mv -v libpagekite/pagekitec bin/
+	@mv -v contrib/backends/pagekitec bin/
 	@echo
 
-windows: buildclean
+windows:
 	@echo '=== Building for win32 ==='
-	@cd libpagekite && ../tools/bash.mxe -c 'make pagekitec.exe'
+	cd libpagekite && ../tools/bash.mxe -c 'make windows'
+	cd contrib/backends/ && ../../tools/bash.mxe -c 'make windows'
 	@mv -v libpagekite/*.dll libpagekite/*.a lib/
-	@mv -v libpagekite/*.exe bin/
+	@mv -v contrib/backends/*.exe bin/
 	@echo
 
 buildclean:
+	@cd contrib && make clean
 	@cd libpagekite && make clean
 
 clean: buildclean

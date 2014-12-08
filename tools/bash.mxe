@@ -19,7 +19,6 @@ export HAVE_IPV6=0
 echo "PS1='\$? \[\033[1;33m\]\\w\[\033[0m\] mxe> '" \
     > .mxe.bashrc
 
-make clean
 if [ "$1" = "" ]; then
     echo
     echo You probably want: make pagekitec.exe

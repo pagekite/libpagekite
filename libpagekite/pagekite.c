@@ -56,7 +56,7 @@ pagekite_mgr libpagekite_init(
   int r;
   if (0 != (r = WSAStartup(MAKEWORD(2, 2), &wsa_data))) {
     pk_log(PK_LOG_ERROR, "libpagekite: Error during WSAStartup: %d\n", r);
-    return pk_set_error(ERR_WSA_STARTUP);
+    return pk_err_null(ERR_WSA_STARTUP);
   }
 #endif
 
