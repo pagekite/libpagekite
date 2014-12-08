@@ -572,7 +572,8 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
 
   pk_log(PK_LOG_TUNNEL_CONNS, "Connecting to %s (session=%s)",
                               in_addr_to_str(ai->ai_addr, buffer, 1024),
-                              (session_id[0] != '\0') ? session_id : "new");
+                              (session_id && session_id[0] != '\0')
+                               ? session_id : "new");
 
   if (0 > pkc_connect(pkc, ai))
     return (pk_error = ERR_CONNECT_CONNECT);

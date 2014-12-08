@@ -13,16 +13,20 @@ all: native windows
 native:
 	@echo '=== Building for '`uname`' ==='
 	cd libpagekite && make
-	cd contrib/backends/ && make
 	@mv -v libpagekite/*.so lib/
+	cd contrib/backends/ && make
 	@mv -v contrib/backends/pagekitec bin/
+	@echo
+	@echo Note: To run the apps, you may need to do this first:
+	@echo
+	@echo  $$ export LD_LIBRARY_PATH=`pwd`/lib
 	@echo
 
 windows:
 	@echo '=== Building for win32 ==='
 	cd libpagekite && ../tools/bash.mxe -c 'make windows'
-	cd contrib/backends/ && ../../tools/bash.mxe -c 'make windows'
 	@mv -v libpagekite/*.dll libpagekite/*.a lib/
+	cd contrib/backends/ && ../../tools/bash.mxe -c 'make windows'
 	@mv -v contrib/backends/*.exe bin/
 	@echo
 

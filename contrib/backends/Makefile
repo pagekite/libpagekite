@@ -12,7 +12,7 @@ TARGET_OBJ ?=
 OPT ?= -g -O3
 CFLAGS ?= -std=c99 -fno-strict-aliasing -I../../include/ $(TARGET_CFLAGS) $(OPT)
 CWARN ?= -pedantic -Wall -W
-CLINK ?= -L../../libpagekite -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
+CLINK ?= -L../../lib -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
 
 HDRS = ../../include/pagekite.h
 

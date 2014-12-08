@@ -1,3 +1,0 @@
-fix:
-
-return some error message in pkm_add_kite in pkmanager.c instead of NULL
