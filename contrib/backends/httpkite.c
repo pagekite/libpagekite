@@ -89,7 +89,6 @@ int main(int argc, char **argv) {
   }
 
   pks_global_init(PK_LOG_ALL);
-  pk_state.log_file = NULL;
   PKS_SSL_INIT(ctx);
 
   kite_r.kite = &kite;
