@@ -135,8 +135,18 @@ int parse_frame_header(struct pk_frame* frame)
   {
     frame->hdr_length = hdr_len;
     frame->data = frame->raw_frame + hdr_len;
-    if (1 != sscanf(frame->raw_frame, "%lx", (size_t *) &(frame->length))) {
-      return (pk_error = ERR_PARSE_BAD_FRAME);
+    if (sizeof(frame->length) == sizeof(long unsigned int)) {
+      if (1 != sscanf(frame->raw_frame,
+                      "%lx", (long unsigned int *) &(frame->length))) {
+        return (pk_error = ERR_PARSE_BAD_FRAME);
+      }
+    }
+    else {
+      assert(sizeof(frame->length) == sizeof(unsigned int));
+      if (1 != sscanf(frame->raw_frame,
+                      "%x", (unsigned int *) &(frame->length))) {
+        return (pk_error = ERR_PARSE_BAD_FRAME);
+      }
     }
   }
   return 0;
@@ -160,7 +170,15 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk,
       if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
         chunk->sid = frame->data + pos + 5;
       else if (0 == strncasecmp(frame->data + pos, "SKB: ", 5)) {
-        sscanf(frame->data + pos + 5, "%ld", &(chunk->remote_sent_kb));
+        if (sizeof(chunk->remote_sent_kb) == sizeof(long int)) {
+          sscanf(frame->data + pos + 5,
+                 "%ld", (long int *) &(chunk->remote_sent_kb));
+        }
+        else {
+          assert(sizeof(chunk->remote_sent_kb) == sizeof(unsigned int));
+          sscanf(frame->data + pos + 5,
+                 "%d", (int *) &(chunk->remote_sent_kb));
+        }
       }
       else if (0 == strncasecmp(frame->data + pos, "SPD: ", 5))
         sscanf(frame->data + pos + 5, "%d", &(chunk->throttle_spd));

@@ -38,7 +38,7 @@ active.
 8. The caller calls `pagekite_free` to release any allocated resources
 
 All methods, except the initialization functions, take a `pagekite_mgr`
-object as thei first argument.
+object as their first argument.
 
 All API methods either return an integer or a pointer. In case of error,
 negative values or `NULL` are returned. Error states can be explained
