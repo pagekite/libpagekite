@@ -241,7 +241,7 @@ int pagekite_add_kite(pagekite_mgr pkm,
 }
 
 int pagekite_add_frontend(pagekite_mgr pkm,
-  char* domain,
+  const char* domain,
   int port)
 {
   if (pkm == NULL) return -1;
