@@ -5,8 +5,11 @@ optimized:
 	@make all OPT="-O3 -s" PK_TESTS=0
 
 debug:
-	@cd libpagekite && make tests PK_MEMORY_CANARIES=1 PK_TESTS=1
+	@cd libpagekite && make tests PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
 	@make all PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
+
+debugwindows:
+	@make windows PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
 
 all: native windows
 

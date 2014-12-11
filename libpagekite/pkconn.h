@@ -86,6 +86,7 @@ struct pk_conn {
   io_state_t state;
 #ifdef HAVE_OPENSSL
   SSL*       ssl;
+  int        want_write;
 #endif
 };
 

@@ -279,11 +279,13 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
   pkb->kite = kite;
   pkb->conn.sockfd = sockfd;
 
-  ev_io_init(&(pkb->conn.watch_r), pkm_be_conn_readable_cb, sockfd, EV_READ);
-  ev_io_init(&(pkb->conn.watch_w), pkm_be_conn_writable_cb, sockfd, EV_WRITE);
+  int ev_sock = PKS_EV_FD(sockfd);
+  ev_io_init(&(pkb->conn.watch_r), pkm_be_conn_readable_cb, ev_sock, EV_READ);
+  ev_io_init(&(pkb->conn.watch_w), pkm_be_conn_writable_cb, ev_sock, EV_WRITE);
+
+  pkb->conn.watch_r.data = pkb->conn.watch_w.data = (void *) pkb;
   ev_io_start(fe->manager->loop, &(pkb->conn.watch_r));
   ev_io_start(fe->manager->loop, &(pkb->conn.watch_w));
-  pkb->conn.watch_r.data = pkb->conn.watch_w.data = (void *) pkb;
 
   PKS_STATE(pk_state.live_streams += 1);
 
@@ -695,12 +697,14 @@ int pkm_reconnect_all(struct pk_manager* pkm) {
 
         pk_parser_reset(fe->parser);
 
+        int ev_sock = PKS_EV_FD(fe->conn.sockfd);
         ev_io_init(&(fe->conn.watch_r),
-                   pkm_tunnel_readable_cb, fe->conn.sockfd, EV_READ);
+                   pkm_tunnel_readable_cb, ev_sock, EV_READ);
         ev_io_init(&(fe->conn.watch_w),
-                   pkm_tunnel_writable_cb, fe->conn.sockfd, EV_WRITE);
-        ev_io_start(pkm->loop, &(fe->conn.watch_r));
+                   pkm_tunnel_writable_cb, ev_sock, EV_WRITE);
+
         fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
+        ev_io_start(pkm->loop, &(fe->conn.watch_r));
 
         PKS_STATE(pk_state.live_tunnels += 1);
         fe->error_count = 0;
