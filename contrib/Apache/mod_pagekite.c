@@ -1,6 +1,6 @@
 /* mod_pagekite.c, Copyright 2014, The Beanstalks Project ehf.
  *
- * This configures Apache to automatically make chosen VirtualHosts 
+ * This configures Apache to automatically make chosen VirtualHosts
  * public using the PageKite tunneled reverse proxy.
  *
  * Apache config directives:
@@ -24,6 +24,9 @@
 #include "http_config.h"
 #include "ap_config.h"
 #include "apr_global_mutex.h"
+#ifdef AP_NEED_SET_MUTEX_PERMS
+#include "unixd.h"
+#endif
 
 
 /* *** Module configureation ********************************************** */
@@ -32,10 +35,12 @@
 #define MAX_FRONTENDS 50
 #define DISABLE_DYNDNS "Off"
 
+typedef enum { off=-1, undefined=0, on=1 } tristate;
+
 typedef struct {
     char* domain;
     char* secret;
-    int   with_e2e_ssl;
+    tristate with_e2e_ssl;
 } autokite;
 
 typedef struct {
@@ -54,13 +59,13 @@ typedef struct {
 
 typedef struct {
     const char* dynDNS;
-    int         usePageKiteNet;
+    tristate    with_pagekitenet;
     int         autokiteCount;
     autokite    autokites[MAX_KITES];
     int         frontendCount;
     frontend    frontends[MAX_FRONTENDS];
     int         kiteCount;
-    kite        kites[MAX_KITES]; 
+    kite        kites[MAX_KITES];
 } pagekite_cfg;
 
 static pagekite_cfg config;
@@ -112,11 +117,12 @@ const char *modpk_pagekite(cmd_parms* cmd, void* cfg,
     ak->domain = argv[0];
     ak->secret = argv[1];
 
+    ak->with_e2e_ssl = 0;
     for (int i = 2; i < argc; i++) {
         if ((argv[i][0] && (strcasecmp(argv[i]+1, "ssl") == 0)) ||
                 (strcasecmp(argv[i], "ssl") == 0))
         {
-            ak->with_e2e_ssl = (argv[i][0] != '-');
+            ak->with_e2e_ssl = (argv[i][0] != '-') || -1;
         }
     }
 
@@ -126,9 +132,11 @@ const char *modpk_pagekite(cmd_parms* cmd, void* cfg,
 const char *modpk_set_pagekitenet(cmd_parms* cmd, void* cfg,
     const char* onoff)
 {
-    config.usePageKiteNet = ((strcasestr(onoff, "on") != NULL) ||
-                             (strcasestr(onoff, "yes") != NULL) ||
-                             (strcasestr(onoff, "true") != NULL));
+    config.with_pagekitenet = (
+        (strcasestr(onoff, "on") != NULL) ? on :
+        (strcasestr(onoff, "yes") != NULL) ? on :
+        (strcasestr(onoff, "true") != NULL) ? on :
+        (strcasestr(onoff, "auto") != NULL) ? undefined : off);
     return NULL;
 }
 
@@ -210,10 +218,10 @@ static const command_rec pagekite_directives[] =
 static apr_status_t modpk_stop_pagekite(void* data)
 {
     if (manager != NULL) {
-        apr_global_mutex_unlock(manager_lock);
         pagekite_stop(manager);
         pagekite_free(manager);
         manager = NULL;
+        apr_global_mutex_unlock(manager_lock);
     }
     return OK;
 }
@@ -222,31 +230,32 @@ static void modpk_start_pagekite(
     apr_pool_t *p,
     server_rec *s)
 {
-    //apr_global_mutex_child_init(&manager_lock, MUTEX_PATH, p);
-    if (APR_STATUS_IS_EBUSY(apr_global_mutex_trylock(manager_lock)))
-        return;
+    int flags = (PK_WITH_IPV4 | PK_WITH_IPV6);
+    const char* dyndns = config.dynDNS;
 
     /* We need to discover the following things from the global config:
      *   - What port are we listening on for HTTP?
      *   - Is SSL enabled? What port?
+     *   - Do we have IPv6? IPv4? Both?
      *   - Which ServerName and ServerAlias directives exist, and which
      *     match our autokite lists?
      */
 
-    int flags = (PK_WITH_IPV4 | PK_WITH_IPV6);
-    const char* dyndns = config.dynDNS;
-
-    if (config.usePageKiteNet) {
+    if (config.with_pagekitenet != off) {
         flags |= PK_WITH_SERVICE_FRONTENDS;
-        if (NULL == config.dynDNS) config.dynDNS = PAGEKITE_NET_DDNS;
+        if (NULL == dyndns) dyndns = PAGEKITE_NET_DDNS;
     }
     if (0 == strcasecmp(dyndns, DISABLE_DYNDNS)) dyndns = NULL;
 
-    if ((config.kiteCount == 0) ||
-            ((config.frontendCount == 0) && !config.usePageKiteNet))
+    if (((config.frontendCount == 0) && (off == config.with_pagekitenet))
+            || ((config.kiteCount == 0)))
         return;
 
-    fprintf(stderr, "Initializing libpagekite\n");
+    /* If we get this far, we really do intend to do some PageKite
+     * related work. Take the lock so this only happens once. */
+    if (APR_STATUS_IS_EBUSY(apr_global_mutex_trylock(manager_lock)))
+        return;
+
     manager = pagekite_init(
         "mod_pagekite",
         config.kiteCount,
@@ -254,11 +263,11 @@ static void modpk_start_pagekite(
         -1, /* Let libpagekite choose */
         config.dynDNS,
         flags,
-        PK_LOG_DEBUG | PK_LOG_TRACE);
+        PK_LOG_NORMAL);
     my_assert("pagekite_init failed!\n", manager != NULL);
 
     for (int i = 0; i < config.kiteCount; i++) {
-        my_assert("Failed to add kite", -1 < 
+        my_assert("Failed to add kite", -1 <
             pagekite_add_kite(manager,
                 config.kites[i].protocol,
                 config.kites[i].kite_name,
@@ -266,7 +275,6 @@ static void modpk_start_pagekite(
                 config.kites[i].secret,
                 config.kites[i].origin_host,
                 config.kites[i].origin_port));
-        fprintf(stderr, "Added kite %s\n", config.kites[i].kite_name);
     }
 
     for (int i = 0; i < config.frontendCount; i++) {
@@ -274,25 +282,24 @@ static void modpk_start_pagekite(
             pagekite_add_frontend(manager,
                 config.frontends[i].fe_host,
                 config.frontends[i].fe_port));
-        fprintf(stderr, "Added frontend %s\n", config.frontends[i].fe_host);
     }
 
-    pagekite_start(manager);
-
     apr_pool_cleanup_register(p, s, modpk_stop_pagekite, modpk_stop_pagekite);
-
+    pagekite_start(manager);
     return;
 }
 
-static void register_hooks(apr_pool_t *pool) 
+static void register_hooks(apr_pool_t *p)
 {
     manager = NULL;
-    config.usePageKiteNet = 1;
+    config.with_pagekitenet = undefined;
     config.dynDNS = NULL;
     config.frontendCount = 0;
     config.kiteCount = 0;
-    apr_global_mutex_create(&manager_lock, MUTEX_PATH,
-                            APR_LOCK_PROC_PTHREAD, pool);
+    apr_global_mutex_create(&manager_lock, MUTEX_PATH, APR_LOCK_DEFAULT, p);
+#ifdef AP_NEED_SET_MUTEX_PERMS
+    ap_unixd_set_global_mutex_perms(manager_lock);
+#endif
 
     ap_hook_child_init(modpk_start_pagekite, NULL, NULL, APR_HOOK_LAST);
 }

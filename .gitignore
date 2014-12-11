@@ -1,10 +1,15 @@
 *.a
 *.o
+*.la
+*.lo
 *.so
+*.slo
 *.exe
 *.dll
 .win32
 .unix
+.deps
+.libs
 httpkite
 pagekitec
 tests
