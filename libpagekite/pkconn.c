@@ -52,6 +52,7 @@ void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
 #ifdef HAVE_OPENSSL
   if (pkc->ssl) SSL_free(pkc->ssl);
   pkc->ssl = NULL;
+  pkc->want_write = 0;
 #endif
 }
 
@@ -152,7 +153,9 @@ int pkc_wait(struct pk_conn* pkc, int timeout_ms)
     PK_TRACE_LOOP("waiting");
     rv = wait_fd(pkc->sockfd, timeout_ms);
   } while ((rv < 0) && (errno == EINTR));
-  set_blocking(pkc->sockfd);
+  if (0 > set_blocking(pkc->sockfd))
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
+           "%d[pkc_wait]: Failed to set socket blocking", pkc->sockfd);
   return rv;
 }
 
@@ -239,6 +242,8 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
   switch (pkc->state) {
 #ifdef HAVE_OPENSSL
     case CONN_SSL_DATA:
+      if (pkc->want_write > 0) length = pkc->want_write;
+      pkc->want_write = 0;
       if (length) {
         wrote = SSL_write(pkc->ssl, data, length);
         if (wrote < 0) {
@@ -250,6 +255,7 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
               pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
                      "%d: %p/%d/%d/WANT_WRITE", pkc->sockfd, data, wrote, length);
               pkc->status |= CONN_STATUS_WANT_WRITE;
+              pkc->want_write = length;
               break;
             default:
               pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
@@ -295,15 +301,17 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
   flushed = wrote = errno = bytes = 0;
 
   if (pkc->sockfd < 0) {
-    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Bogus flush?",
-                                              pkc->sockfd, where);
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
+           "%d[%s]: Bogus flush?", pkc->sockfd, where);
     return -1;
   }
 
   if (mode == BLOCKING_FLUSH) {
-    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Attempting blocking flush",
-                                              pkc->sockfd, where);
-    set_blocking(pkc->sockfd);
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+           "%d[%s]: Attempting blocking flush", pkc->sockfd, where);
+    if (0 > set_blocking(pkc->sockfd))
+      pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
+             "%d[%s]: Failed to set socket blocking", pkc->sockfd, where);
   }
 
   /* First, flush whatever was in the conn buffers */
@@ -328,8 +336,11 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
    * everything.  Return errors, else continue. */
   if (wrote < 0) {
     flushed = wrote;
-    if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
+    if ((errno != EAGAIN) && (errno != EWOULDBLOCK) && (errno != 0)) {
       pkc->status |= CONN_STATUS_CLS_WRITE;
+      pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+             "%d[%s]: errno=%d, closing", pkc->sockfd, where, errno);
+    }
   }
   else if ((NULL != data) &&
            (mode == BLOCKING_FLUSH) &&
@@ -357,8 +368,8 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
 
   if (mode == BLOCKING_FLUSH) {
     set_non_blocking(pkc->sockfd);
-    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA, "%d[%s]: Blocking flush complete.",
-                                              pkc->sockfd, where);
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+           "%d[%s]: Blocking flush complete.", pkc->sockfd, where);
   }
   return flushed;
 }

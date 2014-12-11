@@ -115,7 +115,7 @@ DECLSPEC_DLL int pagekite_add_kite(pagekite_mgr,
 
 DECLSPEC_DLL int pagekite_add_service_frontends(pagekite_mgr pkm, int);
 DECLSPEC_DLL int pagekite_add_frontend(pagekite_mgr,
-  char* domain,
+  const char* domain,
   int port);
 
 DECLSPEC_DLL int pagekite_set_log_mask(pagekite_mgr, int);
