@@ -6,7 +6,7 @@
  * Apache config directives:
  *
  *   # The basic: configure domains, shared secrets, flags
- *   PageKite .pagekite.me secret +ssl
+ *   PageKite .pagekite.me secret +e2e_ssl
  *
  *   # Manual configuration
  *   PageKiteNet On
@@ -21,6 +21,7 @@
 #include <pagekite.h>
 
 #include "httpd.h"
+#include "http_core.h"
 #include "http_config.h"
 #include "ap_config.h"
 #include "apr_global_mutex.h"
@@ -35,7 +36,7 @@
 #define MAX_FRONTENDS 50
 #define DISABLE_DYNDNS "Off"
 
-typedef enum { off=-1, undefined=0, on=1 } tristate;
+typedef enum { off=-1, undefined=0, on=1, only=2 } tristate;
 
 typedef struct {
     char* domain;
@@ -112,15 +113,15 @@ const char *modpk_pagekite(cmd_parms* cmd, void* cfg,
 {
     my_assert("PageKite: too few arguments", argc >= 2);
     my_assert("PageKite: too many autokites", config.autokiteCount <= MAX_KITES);
-    autokite* ak = &config.autokites[config.frontendCount++];
+    autokite* ak = &config.autokites[config.autokiteCount++];
 
     ak->domain = argv[0];
     ak->secret = argv[1];
 
     ak->with_e2e_ssl = 0;
     for (int i = 2; i < argc; i++) {
-        if ((argv[i][0] && (strcasecmp(argv[i]+1, "ssl") == 0)) ||
-                (strcasecmp(argv[i], "ssl") == 0))
+        if ((argv[i][0] && (strcasecmp(argv[i]+1, "e2e_ssl") == 0)) ||
+                (strcasecmp(argv[i], "e2e_ssl") == 0))
         {
             ak->with_e2e_ssl = (argv[i][0] != '-') || -1;
         }
@@ -183,16 +184,18 @@ const char *modpk_add_kite(cmd_parms* cmd, void* cfg,
 
     k->origin_host = "localhost";
     k->origin_port = 80;
-    hostport(argv[0], &(k->origin_host), &(k->origin_port));
+    hostport(strdup(argv[0]), &(k->origin_host), &(k->origin_port));
 
     k->protocol = argv[1];
 
     k->kite_name = NULL;
     k->kite_port = 0;
-    hostport(argv[2], &(k->kite_name), &(k->kite_port));
+    hostport(strdup(argv[2]), &(k->kite_name), &(k->kite_port));
     my_assert("PageKiteAddKite: Bad kite name", k->kite_name != NULL);
 
     k->secret = argv[3];
+    fprintf(stderr,
+            "Added kite: %s %s %s %s\n", argv[0], argv[1], argv[2], argv[3]);
 
     return NULL;
 }
@@ -226,6 +229,52 @@ static apr_status_t modpk_stop_pagekite(void* data)
     return OK;
 }
 
+static int domains_match(const char* d1, const char* d2) {
+    if (d1 == NULL || d2 == NULL) return 0;
+    if (0 == strcasecmp(d1, d2)) return 1;
+    if (*d2 == '.') {
+        char* dot = strchr(d1, '.');
+        while (dot != NULL) {
+            if (0 == strcasecmp(dot, d2)) return 1;
+            dot = strchr(dot+1, '.');
+        }
+    }
+    return 0;
+}
+
+static void auto_configure_kites(const char* domain,
+                                 int http_port, int https_port) {
+    int i;
+    char http_host[128], https_host[128];
+
+    fprintf(stderr,
+            "Config kite? %s:[%d,%d] akc=%d\n",
+            domain, http_port, https_port, config.autokiteCount);
+
+    for (i = 0; i < config.autokiteCount; i++) {
+        autokite* ak = &config.autokites[i];
+        if (domains_match(domain, ak->domain))
+        {
+            if ((http_port > 0) && (ak->with_e2e_ssl != only))
+            {
+                sprintf(http_host, "localhost:%d", http_port);
+                const char* args[] =
+                    { http_host, "http", domain, ak->secret };
+                modpk_add_kite(NULL, NULL, 4, (char**) args);
+            }
+
+            if ((https_port > 0) && (ak->with_e2e_ssl != off))
+            {
+                sprintf(https_host, "localhost:%d", https_port);
+                const char* args[] =
+                    { https_host, "https", domain, ak->secret };
+                modpk_add_kite(NULL, NULL, 4, (char**) args);
+            }
+            break;
+        }
+    }
+}
+
 static void modpk_start_pagekite(
     apr_pool_t *p,
     server_rec *s)
@@ -234,12 +283,24 @@ static void modpk_start_pagekite(
     const char* dyndns = config.dynDNS;
 
     /* We need to discover the following things from the global config:
-     *   - What port are we listening on for HTTP?
      *   - Is SSL enabled? What port?
      *   - Do we have IPv6? IPv4? Both?
+     *   - What port are we listening on for HTTP?
      *   - Which ServerName and ServerAlias directives exist, and which
      *     match our autokite lists?
      */
+    struct server_rec* r;
+    for (r = s; r != NULL; r = r->next) {
+        /* FIXME: Should we iterate through the addrs list? */
+        int http_port = r->addrs[0].host_port;
+        auto_configure_kites(r->server_hostname, http_port, -1);
+        if (r->names != NULL) {
+            char** names = (char **) r->names->elts;
+            for (int i = 0; i < r->names->nelts; i++) {
+                auto_configure_kites(names[i], http_port, -1);
+            }
+        }
+    }
 
     if (config.with_pagekitenet != off) {
         flags |= PK_WITH_SERVICE_FRONTENDS;
@@ -296,6 +357,7 @@ static void register_hooks(apr_pool_t *p)
     config.dynDNS = NULL;
     config.frontendCount = 0;
     config.kiteCount = 0;
+
     apr_global_mutex_create(&manager_lock, MUTEX_PATH, APR_LOCK_DEFAULT, p);
 #ifdef AP_NEED_SET_MUTEX_PERMS
     ap_unixd_set_global_mutex_perms(manager_lock);
