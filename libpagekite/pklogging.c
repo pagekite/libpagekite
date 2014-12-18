@@ -70,7 +70,7 @@ int pk_log(int level, const char* fmt, ...)
         } else
 #endif
           fprintf(log_file, "%.4000s\n", output);
-          if (level & PK_LOG_ERRORS) fflush(log_file);
+          fflush(log_file);
       }
     }
   }
