@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libpagekite
+Description: Pagekite connector library
+Version: @VERSION@
+Libs: -L${libdir} -lpagekite @LIBS@
+Cflags: -I${includedir}/libpagekite

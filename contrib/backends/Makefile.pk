@@ -37,7 +37,7 @@ hello: .unix hello.o
 	$(CC) $(CFLAGS) -o hello hello.o $(CLINK) -lpagekite
 
 pagekitec: .unix pagekitec.o
-	$(CC) $(CFLAGS) -o pagekitec pagekitec.o -lpagekite $(CLINK)
+	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(CLINK) -lpagekite
 
 pagekitec.exe: .win32 pagekitec.o
 	$(CC) $(CFLAGS) -o pagekitec.exe pagekitec.o $(CLINK) -lpagekite_dll

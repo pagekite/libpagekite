@@ -46,8 +46,8 @@ How it should work:
 #include "pklua.h"
 #include "pklualua.h"
 
-#include <lua5.1/lauxlib.h>
-#include <lua5.1/lualib.h>
+#include <lauxlib.h>
+#include <lualib.h>
 
 pk_lua_t*        pk_lua_thread_map = NULL;
 pthread_mutex_t* pk_lua_thread_map_lock = NULL;
