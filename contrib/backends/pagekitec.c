@@ -28,7 +28,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define HAVE_IPV6 1
 
 #include <pagekite.h>
-#include "common.h"
+#include <pkcommon.h>
 
 #define EXIT_ERR_MANAGER_INIT 1
 #define EXIT_ERR_USAGE 2

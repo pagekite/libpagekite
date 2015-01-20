@@ -22,7 +22,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PAGEKITE_CONSTANTS_ONLY
 #include "pagekite.h"
 
-#include "common.h"
+#include "pkcommon.h"
 #include "pkstate.h"
 
 

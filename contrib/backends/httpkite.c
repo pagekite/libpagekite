@@ -23,9 +23,8 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #include <pagekite.h>
-#include <common.h>
-
-#include "utils.h"
+#include "pkcommon.h"
+#include "pkutils.h"
 #include "pkerror.h"
 #include "pkconn.h"
 #include "pkstate.h"

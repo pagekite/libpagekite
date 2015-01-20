@@ -43,8 +43,8 @@ Connections are accepted and identified like so:
 #include <ctype.h>
 #include <string.h>
 
-#include "common.h"
-#include "utils.h"
+#include "pkcommon.h"
+#include "pkutils.h"
 #include "pkstate.h"
 #include "pkerror.h"
 #include "pkconn.h"
