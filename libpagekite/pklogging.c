@@ -51,9 +51,17 @@ int pk_log(int level, const char* fmt, ...)
     len = sprintf(output, "ts=%x; ll=%x; lm=%x; msg=",
                           (int) time(0), logged_lines++, level);
 #else
+# ifdef PK_LOG_FORMAT
     len = sprintf(output, "ts=%x; tid=%x; ll=%x; lm=%x; msg=",
                           (int) time(0), (int) pthread_self(),
                           logged_lines++, level);
+# else
+    struct timeval t;
+    char tsbuf[30];
+    gettimeofday(&t, NULL);
+    strftime(tsbuf, sizeof(tsbuf), "%Y-%m-%d %H:%M:%S", localtime(&t.tv_sec));
+    len = snprintf(output, 4000, "[%s.%03d][%d] ", tsbuf, (int)t.tv_usec / 1000, level);
+# endif
 #endif
     va_start(args, fmt);
     len += (r = vsnprintf(output + len, 4000 - len, fmt, args));
