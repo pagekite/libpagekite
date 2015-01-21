@@ -213,6 +213,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
       case SSL_ERROR_NONE:
 #endif
         switch (errno) {
+          case 0:
           case EINTR:
           case EAGAIN:
             errfmt = "%d: pkc_read() should retry, errno=%d, ssl_errno=%d";

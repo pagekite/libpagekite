@@ -319,7 +319,7 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
 {
   int i;
   int bytes;
-  int loglevel;
+  int loglevel, loglevelclose;
   char buffer[1024];
   int eof = 0;
   int flows = 2;
@@ -330,11 +330,12 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
 
   if (pkb != NULL) {
     pkc = &(pkb->conn);
-    loglevel = PK_LOG_BE_DATA;
+    loglevel = loglevelclose = PK_LOG_BE_DATA;
   }
   else {
     pkc = &(fe->conn);
     loglevel = PK_LOG_TUNNEL_DATA;
+    loglevelclose =  PK_LOG_TUNNEL_DATA | PK_LOG_MANAGER_INFO;
   }
   if (0 >= pkc->sockfd)
     return 0;
@@ -439,9 +440,12 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
     }
   }
 
-  if (0 == flows) {
+  if (0 >= flows) {
     /* Nothing to read or write, close and clean up. */
-    if (0 <= pkc->sockfd) PKS_close(pkc->sockfd);
+    if (0 <= pkc->sockfd) {
+      pk_log(loglevelclose, "%d: Disconnected, closing.", pkc->sockfd);
+      PKS_close(pkc->sockfd);
+    }
     if (pkb != NULL) {
       pkm_free_be_conn(pkb);
       PKS_STATE(pk_state.live_streams -= 1);
@@ -457,7 +461,6 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
       }
       pkm_tick(pkm);
     }
-    pk_log(loglevel, "%d: Closed.", pkc->sockfd, eof);
     pkc->sockfd = -1;
   }
 
@@ -692,7 +695,7 @@ int pkm_reconnect_all(struct pk_manager* pkm) {
                               fe->request_count, fe->requests,
                               (fe->fe_session), fe->manager->ssl_ctx)) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
-        pk_log(PK_LOG_MANAGER_INFO, "Connected!");
+        pk_log(PK_LOG_MANAGER_INFO, "%d: Connected!", fe->conn.sockfd);
         pkm_block(pkm); /* Re-block */
 
         pk_parser_reset(fe->parser);
