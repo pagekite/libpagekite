@@ -121,6 +121,9 @@ int pk_log_chunk(struct pk_chunk* chnk) {
                                       chnk->sid, chnk->length);
     }
   }
+  else if (chnk->noop) {
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "Received NOOP");
+  }
   else {
     r += pk_log(PK_LOG_TUNNEL_HEADERS, "Weird: Non-ping chnk with no SID");
   }
