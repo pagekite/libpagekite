@@ -7,62 +7,60 @@ namespace Pagekite
 {
     public class PkController
     {
+        public PkLib pk;
+        public static string APPID = "WinPageKite";
         private volatile bool running;
         private volatile bool exited;
         private string libLog;
-     //   private Thread logThread;
+//      private Thread logThread;
 
         public PkController()
         {
             this.libLog = "";
             this.running = false;
             this.exited = false;
+            this.pk = new PkLib();
         }
 
         public bool Start(PkOptions options, Dictionary<string, PkKite> kites)
         {
-     /*       if (no network connection)
-            {
-                //error
-                return false;
-            }*/
-            bool ok = true;
-
-            int numKites = kites.Count;
-            int maxKites = 25;
-            int staticSetup = 0;
-            int spareFrontends = 0;
+            int numKites = 4 * (1 + kites.Count);  // 4 possible protocols
+            int maxConns = 25;
+            int flags = PkLib.PK_WITH_DEFAULTS;
             int verbosity = options.Debug ? 2 : 0;
 
+// FIXME:   if (no network connection)
+//          {
+//              // Report error?
+//              return false;
+//          }
+
+            bool ok = true;
             try
             {
-                int error = PkImport.libpagekite_init(numKites, maxKites, staticSetup, spareFrontends, verbosity);
-
-                if (error != 0)
+                if (!this.pk.init_pagekitenet(APPID,
+                                              numKites,
+                                              maxConns,
+                                              flags,
+                                              verbosity))
                 {
-                    PkLogging.Logger(PkLogging.Level.Error, "Initializing LibPageKite failed, aborting");
-                    PkLogging.Logger(PkLogging.Level.Error, "Error: " + error.ToString());
+                    PkLogging.Logger(PkLogging.Level.Error,
+                                     "Initializing LibPageKite failed, aborting");
                     return false;
                 }
-
-                /*
-                if (0 > PkImport.libpagekite_init(numKites, maxKites, staticSetup, spareFrontends, verbosity))
-                {
-                    PkLogging.Logger(PkLogging.Level.Error, "Initializing LibPageKite failed, aborting");
-                    return false;
-                }*/
             }
             catch (DllNotFoundException e)
             {
-                PkLogging.Logger(PkLogging.Level.Error, "Could not locate libpagekite library");
-                PkLogging.Logger(PkLogging.Level.Error, "Message: " + e.Message);
+                PkLogging.Logger(PkLogging.Level.Error,
+                                 "Could not locate " + PkLib.DLL);
+                PkLogging.Logger(PkLogging.Level.Error,
+                                 "Message: " + e.Message);
                 ok = false;
             }
 
             if (ok)
             {
                 ok = this.StartLogListenerThread();
-
                 if(!ok)
                 {
                     this.Stop(false);
@@ -73,20 +71,20 @@ namespace Pagekite
             {
                 if (ok && kite.Fly)
                 {
-                    bool add = this.AddKite(kite);
-
-                    if (!add)
+                    if (!this.AddKite(kite))
                     {
-                        PkLogging.Logger(PkLogging.Level.Error, "Adding kites failed, aborting");
+                        PkLogging.Logger(PkLogging.Level.Error,
+                                         "Adding kites failed, aborting");
                         this.Stop(false);
                         ok = false;
                     }
                 }
             }
 
-            if(ok)
+            if (ok)
             {
-                if (0 > PkImport.libpagekite_start())
+                int status = this.pk.start();
+                if (0 > status)
                 {
                     PkLogging.Logger(PkLogging.Level.Error, "Unable to start LibPageKite, aborting");
                     this.Stop(false);
@@ -106,7 +104,7 @@ namespace Pagekite
                 return true;
             }
 
-            if (0 > PkImport.libpagekite_stop())
+            if (0 > this.pk.stop())
             {
                 PkLogging.Logger(PkLogging.Level.Error, "Stopping libpagekite failed");
                 ok = false;
@@ -120,7 +118,7 @@ namespace Pagekite
                 }
 
                 this.running = false;
-     ///           ok = this.StopLogListenerThread();
+// FIXME:       ok = this.StopLogListenerThread();
             }
 
             return ok;
@@ -132,40 +130,60 @@ namespace Pagekite
 
             if (ok && kite.HTTP.Enabled)
             {
-                if (0 > PkImport.libpagekite_addKite(kite.HTTP.Proto, kite.Domain, 0, kite.Secret, "localhost", kite.HTTP.Port))
+                if (0 > this.pk.add_kite(kite.HTTP.Proto, kite.Domain, 0,
+                                         kite.Secret,
+                                         "localhost", kite.HTTP.Port))
                 {
-                    PkLogging.Logger(PkLogging.Level.Error, "Unable to add kite | Domain: " + kite.Domain 
-                        + " | Proto: " + kite.HTTP.Proto + " | Port: " + kite.HTTP.Port.ToString());
+                    PkLogging.Logger(PkLogging.Level.Error,
+                                     "Unable to add kite" +
+                                     " | Domain: " + kite.Domain +
+                                     " | Proto: " + kite.HTTP.Proto +
+                                     " | Port: " + kite.HTTP.Port.ToString());
                     ok = false;
                 }
             }
 
             if (ok && kite.HTTPS.Enabled)
             {
-                if (0 > PkImport.libpagekite_addKite(kite.HTTPS.Proto, kite.Domain, 0, kite.Secret, "localhost", kite.HTTPS.Port))
+                if (0 > this.pk.add_kite(kite.HTTPS.Proto, kite.Domain, 0,
+                                         kite.Secret,
+                                         "localhost", kite.HTTPS.Port))
                 {
-                    PkLogging.Logger(PkLogging.Level.Error, "Unable to add kite | Domain: " + kite.Domain
-                        + " | Proto: " + kite.HTTPS.Proto + " | Port: " + kite.HTTPS.Port.ToString());
+                    PkLogging.Logger(PkLogging.Level.Error,
+                                     "Unable to add kite" +
+                                     " | Domain: " + kite.Domain +
+                                     " | Proto: " + kite.HTTPS.Proto +
+                                     " | Port: " + kite.HTTPS.Port.ToString());
                     ok = false;
                 }
             }
 
             if (ok && kite.SSH.Enabled)
             {
-                if (0 > PkImport.libpagekite_addKite(kite.SSH.Proto, kite.Domain, 22, kite.Secret, "localhost", kite.SSH.Port))
+                if (0 > this.pk.add_kite(kite.SSH.Proto, kite.Domain, 22,
+                                         kite.Secret,
+                                         "localhost", kite.SSH.Port))
                 {
-                    PkLogging.Logger(PkLogging.Level.Error, "Unable to add kite | Domain: " + kite.Domain
-                        + " | Proto: " + kite.Minecraft.Proto + " | Port: " + kite.SSH.Port.ToString());
+                    PkLogging.Logger(PkLogging.Level.Error,
+                                     "Unable to add kite" +
+                                     " | Domain: " + kite.Domain +
+                                     " | Proto: " + kite.SSH.Proto +
+                                     " | Port: " + kite.SSH.Port.ToString());
                     ok = false;
                 }
             }
 
             if (ok && kite.Minecraft.Enabled)
             {
-                if (0 > PkImport.libpagekite_addKite(kite.Minecraft.Proto, kite.Domain, 0, kite.Secret, "localhost", kite.Minecraft.Port))
+                if (0 > this.pk.add_kite(kite.Minecraft.Proto, kite.Domain, 0,
+                                         kite.Secret,
+                                         "localhost", kite.Minecraft.Port))
                 {
-                    PkLogging.Logger(PkLogging.Level.Error, "Unable to add kite | Domain: " + kite.Domain
-                        + " | Proto: " + kite.Minecraft.Proto + " | Port: " + kite.Minecraft.Port.ToString());
+                    PkLogging.Logger(PkLogging.Level.Error,
+                                     "Unable to add kite" +
+                                     " | Domain: " + kite.Domain +
+                                     " | Proto: " + kite.Minecraft.Proto +
+                                     " | Port: " + kite.Minecraft.Port.ToString());
                     ok = false;
                 }
             }
@@ -179,12 +197,14 @@ namespace Pagekite
 
             try
             {
-                log = System.Runtime.InteropServices.Marshal.PtrToStringAnsi(PkImport.libpagekite_getLog());
+                log = this.pk.get_log();
             }
             catch(DllNotFoundException e)
             {
-                PkLogging.Logger(PkLogging.Level.Error, "Could not locate libpagekite library");
-                PkLogging.Logger(PkLogging.Level.Error, "Message: " + e.Message);
+                PkLogging.Logger(PkLogging.Level.Error,
+                                 "Could not locate libpagekite library");
+                PkLogging.Logger(PkLogging.Level.Error,
+                                 "Message: " + e.Message);
                 log = "Unable to get log";
             }
 
@@ -202,7 +222,7 @@ namespace Pagekite
 
         private bool Poll(int timeout)
         {
-            if(0 > PkImport.libpagekite_poll(timeout))
+            if(0 > this.pk.poll(timeout))
             {
                 PkLogging.Logger(PkLogging.Level.Error, "Polling failed");
                 return false;
@@ -224,15 +244,18 @@ namespace Pagekite
             }
             catch (Exception e)
             {
-                PkLogging.Logger(PkLogging.Level.Error, "Unable to start logger thread");
-                PkLogging.Logger(PkLogging.Level.Error, "Exception: " + e.Message);
+                PkLogging.Logger(PkLogging.Level.Error,
+                                 "Unable to start logger thread");
+                PkLogging.Logger(PkLogging.Level.Error,
+                                 "Exception: " + e.Message);
                 ok = false;
             }
 
             return ok;
         }
 
-/*        private bool StopLogListenerThread()
+/* FIXME:
+        private bool StopLogListenerThread()
         {
             bool ok = true;
 
@@ -249,8 +272,7 @@ namespace Pagekite
 
             return ok;
         }
-        */
-
+*/
         private void LogListen()
         {
             Thread.Sleep(1200);
