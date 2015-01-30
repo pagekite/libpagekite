@@ -221,6 +221,7 @@ static const command_rec pagekite_directives[] =
 static apr_status_t modpk_stop_pagekite(void* data)
 {
     if (manager != NULL) {
+        fprintf(stderr, "Stopping PageKite background thread.\n");
         pagekite_stop(manager);
         pagekite_free(manager);
         manager = NULL;
@@ -347,6 +348,7 @@ static void modpk_start_pagekite(
 
     apr_pool_cleanup_register(p, s, modpk_stop_pagekite, modpk_stop_pagekite);
     pagekite_start(manager);
+    fprintf(stderr, "PageKite started in background thread!\n");
     return;
 }
 
