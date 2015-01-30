@@ -70,7 +70,7 @@ int pk_log(int level, const char* fmt, ...)
         } else
 #endif
           fprintf(log_file, "%.4000s\n", output);
-          if (level & PK_LOG_ERRORS) fflush(log_file);
+          fflush(log_file);
       }
     }
   }
@@ -120,6 +120,9 @@ int pk_log_chunk(struct pk_chunk* chnk) {
       r += pk_log(PK_LOG_TUNNEL_DATA, "[sid=%s] DATA: %d bytes",
                                       chnk->sid, chnk->length);
     }
+  }
+  else if (chnk->noop) {
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "Received NOOP");
   }
   else {
     r += pk_log(PK_LOG_TUNNEL_HEADERS, "Weird: Non-ping chnk with no SID");

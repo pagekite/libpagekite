@@ -213,6 +213,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
       case SSL_ERROR_NONE:
 #endif
         switch (errno) {
+          case 0:
           case EINTR:
           case EAGAIN:
             errfmt = "%d: pkc_read() should retry, errno=%d, ssl_errno=%d";
@@ -327,7 +328,7 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
       pkc->out_buffer_pos -= wrote;
       flushed += wrote;
     }
-    else if (errno != EINTR)
+    else if ((errno != EINTR) && (errno != 0))
       break;
   } while ((mode == BLOCKING_FLUSH) &&
            (pkc->out_buffer_pos > 0));
@@ -354,14 +355,14 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
         wrote += bytes;
         flushed += bytes;
       }
-      else if (errno != EINTR)
+      else if ((errno != EINTR) && (errno != 0))
         break;
     }
     /* At this point, if we have a non-EINTR error, bytes is < 0 and we
      * want to return that.  Otherwise, return how much got written. */
     if (bytes < 0) {
       flushed = bytes;
-      if ((errno != EAGAIN) && (errno != EWOULDBLOCK))
+      if ((errno != EAGAIN) && (errno != EWOULDBLOCK) && (errno != 0))
         pkc->status |= CONN_STATUS_CLS_WRITE;
     }
   }
@@ -389,7 +390,7 @@ ssize_t pkc_write(struct pk_conn* pkc, char* data, ssize_t length)
     do {
       PK_TRACE_LOOP("writing");
       wrote = pkc_raw_write(pkc, data, length);
-    } while ((wrote < 0) && (errno == EINTR));
+    } while ((wrote < 0) && ((errno == EINTR) || (errno == 0)));
   }
 
   if (wrote < length) {

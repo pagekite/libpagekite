@@ -6,10 +6,13 @@
 *.slo
 *.exe
 *.dll
+*.csproj.user
 .win32
 .unix
 .deps
 .libs
+contrib/Windows-GUI/bin/
+contrib/Windows-GUI/obj/
 httpkite
 pagekitec
 tests

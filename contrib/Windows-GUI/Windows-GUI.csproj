@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProjectGuid>{A6BD199C-56DD-44B4-A65B-A46118C427FA}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <NoStandardLibraries>false</NoStandardLibraries>
+    <AssemblyName>WindowsApplication</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>x86</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>x86</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <RootNamespace>Windows_GUI</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="CookComputing.XmlRpcV2">
+      <HintPath>lib\CookComputing.XmlRpcV2.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=4.5.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>lib\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Pagekite.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkAboutForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkAddKiteForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkConstants.cs" />
+    <Compile Include="PkController.cs" />
+    <Compile Include="PkData.cs" />
+    <Compile Include="PkLib.cs" />
+    <Compile Include="PkKite.cs" />
+    <Compile Include="PkKiteDetailsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkKitePanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="PkKiteUpdateEventArgs.cs" />
+    <Compile Include="PkLogging.cs" />
+    <Compile Include="PkLoginForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkLogPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="PkMainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkOptions.cs" />
+    <Compile Include="PkOptionsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkPreferencesForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkService.cs" />
+    <Compile Include="PkSplashForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PkTransport.cs" />
+    <Compile Include="PkVersion.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
+  <ProjectExtensions>
+    <VisualStudio AllowExistingFolder="true" />
+  </ProjectExtensions>
+</Project>
