@@ -168,10 +168,17 @@ namespace Pagekite
             XmlRpcStruct serviceData = (XmlRpcStruct)serviceStruct["data"];
 
             data.ServiceInfo.Secret = serviceData["_ss"].ToString();
+            data.ServiceInfo.DaysLeft = "unknown";
+            data.ServiceInfo.MbLeft = "unknown";
 
-            data.ServiceInfo.DaysLeft = serviceData["days_left"].ToString();
-
-            data.ServiceInfo.MbLeft = serviceData["quota_mb_left"].ToString();
+            if (serviceData.Contains("days_left"))
+            {
+                data.ServiceInfo.DaysLeft = serviceData["days_left"].ToString();
+            }
+            if (serviceData.Contains("quota_mb_left"))
+            {
+                data.ServiceInfo.MbLeft = serviceData["quota_mb_left"].ToString();
+            }
 
             object[] serviceKites = (object[])serviceData["kites"];
 

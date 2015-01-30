@@ -31,10 +31,10 @@ namespace Pagekite
                 pictureBox.Image = logo;
                 pictureBox.Height = logo.Height;
                 pictureBox.Width = logo.Width;
+                this.Size = new Size(logo.Width, logo.Height);
+                this.Controls.Add(pictureBox);
             }
 
-            this.Controls.Add(pictureBox);
-            this.Size = new Size(logo.Width, logo.Height);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.None;
         }
