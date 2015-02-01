@@ -101,7 +101,7 @@ code differently and massage the Android.mk files a bit.
 
 ## License and Copyright ##
 
-libpagekite is Copyright 2011-2014, The Beanstalks Project ehf.
+libpagekite is Copyright 2011-2015, The Beanstalks Project ehf.
 
 This code is released under the Apache License 2.0, but may also be used
 according to the terms of the GNU Affero General Public License.  Please
