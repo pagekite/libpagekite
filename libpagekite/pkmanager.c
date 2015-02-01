@@ -56,6 +56,7 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io*, int);
 static void pkm_tunnel_writable_cb(EV_P_ ev_io*, int);
 static void pkm_be_conn_readable_cb(EV_P_ ev_io*, int);
 static void pkm_be_conn_writable_cb(EV_P_ ev_io*, int);
+static void pkm_listener_cb(EV_P_ ev_io*, int);
 static void pkm_tick_cb(EV_P_ ev_async*, int);
 static void pkm_timer_cb(EV_P_ ev_timer*, int);
 static void pkm_reset_timer(struct pk_manager*);
@@ -641,6 +642,24 @@ static void pkm_be_conn_writable_cb(EV_P_ ev_io* w, int revents)
   (void) revents;
 }
 
+static void pkm_listener_cb(EV_P_ ev_io* w, int revents)
+{
+  struct sockaddr_in client_addr;
+  socklen_t client_len = sizeof(client_addr);
+  int client_fd;
+  struct pk_backend_conn* pkl = (struct pk_backend_conn*) w->data;
+
+  client_fd = PKS_accept(pkl->conn.sockfd,
+                         (struct sockaddr*) &client_addr, &client_len);
+
+  pk_log(PK_LOG_ALL, "FIXME: Accepted: %d!\n", client_fd);
+  if (pkl->callback_func != NULL)
+    (pkl->callback_func)(client_fd, pkl->callback_data);
+
+  (void) loop;
+  (void) revents;
+}
+
 int pkm_reconnect_all(struct pk_manager* pkm) {
   struct pk_tunnel *fe;
   struct pk_kite_request *kite_r;
@@ -999,6 +1018,65 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   return kite;
 }
 
+int pkm_add_listener(struct pk_manager* pkm,
+                     const char* hostname,
+                     int port,
+                     pagekite_callback_t callback_func,
+                     void* callback_data)
+{
+  int ok, errors;
+  struct addrinfo hints;
+  struct addrinfo* result;
+  struct addrinfo* rp;
+  struct pk_backend_conn* pkl = NULL;
+  char printip[128], sport[128];
+
+  PK_TRACE_FUNCTION;
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  sprintf(sport, "%d", port);
+
+  ok = errors = 0;
+  if (0 != getaddrinfo(hostname, sport, &hints, &result)) {
+    pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
+           "pkm_add_listener: getaddrinfo() failed for %s", hostname);
+    errors++;
+  }
+  else {
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+
+      if (NULL == (pkl = pkm_alloc_be_conn(pkm, NULL, "!LSTN"))) {
+        pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
+               "pkm_add_listener: BE alloc failed for %s:%d",
+               in_addr_to_str(rp->ai_addr, printip, 128), port);
+        errors++;
+      }
+      else if (0 > pkc_listen(&(pkl->conn), rp, 5 /* FIXME */)) {
+        pkc_reset_conn(&(pkl->conn), 0);
+        pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
+               "pkm_add_listener: pkc_listen() failed for %s:%d",
+               in_addr_to_str(rp->ai_addr, printip, 128), port);
+        errors++;
+      }
+      else {
+        int ev_sock = PKS_EV_FD(pkl->conn.sockfd);
+        ev_io_init(&(pkl->conn.watch_r), pkm_listener_cb, ev_sock, EV_READ);
+        pkl->conn.watch_r.data = (void *) pkl;
+        pkl->callback_func = callback_func;
+        pkl->callback_data = callback_data;
+        ev_io_start(pkm->loop, &(pkl->conn.watch_r));
+        ok++;
+      }
+    }
+  }
+  freeaddrinfo(result);
+
+  PK_CHECK_MEMORY_CANARIES;
+  return (ok & 0xffff) - (errors * 0x10000);
+}
+
 int pkm_add_frontend(struct pk_manager* pkm,
                      const char* hostname, int port, int flags)
 {
@@ -1108,7 +1186,8 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
       strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
       return pkb;
     }
-    if (pkb->conn.activity <= max_age) {
+    if ((pkb->conn.activity <= max_age) &&
+        !(pkb->conn.status & CONN_STATUS_LISTENING)) {
       max_age = pkb->conn.activity;
       pkb_oldest = pkb;
     }

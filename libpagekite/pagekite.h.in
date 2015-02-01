@@ -71,6 +71,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PAGEKITE_NET_LPORT_MAX 1000
 #define PAGEKITE_NET_FE_MAX 25
 
+typedef void* (pagekite_callback_t) (int, void*);
 
 #ifndef PAGEKITE_CONSTANTS_ONLY
 #ifdef __cplusplus
@@ -117,6 +118,12 @@ DECLSPEC_DLL int pagekite_add_service_frontends(pagekite_mgr pkm, int);
 DECLSPEC_DLL int pagekite_add_frontend(pagekite_mgr,
   const char* domain,
   int port);
+
+DECLSPEC_DLL int pagekite_add_listener(pagekite_mgr,
+  const char* domain,
+  int port,
+  pagekite_callback_t* callback_func,
+  void *callback_data);
 
 DECLSPEC_DLL int pagekite_set_log_mask(pagekite_mgr, int);
 DECLSPEC_DLL int pagekite_enable_watchdog(pagekite_mgr, int enable);

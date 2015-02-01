@@ -72,6 +72,22 @@ int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
   return (pkc->sockfd = fd);
 }
 
+int pkc_listen(struct pk_conn* pkc, struct addrinfo* ai, int backlog)
+{
+  int fd;
+  pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED|CONN_STATUS_LISTENING);
+  if ((0 > (fd = PKS_socket(ai->ai_family, ai->ai_socktype,
+                            ai->ai_protocol))) ||
+      PKS_fail(PKS_bind(fd, ai->ai_addr, ai->ai_addrlen)) ||
+      PKS_fail(PKS_listen(fd, backlog))) {
+    pkc->sockfd = -1;
+    if (fd >= 0) PKS_close(fd);
+    return (pk_error = ERR_CONNECT_LISTEN);
+  }
+
+  return (pkc->sockfd = fd);
+}
+
 #ifdef HAVE_OPENSSL
 static void pkc_start_handshake(struct pk_conn* pkc, int err)
 {

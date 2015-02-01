@@ -32,6 +32,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #define ERR_CONNECT_CONNECT   -30001
 #define ERR_CONNECT_REQUEST   -30002
 #define ERR_CONNECT_REQ_END   -30003
+#define ERR_CONNECT_LISTEN    -30004
+#define ERR_CONNECT_ACCEPT    -30005
 
 #define ERR_CONNECT_DUPLICATE -40000
 #define ERR_CONNECT_REJECTED  -40001

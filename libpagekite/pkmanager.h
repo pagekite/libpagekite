@@ -56,6 +56,8 @@ struct pk_tunnel {
   struct pk_parser*       parser;
   int                     request_count;
   struct pk_kite_request* requests;
+  pagekite_callback_t*    callback_func;
+  void*                   callback_data;
 };
 
 /* These are also written to the conn.status field, using the third byte. */
@@ -66,10 +68,12 @@ struct pk_tunnel {
 #define BE_MAX_SID_SIZE          8
 struct pk_backend_conn {
   PK_MEMORY_CANARY
-  char                sid[BE_MAX_SID_SIZE];
-  struct pk_tunnel*   tunnel;
-  struct pk_pagekite* kite;
-  struct pk_conn      conn;
+  char                 sid[BE_MAX_SID_SIZE];
+  struct pk_tunnel*    tunnel;
+  struct pk_pagekite*  kite;
+  struct pk_conn       conn;
+  pagekite_callback_t* callback_func;
+  void*                callback_data;
 };
 
 #define MIN_KITE_ALLOC        4
@@ -147,6 +151,9 @@ struct pk_tunnel*    pkm_add_frontend_ai(struct pk_manager*, struct addrinfo*,
 struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
                                   const char*, const char*, int, const char*,
                                   const char*, int);
+
+int                 pkm_add_listener(struct pk_manager*, const char*, int,
+                                     pagekite_callback_t*, void*);
 
 void* pkm_run                       (void *);
 int pkm_run_in_thread               (struct pk_manager*);

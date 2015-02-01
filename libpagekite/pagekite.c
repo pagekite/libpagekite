@@ -248,6 +248,18 @@ int pagekite_add_frontend(pagekite_mgr pkm,
   return pkm_add_frontend(PK_MANAGER(pkm), domain, port, FE_STATUS_AUTO);
 }
 
+int pagekite_add_listener(pagekite_mgr pkm,
+  const char* domain,
+  int port,
+  pagekite_callback_t* callback_func,
+  void* callback_data)
+{
+  if (pkm == NULL) return -1;
+  return pkm_add_listener(PK_MANAGER(pkm), domain, port,
+                          callback_func, callback_data);
+}
+
+
 int pagekite_tick(pagekite_mgr pkm)
 {
   if (pkm == NULL) return -1;

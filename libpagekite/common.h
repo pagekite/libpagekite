@@ -104,6 +104,9 @@ typedef unsigned int              uint32_t;
 #  define PKS_write(s, d, l)    send(_get_osfhandle(s), d, l, 0)
 #  define PKS_close(s)          closesocket(_get_osfhandle(s))
 #  define PKS_shutdown(s, how)  shutdown(_get_osfhandle(s), how)
+#  define PKS_bind(s, d, l)     bind(_get_osfhandle(s), d, l)
+#  define PKS_listen(s, bl)     listen(_get_osfhandle(s), bl)
+#  define PKS_accept(s, d, l)   accept(_get_osfhandle(s), d, l)
 #  define PKS_EV_FD(s)          s
 #else
 #  define PKS(s)                s
@@ -114,6 +117,9 @@ typedef unsigned int              uint32_t;
 #  define PKS_write(s, d, l)    write(s, d, l)
 #  define PKS_close(s)          close(s)
 #  define PKS_shutdown(s, how)  shutdown(s, how)
+#  define PKS_bind(s, d, l)     bind(s, d, l)
+#  define PKS_listen(s, bl)     listen(s, bl)
+#  define PKS_accept(s, d, l)   accept(s, d, l)
 #  define PKS_EV_FD(s)          s
 #endif
 

@@ -59,6 +59,7 @@ typedef enum {
 #define CONN_STATUS_ALLOCATED   0x00000080
 #define CONN_STATUS_WANT_READ   0x00000100 /* Want null reads when available  */
 #define CONN_STATUS_WANT_WRITE  0x00000200 /* Want null writes when available */
+#define CONN_STATUS_LISTENING   0x00000400 /* Listening socket */
 #define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
 #define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
 #define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)
@@ -92,6 +93,7 @@ struct pk_conn {
 
 void    pkc_reset_conn(struct pk_conn*, unsigned int);
 int     pkc_connect(struct pk_conn*, struct addrinfo*);
+int     pkc_listen(struct pk_conn*, struct addrinfo*, int);
 #ifdef HAVE_OPENSSL
 int     pkc_start_ssl(struct pk_conn*, SSL_CTX*);
 #endif
