@@ -123,7 +123,6 @@ typedef unsigned int              uint32_t;
 #  define PKS_EV_FD(s)          s
 #endif
 
-
 #if defined(HAVE_OPENSSL) && (HAVE_OPENSSL != 0)
 #  include <openssl/ssl.h>
 #  include <openssl/bio.h>
@@ -143,6 +142,13 @@ typedef unsigned int              uint32_t;
 #  define PKS_SSL_INIT(ctx)         { ctx = NULL; }
 #  define SSL_ERROR_NONE            0
 #  undef HAVE_OPENSSL
+#endif
+
+#if defined(HAVE_LUA) && (HAVE_LUA != 0)
+#  include <lua5.1/lua.h>
+#else
+#  define lua_State void
+#  undef HAVE_LUA
 #endif
 
 #define PARSER_BYTES_MIN   1 * 1024

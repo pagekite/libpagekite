@@ -75,6 +75,9 @@ int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
 int pkc_listen(struct pk_conn* pkc, struct addrinfo* ai, int backlog)
 {
   int fd;
+  struct sockaddr_in sin;
+  socklen_t len = sizeof(sin);
+
   pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED|CONN_STATUS_LISTENING);
   if ((0 > (fd = PKS_socket(ai->ai_family, ai->ai_socktype,
                             ai->ai_protocol))) ||
@@ -84,8 +87,12 @@ int pkc_listen(struct pk_conn* pkc, struct addrinfo* ai, int backlog)
     if (fd >= 0) PKS_close(fd);
     return (pk_error = ERR_CONNECT_LISTEN);
   }
+  pkc->sockfd = fd;
 
-  return (pkc->sockfd = fd);
+  if (getsockname(pkc->sockfd, (struct sockaddr *)&sin, &len) != -1)
+    return ntohs(sin.sin_port);
+
+  return 1;
 }
 
 #ifdef HAVE_OPENSSL

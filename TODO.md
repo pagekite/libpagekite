@@ -26,21 +26,27 @@ These are Things TO DO for libpagekite.
    * pkmanager.c: added flow control for tunnels
    * pkblocker.c: choose best front-end automatically.
    * pkblocker.c: Update DNS records
+   * libpagekite: create simple fork/thread/anonymous-pipe based API for
+                  easily adding PageKite support to existing TCP/IP servers.
+   * Windows compatibility and build rules
+   * pkmanager.c: add listeners, for built in web UI and relays
 
 ### Ahead ###
 
+   * pkmanager.c: add callbacks for watching/influencing data flow
    * pkproto.c: add SSL support - finish cert checking code
    * pkmanager.c: make update/reconnect schedule tweakable
-   * libpagekite: create simple fork/thread/anonymous-pipe based API for
-                  easily adding PageKite support to existing TCP/IP servers.
+
+   * pklua.c: make libpagekite extensible with lua code
+   * pkwebui.c: built-in web server (lua?)
+   * pkconfig.c: parse pagekite.py-style config files
 
    * pkproto.c: add ZChunk support
    * pkmanager.c: SOCKS and HTTP proxy support for outgoing connections
-   * pagekite.c: truly non-blocking pagekite proxy, suitable for front-end
+   * pagekitec.c: truly non-blocking pagekite proxy, suitable for front-end
    * PageKiteAPI.java: Turn on/off pagekite thread depending on network state.
    * PageKiteAPI.java: Use imprecise timers for update/reconnect.
    * Python wrapper (libpagekite.py)
-   * Windows compatibility and build rules
 
 ### External ###
 

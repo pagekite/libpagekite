@@ -24,12 +24,12 @@ Note: For alternate license terms, see the file COPYING.md.
 #define _PAGEKITEC_DLL_H
 
 #ifdef ANDROID
-#define PK_VERSION "0.90.150130A"
+#define PK_VERSION "0.90.150209A"
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.90.150130W"
+#define PK_VERSION "0.90.150209W"
 #else
-#define PK_VERSION "0.90.150130C"
+#define PK_VERSION "0.90.150209C"
 #endif
 #endif
 
@@ -52,15 +52,16 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_LOG_MANAGER_ERROR   0x010000
 #define PK_LOG_MANAGER_INFO    0x020000
 #define PK_LOG_MANAGER_DEBUG   0x040000
-
 #define PK_LOG_TRACE           0x080000
+#define PK_LOG_LUA_DEBUG       0x008000
+#define PK_LOG_LUA_INFO        0x000800
 #define PK_LOG_ERROR           0x100000
 
 #define PK_LOG_ERRORS          (PK_LOG_ERROR|PK_LOG_MANAGER_ERROR)
 #define PK_LOG_MANAGER         (PK_LOG_MANAGER_ERROR|PK_LOG_MANAGER_INFO)
 #define PK_LOG_CONNS           (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
-#define PK_LOG_NORMAL          (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER)
-#define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG)
+#define PK_LOG_NORMAL          (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER|PK_LOG_LUA_INFO)
+#define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG)
 #define PK_LOG_ALL             0xffff00
 
 /* Pagekite.net service related constants */
@@ -71,7 +72,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PAGEKITE_NET_LPORT_MAX 1000
 #define PAGEKITE_NET_FE_MAX 25
 
-typedef void* (pagekite_callback_t) (int, void*);
+typedef void (pagekite_callback_t) (int, void*);
 
 #ifndef PAGEKITE_CONSTANTS_ONLY
 #ifdef __cplusplus
@@ -122,7 +123,7 @@ DECLSPEC_DLL int pagekite_add_frontend(pagekite_mgr,
 DECLSPEC_DLL int pagekite_add_listener(pagekite_mgr,
   const char* domain,
   int port,
-  pagekite_callback_t callback_func,
+  pagekite_callback_t* callback_func,
   void *callback_data);
 
 DECLSPEC_DLL int pagekite_set_log_mask(pagekite_mgr, int);
@@ -130,6 +131,7 @@ DECLSPEC_DLL int pagekite_enable_watchdog(pagekite_mgr, int enable);
 DECLSPEC_DLL int pagekite_enable_fake_ping(pagekite_mgr pkm, int enable);
 DECLSPEC_DLL int pagekite_set_bail_on_errors(pagekite_mgr pkm, int errors);
 DECLSPEC_DLL int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int);
+DECLSPEC_DLL int pagekite_enable_lua_plugins(pagekite_mgr pkm, int, char**);
 DECLSPEC_DLL int pagekite_want_spare_frontends(pagekite_mgr, int spares);
 DECLSPEC_DLL int pagekite_tick(pagekite_mgr);
 DECLSPEC_DLL int pagekite_poll(pagekite_mgr, int timeout);

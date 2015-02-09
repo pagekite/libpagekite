@@ -218,6 +218,15 @@ int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int seconds)
   return 0;
 }
 
+int pagekite_enable_lua_plugins(pagekite_mgr pkm,
+  int enable_defaults,
+  char** settings)
+{
+  PK_MANAGER(pkm)->lua_enable_defaults = (enable_defaults != 0);
+  PK_MANAGER(pkm)->lua_settings = (const char**) settings;
+  return pkm_configure_lua(PK_MANAGER(pkm));
+}
+
 int pagekite_want_spare_frontends(pagekite_mgr pkm, int spares)
 {
   if (pkm == NULL) return -1;

@@ -33,6 +33,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 #include "pkwatchdog.h"
+#include "pklua.h"
 
 
 /* Forward declarations of all the functions we don't want made public. */
@@ -652,9 +653,12 @@ static void pkm_listener_cb(EV_P_ ev_io* w, int revents)
   client_fd = PKS_accept(pkl->conn.sockfd,
                          (struct sockaddr*) &client_addr, &client_len);
 
-  pk_log(PK_LOG_ALL, "FIXME: Accepted: %d!\n", client_fd);
-  if (pkl->callback_func != NULL)
+  if (pkl->callback_func != NULL) {
     (pkl->callback_func)(client_fd, pkl->callback_data);
+  }
+  else {
+    close(client_fd);
+  }
 
   (void) loop;
   (void) revents;
@@ -882,13 +886,13 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
 
   /* Finally, trigger the tunnel check on the blocking thread. */
   if (pkm->last_world_update + pkm->check_world_interval < time(0)) {
-    pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_WORLD, pkm);
+    pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_WORLD, 0, pkm);
     /* After checking the state of the world, we are a bit more aggressive
      * about following up on things, reset the fallback. */
     next_tick = 1 + pkm->housekeeping_interval_min;
   }
   else {
-    pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, pkm);
+    pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_FRONTENDS, 0, pkm);
   }
 
   PK_CHECK_MEMORY_CANARIES;
@@ -1024,7 +1028,7 @@ int pkm_add_listener(struct pk_manager* pkm,
                      pagekite_callback_t callback_func,
                      void* callback_data)
 {
-  int ok, errors;
+  int ok, errors, lport;
   struct addrinfo hints;
   struct addrinfo* result;
   struct addrinfo* rp;
@@ -1038,7 +1042,7 @@ int pkm_add_listener(struct pk_manager* pkm,
   hints.ai_socktype = SOCK_STREAM;
   sprintf(sport, "%d", port);
 
-  ok = errors = 0;
+  lport = ok = errors = 0;
   if (0 != getaddrinfo(hostname, sport, &hints, &result)) {
     pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
            "pkm_add_listener: getaddrinfo() failed for %s", hostname);
@@ -1049,15 +1053,15 @@ int pkm_add_listener(struct pk_manager* pkm,
 
       if (NULL == (pkl = pkm_alloc_be_conn(pkm, NULL, "!LSTN"))) {
         pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
-               "pkm_add_listener: BE alloc failed for %s:%d",
-               in_addr_to_str(rp->ai_addr, printip, 128), port);
+               "pkm_add_listener: BE alloc failed for %s",
+               in_addr_to_str(rp->ai_addr, printip, 128));
         errors++;
       }
-      else if (0 > pkc_listen(&(pkl->conn), rp, 5 /* FIXME */)) {
+      else if (0 > (lport = pkc_listen(&(pkl->conn), rp, 5 /* FIXME */))) {
         pkc_reset_conn(&(pkl->conn), 0);
         pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
-               "pkm_add_listener: pkc_listen() failed for %s:%d",
-               in_addr_to_str(rp->ai_addr, printip, 128), port);
+               "pkm_add_listener: pkc_listen() failed for %s",
+               in_addr_to_str(rp->ai_addr, printip, 128));
         errors++;
       }
       else {
@@ -1067,6 +1071,9 @@ int pkm_add_listener(struct pk_manager* pkm,
         pkl->callback_func = callback_func;
         pkl->callback_data = callback_data;
         ev_io_start(pkm->loop, &(pkl->conn.watch_r));
+        pk_log(PK_LOG_MANAGER_INFO,
+               "Listening on %s (port %d)",
+               in_addr_to_str(rp->ai_addr, printip, 128), lport);
         ok++;
       }
     }
@@ -1074,7 +1081,7 @@ int pkm_add_listener(struct pk_manager* pkm,
   freeaddrinfo(result);
 
   PK_CHECK_MEMORY_CANARIES;
-  return (ok & 0xffff) - (errors * 0x10000);
+  return lport - (errors * 0x10000);
 }
 
 int pkm_add_frontend(struct pk_manager* pkm,
@@ -1430,6 +1437,12 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pthread_cond_init(&(pkm->blocking_jobs.cond), NULL);
   pkm->blocking_jobs.count = 0;
 
+  /* Prepare lua */
+  pkm->lua_enable_defaults = 1;
+  pkm->lua_settings = NULL;
+  pkm->lua = pklua_get_lua(pkm);
+  pthread_mutex_init(&(pkm->lua_lock), NULL);
+
   /* SIGPIPE is boring */
 #ifndef _MSC_VER
   signal(SIGPIPE, SIG_IGN);
@@ -1451,11 +1464,54 @@ void pkm_manager_free(struct pk_manager* pkm)
   }
 }
 
-void* pkm_run(void *void_pkm) {
+int pkm_configure_lua(struct pk_manager* pkm)
+{
+#ifdef HAVE_LUA
+  if (pkm->lua == NULL || 0 != pklua_configure(pkm->lua, pkm))
+    return 1;
+
+  for (int i = 0; i < MAX_BLOCKING_THREADS; i++) {
+    if (pkm->blocking_threads[i] && pkm->blocking_threads[i]->lua)
+      if (0 != pklua_configure(pkm->blocking_threads[i]->lua, pkm))
+        return 2;
+  }
+#endif
+
+  (void) pkm;
+  return 0;
+}
+
+/*
+static void pkm_web_ui_accepted_cb(int sockfd, void* void_pkm)
+{
+  struct pk_manager* pkm = (struct pk_manager*) void_pkm;
+  pkb_add_job(&(pkm->blocking_jobs), PK_ACCEPT_UI, sockfd, pkm);
+}
+*/
+
+void* pkm_run(void *void_pkm)
+{
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
   if (pkm->enable_watchdog) pkw_start_watchdog(pkm);
-  pkb_start_blockers(pkm, 1);
+  pkb_start_blockers(pkm, pkm->lua_enable_defaults ? 5 : 1);
+
+  if (0 == pkm_configure_lua(pkm)) {
+    /* Ask Lua to configure listeners */
+    pklua_add_listeners(pkm->lua, pkm);
+  };
+
+/*
+  int lport;
+  if (pkm->web_ui_host != NULL) {
+    lport = pkm_add_listener(pkm,
+                             pkm->web_ui_host,
+                             pkm->web_ui_port,
+                             (pagekite_callback_t*) &pkm_web_ui_accepted_cb,
+                             (void*) pkm);
+    if (lport > 0) pkm->web_ui_port = lport;
+  }
+ */
 
   pthread_mutex_lock(&(pkm->loop_lock));
   ev_loop(pkm->loop, 0);
@@ -1468,16 +1524,19 @@ void* pkm_run(void *void_pkm) {
   return void_pkm;
 }
 
-int pkm_run_in_thread(struct pk_manager* pkm) {
+int pkm_run_in_thread(struct pk_manager* pkm)
+{
   pk_log(PK_LOG_MANAGER_INFO, "Starting manager in new thread");
   return pthread_create(&(pkm->main_thread), NULL, pkm_run, (void *) pkm);
 }
 
-int pkm_wait_thread(struct pk_manager* pkm) {
+int pkm_wait_thread(struct pk_manager* pkm)
+{
   return pthread_join(pkm->main_thread, NULL);
 }
 
-int pkm_stop_thread(struct pk_manager* pkm) {
+int pkm_stop_thread(struct pk_manager* pkm)
+{
   pk_log(PK_LOG_MANAGER_DEBUG, "Stopping manager...");
   pkm_quit(pkm);
   return pthread_join(pkm->main_thread, NULL);
@@ -1528,7 +1587,7 @@ int pkmanager_test(void)
 
   /* Test pk_add_job and pk_get_job */
   assert(0 == m->blocking_jobs.count);
-  assert(0 < pkb_add_job(&(m->blocking_jobs), PK_QUIT, NULL));
+  assert(0 < pkb_add_job(&(m->blocking_jobs), PK_QUIT, 0, NULL));
   assert(1 == m->blocking_jobs.count);
   assert(0 < pkb_get_job(&(m->blocking_jobs), &j));
   assert(0 == m->blocking_jobs.count);

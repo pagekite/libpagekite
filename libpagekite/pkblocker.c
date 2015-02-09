@@ -30,9 +30,11 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
+#include "pklua.h"
 
 
-int pkb_add_job(struct pk_job_pile* pkj, pk_job_t job, void* data)
+int pkb_add_job(struct pk_job_pile* pkj, pk_job_t job,
+                int int_data, void* ptr_data)
 {
   int i;
   PK_TRACE_FUNCTION;
@@ -42,7 +44,8 @@ int pkb_add_job(struct pk_job_pile* pkj, pk_job_t job, void* data)
     if ((pkj->pile+i)->job == PK_NO_JOB) {
       PK_ADD_MEMORY_CANARY(pkj->pile+i);
       (pkj->pile+i)->job = job;
-      (pkj->pile+i)->data = data;
+      (pkj->pile+i)->int_data = int_data;
+      (pkj->pile+i)->ptr_data = ptr_data;
       pkj->count += 1;
       pthread_cond_signal(&(pkj->cond));
       pthread_mutex_unlock(&(pkj->mutex));
@@ -65,9 +68,11 @@ int pkb_get_job(struct pk_job_pile* pkj, struct pk_job* dest)
   for (i = 0; i < pkj->max; i++) {
     if ((pkj->pile+i)->job != PK_NO_JOB) {
       dest->job = (pkj->pile+i)->job;
-      dest->data = (pkj->pile+i)->data;
+      dest->int_data = (pkj->pile+i)->int_data;
+      dest->ptr_data = (pkj->pile+i)->ptr_data;
       (pkj->pile+i)->job = PK_NO_JOB;
-      (pkj->pile+i)->data = NULL;
+      (pkj->pile+i)->int_data = 0;
+      (pkj->pile+i)->ptr_data = NULL;
       pkj->count -= 1;
       pthread_mutex_unlock(&(pkj->mutex));
       return 1;
@@ -75,7 +80,8 @@ int pkb_get_job(struct pk_job_pile* pkj, struct pk_job* dest)
   }
 
   dest->job = PK_NO_JOB;
-  dest->data = NULL;
+  dest->int_data = 0;
+  dest->ptr_data = NULL;
   pthread_mutex_unlock(&(pkj->mutex));
   PK_CHECK_MEMORY_CANARIES;
   return -1;
@@ -549,12 +555,14 @@ void pkb_check_tunnels(struct pk_manager* pkm)
   }
 }
 
-void* pkb_run_blocker(void *void_pkm)
+void* pkb_run_blocker(void *void_pkblocker)
 {
   time_t last_check_world = 0;
   time_t last_check_tunnels = 0;
   struct pk_job job;
-  struct pk_manager* pkm = (struct pk_manager*) void_pkm;
+  struct pk_blocker* this = (struct pk_blocker*) void_pkblocker;
+  struct pk_manager* pkm = this->manager;
+
   pk_log(PK_LOG_MANAGER_DEBUG, "Started blocking thread.");
 
   while (1) {
@@ -564,20 +572,27 @@ void* pkb_run_blocker(void *void_pkm)
         break;
       case PK_CHECK_WORLD:
         if (time(0) >= last_check_world + pkm->housekeeping_interval_min) {
-          pkb_check_world((struct pk_manager*) job.data);
-          pkb_check_tunnels((struct pk_manager*) job.data);
+          pkb_check_world((struct pk_manager*) job.ptr_data);
+          pkb_check_tunnels((struct pk_manager*) job.ptr_data);
           last_check_world = last_check_tunnels = time(0);
         }
         break;
       case PK_CHECK_FRONTENDS:
         if (time(0) >= last_check_tunnels + pkm->housekeeping_interval_min) {
-          pkb_check_tunnels((struct pk_manager*) job.data);
+          pkb_check_tunnels((struct pk_manager*) job.ptr_data);
           last_check_tunnels = time(0);
         }
         break;
+      case PK_ACCEPT_LUA:
+        pklua_socket_server_accepted(this->lua, job.int_data, job.ptr_data);
+        break;
+      case PK_ACCEPT_FE:
+        /* FIXME: Do something more useful here */
+        if (PKS_fail(PKS_close(job.int_data))) { };
+        break;
       case PK_QUIT:
         /* Put the job back in the queue, in case there are many workers */
-        pkb_add_job(&(pkm->blocking_jobs), PK_QUIT, NULL);
+        pkb_add_job(&(pkm->blocking_jobs), PK_QUIT, 0, NULL);
         pk_log(PK_LOG_MANAGER_DEBUG, "Exiting blocking thread.");
         return NULL;
     }
@@ -589,11 +604,17 @@ int pkb_start_blockers(struct pk_manager *pkm, int n)
   int i;
   for (i = 0; i < MAX_BLOCKING_THREADS && n > 0; i++) {
     if (pkm->blocking_threads[i] == NULL) {
-      pkm->blocking_threads[i] = (pthread_t*) malloc(sizeof(pthread_t));
-      if (0 > pthread_create(pkm->blocking_threads[i], NULL,
-                             pkb_run_blocker, (void *) pkm)) {
+      pkm->blocking_threads[i] = malloc(sizeof(struct pk_blocker));
+      pkm->blocking_threads[i]->manager = pkm;
+      if (pkm->lua != NULL) {
+        pkm->blocking_threads[i]->lua = pklua_get_lua(pkm);
+      }
+      if (0 > pthread_create(&(pkm->blocking_threads[i]->thread), NULL,
+                             pkb_run_blocker,
+                             (void *) pkm->blocking_threads[i])) {
         pk_log(PK_LOG_MANAGER_ERROR, "Failed to start blocking thread.");
         free(pkm->blocking_threads[i]);
+        pklua_close_lua(pkm->blocking_threads[i]->lua);
         pkm->blocking_threads[i] = NULL;
         return (pk_error = ERR_NO_THREAD);
       }
@@ -606,10 +627,11 @@ int pkb_start_blockers(struct pk_manager *pkm, int n)
 void pkb_stop_blockers(struct pk_manager *pkm)
 {
   int i;
-  pkb_add_job(&(pkm->blocking_jobs), PK_QUIT, NULL);
+  pkb_add_job(&(pkm->blocking_jobs), PK_QUIT, 0, NULL);
   for (i = 0; i < MAX_BLOCKING_THREADS; i++) {
     if (pkm->blocking_threads[i] != NULL) {
-      pthread_join(*pkm->blocking_threads[i], NULL);
+      pthread_join(pkm->blocking_threads[i]->thread, NULL);
+      pklua_close_lua(pkm->blocking_threads[i]->lua);
       free(pkm->blocking_threads[i]);
       pkm->blocking_threads[i] = NULL;
     }

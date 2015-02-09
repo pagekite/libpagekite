@@ -22,15 +22,21 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+/* FIXME! */
+#define HAVE_OPENSSL 1
+#define HAVE_LUA 1
+#define HAVE_IPV6 1
+
 #include <pagekite.h>
 #include "common.h"
-
 
 #define EXIT_ERR_MANAGER_INIT 1
 #define EXIT_ERR_USAGE 2
 #define EXIT_ERR_ADD_KITE 3
 #define EXIT_ERR_FRONTENDS 4
 #define EXIT_ERR_START_THREAD 5
+#define EXIT_ERR_ADD_LISTENER 6
+#define MAX_PLUGIN_ARGS 128
 
 
 void usage(int ecode) {
@@ -55,8 +61,12 @@ void usage(int ecode) {
   fprintf(stderr, "\t-6\tDisable IPv6 frontends\n");
 #endif
   fprintf(stderr, "\t-C\tDisable auto-adding current DNS IP as a front-end\n"
-                  "\t-W\tEnable watchdog thread (dumps core if we lock up)\n"
-                  "\n");
+                  "\t-W\tEnable watchdog thread (dumps core if we lock up)\n");
+#ifdef HAVE_LUA
+  fprintf(stderr, "\t-o S=N\tEnable Lua plugin S with argument N\n"
+                  "\t-L\tDisable by default all Lua plugins\n");
+#endif
+  fprintf(stderr, "\n");
   exit(ecode);
 }
 
@@ -79,6 +89,9 @@ int main(int argc, char **argv) {
   char* proto;
   char* kitename;
   char* secret;
+  char* lua_settings[MAX_PLUGIN_ARGS+1];
+  int lua_settingc = 0;
+  int lua_no_defaults = 0;
   int gotargs = 0;
   int verbosity = 0;
   int use_ipv4 = 1;
@@ -100,7 +113,7 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:In:qRSvWZ"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:Io:Ln:qRSvWZ"))) {
     switch (ac) {
       case '4':
         use_ipv4 = 0;
@@ -148,6 +161,14 @@ int main(int argc, char **argv) {
         gotargs++;
         if (1 == sscanf(optarg, "%u", &conn_eviction_idle_s)) break;
         usage(EXIT_ERR_USAGE);
+      case 'o':
+        if (lua_settingc >= MAX_PLUGIN_ARGS) usage(EXIT_ERR_USAGE);
+        gotargs++;
+        lua_settings[lua_settingc++] = strdup(optarg);
+        break;
+      case 'L':
+        lua_no_defaults = 1;
+        break;
       case 'n':
         gotargs++;
         if (1 == sscanf(optarg, "%d", &spare_frontends)) break;
@@ -157,6 +178,7 @@ int main(int argc, char **argv) {
     }
     gotargs++;
   }
+  lua_settings[lua_settingc] = NULL;
 
   if ((argc-1-gotargs) < 5 || ((argc-1-gotargs) % 5) != 0) {
     usage(EXIT_ERR_USAGE);
@@ -191,6 +213,7 @@ int main(int argc, char **argv) {
   pagekite_enable_fake_ping(m, use_fake_ping);
   pagekite_set_bail_on_errors(m, bail_on_errors);
   pagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
+  pagekite_enable_lua_plugins(m, !lua_no_defaults, lua_settings);
 
   for (ac = gotargs; ac+5 < argc; ac += 5) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||

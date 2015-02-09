@@ -6,7 +6,7 @@ LD=$(CROSS)ld
 AR=$(CROSS)ar
 PKG_CONFIG=$(CROSS)pkg-config
 TARGET_CFLAGS ?= -fpic -I/usr/include/libev
-TARGET_CLINK ?= -lev
+TARGET_CLINK ?= -lev -llua5.1
 TARGET_OBJ ?= 
 
 OPT ?= -g -O3
@@ -16,11 +16,12 @@ CLINK ?= -L. -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
 
 TOBJ = sha1_test.o
 
-OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
+OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o pklua.o \
       pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o pagekite.o \
       $(TARGET_OBJ)
 HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
-       pkmanager.h pd_sha1.h pkwatchdog.h Makefile ../include/pagekite.h
+       pkmanager.h pklua.h pd_sha1.h pkwatchdog.h Makefile \
+       ../include/pagekite.h
 
 ROBJ = pkrelay.o
 RHDRS = pkrelay.h
@@ -30,9 +31,11 @@ PK_MEMORY_CANARIES ?= 0
 PK_TESTS ?= 1
 HAVE_OPENSSL ?= 1
 HAVE_IPV6 ?= 1
+HAVE_LUA ?= 1
 
 DEFINES=-DHAVE_IPV6=$(HAVE_IPV6) \
         -DHAVE_OPENSSL=$(HAVE_OPENSSL) \
+        -DHAVE_LUA=$(HAVE_LUA) \
         -DPK_MEMORY_CANARIES=$(PK_MEMORY_CANARIES) \
         -DPK_TRACE=$(PK_TRACE) \
         -DPK_TESTS=$(PK_TESTS)
@@ -67,11 +70,23 @@ windows: .win32 libpagekite.dll
 tests: .unix tests.o $(OBJ) $(TOBJ)
 	$(CC) $(CFLAGS) -o tests tests.o $(OBJ) $(TOBJ) $(CLINK)
 
+libpagekite.a: .unix $(OBJ)
+	$(AR) rcs libpagekite.a $(OBJ)
+
 libpagekite.so: .unix $(OBJ)
 	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(CLINK)
 
 libpagekite-full: .unix $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(ROBJ) $(CLINK)
+
+pklualua.h: pklua.lua Makefile ../contrib/plugins
+	echo 'static const char* pklualua = (' >pklualua.h
+	(for FN in pklua.lua ../contrib/plugins/*.lua; do \
+	  grep -v -e '^return ' <$$FN |\
+	  sed -e 's/\\/\\\\/g; s/"/\\"/g; s/^/"/; s/$$/\\n"/' ;\
+	done) >>pklualua.h
+	echo '"return pklua"' >>pklualua.h
+	echo ');' >>pklualua.h
 
 pagekiter: pagekiter.o $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)
@@ -102,6 +117,7 @@ pagekite.o: $(HDRS)
 pagekiter.o: $(HDRS) $(RHDRS)
 pagekite-jni.o: $(HDRS)
 pkblocker.o: $(HDRS)
+pklua.o: $(HDRS) pklualua.h
 pkconn.o: common.h utils.h pkerror.h pklogging.h
 pkerror.o: common.h utils.h pkerror.h pklogging.h
 pklogging.o: common.h pkstate.h pkconn.h pkproto.h pklogging.h

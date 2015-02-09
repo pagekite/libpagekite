@@ -24,13 +24,16 @@ typedef enum {
   PK_NO_JOB,
   PK_CHECK_WORLD,
   PK_CHECK_FRONTENDS,
-  PK_QUIT
+  PK_ACCEPT_LUA,
+  PK_ACCEPT_FE,
+  PK_QUIT,
 } pk_job_t;
 
 struct pk_job {
   PK_MEMORY_CANARY
   pk_job_t  job;
-  void*     data;
+  int       int_data;
+  void*     ptr_data;
 };
 
 struct pk_job_pile {
@@ -42,7 +45,13 @@ struct pk_job_pile {
   PK_MEMORY_CANARY
 };
 
-int   pkb_add_job      (struct pk_job_pile*, pk_job_t, void*);
+struct pk_blocker {
+  pthread_t          thread;
+  lua_State*         lua;
+  struct pk_manager* manager;
+};
+
+int   pkb_add_job      (struct pk_job_pile*, pk_job_t, int, void*);
 int   pkb_get_job      (struct pk_job_pile*, struct pk_job*);
 
 int   pkb_start_blockers(struct pk_manager*, int);

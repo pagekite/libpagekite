@@ -12,7 +12,8 @@ TARGET_OBJ ?=
 OPT ?= -g -O3
 CFLAGS ?= -std=c99 -fno-strict-aliasing -I../../include/ $(TARGET_CFLAGS) $(OPT)
 CWARN ?= -pedantic -Wall -W
-CLINK ?= -L../../lib -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
+CLINK ?= -L../../lib -lpthread -lssl -lcrypto \
+         -llua5.1 -ldl -lm -lc $(TARGET_CLINK)
 
 HDRS = ../../include/pagekite.h
 
@@ -37,7 +38,7 @@ hello: .unix hello.o
 	$(CC) $(CFLAGS) -o hello hello.o $(CLINK) -lpagekite
 
 pagekitec: .unix pagekitec.o
-	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(CLINK) -lpagekite
+	$(CC) $(CFLAGS) -o pagekitec pagekitec.o -lpagekite $(CLINK)
 
 pagekitec.exe: .win32 pagekitec.o
 	$(CC) $(CFLAGS) -o pagekitec.exe pagekitec.o $(CLINK) -lpagekite_dll
