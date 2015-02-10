@@ -119,6 +119,10 @@ function httpd:get_request()
       length = tonumber(headers['content-length'])
       if length ~= nil and length < 10*1024*1024 then
         if length > 0 then
+          expect100 = headers['expect']
+          if expect100 ~= nil and expect100:match("^100") then
+            self.c:send('HTTP/1.1 100 Continue\n\n')
+          end
           self.request.data = self.c:receive(length)
         else
           self.request.data = ''
