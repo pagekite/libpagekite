@@ -140,7 +140,7 @@ int pklua_lua_socket_send(lua_State* L)
 {
   pk_log(PK_LOG_LUA_DEBUG, "pklua_lua_socket_send(%p)", L);
   int sockfd = _pklua_lua_socket_get_sockfd(L);
-  if (lua_gettop(L) > 0 && lua_isstring(L, 2)) {
+  if (lua_gettop(L) > 1 && lua_isstring(L, 2)) {
     ssize_t dl;
     size_t data_len;
     const char *data = lua_tolstring(L, 2, &data_len);
@@ -170,7 +170,16 @@ int pklua_lua_socket_recv(lua_State *L)
 
   pklua_buffer read_buffer;
   int sockfd = _pklua_lua_socket_get_sockfd(L);
+  unsigned int wantbytes = 0;
+  unsigned int maxbytes = 8*1024;
   char sock_input[4096];
+
+  if (lua_gettop(L) > 1 && lua_isnumber(L, 2))
+    wantbytes = lua_tointeger(L, 2);
+  if (lua_gettop(L) > 2 && lua_isnumber(L, 3))
+    maxbytes = lua_tointeger(L, 3);
+  if (maxbytes < wantbytes)
+    maxbytes = wantbytes;
 
   _pklua_lua_socket_get_buffer(L, "_read_buffer", &read_buffer);
   int buffer_pos = lua_gettop(L);
@@ -178,11 +187,14 @@ int pklua_lua_socket_recv(lua_State *L)
   while (1) {
     /* Check if we have a line in our buffer, return if so! */
     for (; i < read_buffer.length; i++) {
-      if (read_buffer.bytes[i] == '\n') {
-        /* Copy the line... */
+      if (((wantbytes < 1) && (read_buffer.bytes[i] == '\n')) ||
+          ((wantbytes > 0) && (i >= wantbytes)) ||
+          (i >= maxbytes)) {
+        /* Copy the line/chunk... */
         size_t eol = i;
-        while (eol && (read_buffer.bytes[eol] == '\r' ||
-                       read_buffer.bytes[eol] == '\n')) eol--;
+        if (wantbytes < 1)
+          while (eol && (read_buffer.bytes[eol] == '\r' ||
+                         read_buffer.bytes[eol] == '\n')) eol--;
         lua_pushlstring(L, read_buffer.bytes, eol+1);
         /* Adjust the read_buffer and pop from the stack */
         _pklua_lua_socket_shift_buffer(L, "_read_buffer", i+1, &read_buffer);
@@ -192,8 +204,9 @@ int pklua_lua_socket_recv(lua_State *L)
       }
     }
     /* Only have partial line, read more data from socket */
-    int read_bytes;
-    while ((read_bytes = PKS_read(sockfd, sock_input, 4096)) < 0) {
+    int read_bytes = wantbytes ? (wantbytes - read_buffer.length) : 4096;
+    if (read_bytes > 4096) read_bytes = 4096;
+    while ((read_bytes = PKS_read(sockfd, sock_input, read_bytes)) < 0) {
        /* Is this really an error? */      
        if ((errno != 0) && (errno != EINTR) && (errno != EAGAIN)) break;
     }
@@ -399,7 +412,7 @@ void pklua_socket_server_accepted(lua_State* L, int sockfd, void* void_data) {
   pklua_wrap_pk_manager(L, data->pkm);
   lua_pushstring(L, data->name);
   pklua_wrap_sock(L, sockfd);
-  lua_call(L, 4, 0);
+  lua_pcall(L, 4, 0, 0);
 }
 
 #endif

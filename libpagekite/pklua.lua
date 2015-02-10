@@ -82,9 +82,9 @@ function httpd:handler(sock)
   return ctx
 end
 function httpd:get_headers()
-  line, err = self.c:receive()
+  line, err = self.c:receive(0, 10240)  -- line buffered, 10k max line length
   headers = {}
-  while line and line ~= "" do
+  while line and line ~= "" and #headers < 1024 do
     name, value = line:match("^(.-):%s*(.*)$")
     if name ~= nil and value ~= nil then
       headers[name:lower()] = value
@@ -96,13 +96,14 @@ function httpd:get_headers()
   return headers
 end
 function httpd:get_request()
-  line, err = self.c:receive()
+  line, err = self.c:receive(0, 10240)  -- line buffered, 10k max line length
   if line == nil or line == "" then
     return nil
   end
   method, path = line:match("^(%a+)%s+(%S-)%s+HTTP/%S+$")
   if method == nil then
     pklua:log_debug('Invalid HTTP request: '..line)
+    self:respond_with_code(500, 'Error', 'text/plain', 'Invalid request\n')
     return nil
   end
   pklua:log_debug('HTTP request: '..method..' '..path)
@@ -114,20 +115,35 @@ function httpd:get_request()
       path = path,
       headers = headers,
     }
-    -- FIXME: if Content-Length: is set, read that much as a body
+    if headers['content-length'] ~= nil then
+      length = tonumber(headers['content-length'])
+      if length ~= nil and length < 10*1024*1024 then
+        if length > 0 then
+          self.request.data = self.c:receive(length)
+        else
+          self.request.data = ''
+        end
+      else
+        self:respond_with_code(500, 'Error', 'text/plain', 'Too much data\n')
+        return nil
+      end
+    end
     -- FIXME: Handle chunked stuff as well?
     return self.request
   end
 end
-function httpd:respond(mimetype, body)
-  self.c:send(string.format([[HTTP/1.1 200 OK
+function httpd:respond_with_code(code, msg, mimetype, body)
+  self.c:send(string.format([[HTTP/1.1 %d %s
 Content-Type: %s
 Content-Length: %d
 Connection: close
 
-]], mimetype, #body))
+]], code, msg, mimetype, #body))
   self.c:send(body)
   self.c:close()
+end
+function httpd:respond(mimetype, body)
+  return self:respond_with_code(200, "OK", mimetype, body)
 end
 function httpd:close()
   self.c:close()
