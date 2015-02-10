@@ -106,14 +106,18 @@ function httpd:get_headers()
   return headers
 end
 function httpd:get_request()
-  line, err = self.c:receive(0, pklua.max_http_line) -- line buffered, bounded
+  line, err = self.c:receive(0, pklua.max_http_line+1) -- line buffered
   if line == nil or line == "" then
+    return nil
+  end
+  if #line > pklua.max_http_line then
+    self:respond_with_code(414, 'Error', 'text/plain', 'URI too long\n')
     return nil
   end
   method, path = line:match("^(%a+)%s+(%S-)%s+HTTP/%S+$")
   if method == nil then
     pklua:log_debug('Invalid HTTP request: '..line)
-    self:respond_with_code(500, 'Error', 'text/plain', 'Invalid request\n')
+    self:respond_with_code(400, 'Error', 'text/plain', 'Bad request\n')
     return nil
   end
   pklua:log_debug('HTTP request: '..method..' '..path)
@@ -127,18 +131,26 @@ function httpd:get_request()
     }
     if headers['content-length'] ~= nil then
       length = tonumber(headers['content-length'])
+      expect100 = headers['expect']
       if length ~= nil and length <= pklua.max_http_upload_bytes then
         if length > 0 then
-          expect100 = headers['expect']
           if expect100 ~= nil and expect100:match("^100") then
             self.c:send('HTTP/1.1 100 Continue\n\n')
           end
           self.request.data = self.c:receive(length)
+          if #self.request.data ~= length then
+            self:respond_with_code(400, 'Error', 'text/plain', 'Bad request\n')
+            return nil
+          end
         else
           self.request.data = ''
         end
       else
-        self:respond_with_code(500, 'Error', 'text/plain', 'Too much data\n')
+        if expect100 then
+          self:respond_with_code(417, 'Error', 'text/plain', 'Too much data\n')
+        else
+          self:respond_with_code(418, 'Uhm', 'text/plain', 'I\'m a teapot\n')
+        end
         return nil
       end
     end
