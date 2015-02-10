@@ -18,7 +18,15 @@
 -- Note: For alternate license terms, see the file COPYING.md.
 -- -----------------------------------------------------------------------
 local pklua = {
-  version = "0.0.1",
+  version = "unknown",
+
+  -- Global limits enforced by our simplistic HTTP daemon, to
+  -- thwart RAM based DOS attacks (or bugs).
+  max_http_line = 10240,
+  max_http_headers = 100,
+  max_http_upload_bytes = 10 * 1024 * 1024,
+
+  -- Plugin registry!
   plugins = {}
 }
 function pklua:_enable_defaults(enable)
@@ -74,7 +82,9 @@ end
 
 
 -- A super primitive HTTP daemon... -------------------------------------
-local httpd = {}
+local httpd = {
+  http_headers = "Expires: 0\n",
+}
 pklua.httpd = httpd
 function httpd:handler(sock)
   local ctx = setmetatable({ c = sock }, httpd)
@@ -82,9 +92,9 @@ function httpd:handler(sock)
   return ctx
 end
 function httpd:get_headers()
-  line, err = self.c:receive(0, 10240)  -- line buffered, 10k max line length
+  line, err = self.c:receive(0, pklua.max_http_line) -- line buffered, bounded
   headers = {}
-  while line and line ~= "" and #headers < 1024 do
+  while line and line ~= "" and #headers < pklua.max_http_headers do
     name, value = line:match("^(.-):%s*(.*)$")
     if name ~= nil and value ~= nil then
       headers[name:lower()] = value
@@ -96,7 +106,7 @@ function httpd:get_headers()
   return headers
 end
 function httpd:get_request()
-  line, err = self.c:receive(0, 10240)  -- line buffered, 10k max line length
+  line, err = self.c:receive(0, pklua.max_http_line) -- line buffered, bounded
   if line == nil or line == "" then
     return nil
   end
@@ -117,7 +127,7 @@ function httpd:get_request()
     }
     if headers['content-length'] ~= nil then
       length = tonumber(headers['content-length'])
-      if length ~= nil and length < 10*1024*1024 then
+      if length ~= nil and length <= pklua.max_http_upload_bytes then
         if length > 0 then
           expect100 = headers['expect']
           if expect100 ~= nil and expect100:match("^100") then
@@ -138,11 +148,12 @@ function httpd:get_request()
 end
 function httpd:respond_with_code(code, msg, mimetype, body)
   self.c:send(string.format([[HTTP/1.1 %d %s
+Server: PageKite-Lua/%s
 Content-Type: %s
 Content-Length: %d
-Connection: close
+%sConnection: close
 
-]], code, msg, mimetype, #body))
+]], code, msg, pklua.version, mimetype, #body, self.http_headers))
   self.c:send(body)
   self.c:close()
 end

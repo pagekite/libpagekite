@@ -359,6 +359,12 @@ lua_State* pklua_get_lua(struct pk_manager* pkm) {
       luaL_register(L, NULL, reg);
     } 
     lua_setglobal(L, "pklua");
+
+    lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
+    lua_pushstring(L, PK_VERSION);
+    lua_setfield(L, -2, "version");
+    lua_remove(L, -1);
+
     pklua_configure(L, pkm);
     luaL_dostring(L, "pklua:log('Loaded pklua.lua v' .. pklua.version);");
   }
