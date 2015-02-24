@@ -166,7 +166,7 @@ int pkm_run_in_thread               (struct pk_manager*);
 int pkm_wait_thread                 (struct pk_manager*);
 int pkm_stop_thread                 (struct pk_manager*);
 
-int pkm_reconnect_all               (struct pk_manager*);
+int pkm_reconnect_all               (struct pk_manager*, int);
 int pkm_disconnect_unused           (struct pk_manager*);
 
 int pkm_configure_lua               (struct pk_manager*);

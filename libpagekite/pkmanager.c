@@ -664,7 +664,7 @@ static void pkm_listener_cb(EV_P_ ev_io* w, int revents)
   (void) revents;
 }
 
-int pkm_reconnect_all(struct pk_manager* pkm) {
+int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
   struct pk_tunnel *fe;
   struct pk_kite_request *kite_r;
   unsigned int status;
@@ -742,7 +742,8 @@ int pkm_reconnect_all(struct pk_manager* pkm) {
         /* FIXME: Is this the right behavior? */
         pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
         fe->request_count = 0;
-        if (fe->error_count < 999)
+
+        if (!ignore_errors && fe->error_count < 999)
           fe->error_count += 1;
 
         status = fe->conn.status;
@@ -848,9 +849,23 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
     pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, next=%d]",
            pkm->enable_timer ? "yes" : "no", pkm->next_tick);
 
-    /* We slow down exponentially by default, no matter what. */
+    /* We slow down exponentially by default... */
     next_tick += increment;
     max_tick = pkm->housekeeping_interval_max + pkm->interval_fudge_factor;
+
+    /* Fallback is tuned for normal operation: if the relay rejected
+       us that is not normal anymore and we'll happily go idle until it
+       is time to re-check the state of the world. */
+    if (pkm->status == PK_STATUS_REJECTED)
+      max_tick += pkm->check_world_interval;
+
+    /* Similarly, if there's no network AND we are relying on the built-in
+       timer and not external app logic, then retry more frequently. Power
+       constrained apps shouldn't be using the timer anyway! */
+    if (pkm->status == PK_STATUS_NO_NETWORK)
+      max_tick = (PK_HOUSEKEEPING_INTERVAL_MIN +
+                  PK_HOUSEKEEPING_INTERVAL_MAX_MIN) / 2;
+
     if (next_tick > max_tick)
       next_tick = max_tick;
   }

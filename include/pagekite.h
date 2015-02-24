@@ -24,12 +24,12 @@ Note: For alternate license terms, see the file COPYING.md.
 #define _PAGEKITEC_DLL_H
 
 #ifdef ANDROID
-#define PK_VERSION "0.90.150209A"
+#define PK_VERSION "0.90.150224A"
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.90.150209W"
+#define PK_VERSION "0.90.150224W"
 #else
-#define PK_VERSION "0.90.150209C"
+#define PK_VERSION "0.90.150224C"
 #endif
 #endif
 

@@ -213,7 +213,7 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
   pk_log(PK_LOG_MANAGER_ERROR, "No front-end wanted! We are lame.");
 }
 
-void pkb_check_kites_dns(struct pk_manager* pkm)
+int pkb_check_kites_dns(struct pk_manager* pkm)
 {
   int i, j, rv;
   int in_dns = 0;
@@ -225,6 +225,7 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
   struct addrinfo hints;
   struct addrinfo *result, *rp;
   char buffer[128];
+  int cleared_flags = 0;
 
   PK_TRACE_FUNCTION;
 
@@ -232,17 +233,19 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
 
-  /* Clear DNS flag... */
-  for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
-    fe->conn.status &= ~FE_STATUS_IN_DNS;
-  }
-
   /* Walk through kite list, look each up in DNS and update the
    * tunnel flags as appropriate.
    */
   for (i = 0, kite = pkm->kites; i < pkm->kite_max; i++, kite++) {
     rv = getaddrinfo(kite->public_domain, NULL, &hints, &result);
     if (rv == 0) {
+      if (!cleared_flags) {
+        /* Clear DNS flag everywhere, once we know DNS is responding. */
+        for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
+          fe->conn.status &= ~FE_STATUS_IN_DNS;
+        }
+        cleared_flags = 1;
+      }
       for (rp = result; rp != NULL; rp = rp->ai_next) {
         for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
           if (fe->ai && fe->fe_hostname) {
@@ -261,6 +264,11 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
       freeaddrinfo(result);
     }
   }
+
+  /*
+   * If flags weren't cleared, then the network is probably down: bail out!
+   */
+  if (!cleared_flags) return 1;
 
   /* FIXME: We should really get this from the TTL of the DNS record itself,
    *        not from a hard coded magic number.
@@ -295,6 +303,7 @@ void pkb_check_kites_dns(struct pk_manager* pkm)
   }
 
   PK_CHECK_MEMORY_CANARIES;
+  return 0;
 }
 
 void* pkb_tunnel_ping(void* void_fe) {
@@ -528,16 +537,15 @@ void pkb_check_world(struct pk_manager* pkm)
 void pkb_check_tunnels(struct pk_manager* pkm)
 {
   int problems = 0;
+  int dns_is_down = 0;
   PK_TRACE_FUNCTION;
 
-  if (pkm->status == PK_STATUS_NO_NETWORK) return;
-  pk_log(PK_LOG_MANAGER_DEBUG, "Checking tunnels...");
+  pk_log(PK_LOG_MANAGER_DEBUG, "Checking network & tunnels...");
 
-  pkb_check_kites_dns(pkm);
+  dns_is_down = (0 != pkb_check_kites_dns(pkm));
   pkb_choose_tunnels(pkm);
   pkb_log_fe_status(pkm);
-
-  problems += pkm_reconnect_all(pkm);
+  problems += pkm_reconnect_all(pkm, dns_is_down);
 
   if (!problems) pkm_disconnect_unused(pkm);
 
@@ -551,7 +559,10 @@ void pkb_check_tunnels(struct pk_manager* pkm)
     PKS_STATE(pkm->status = PK_STATUS_FLYING);
   }
   else if (pkm->status != PK_STATUS_REJECTED) {
-    PKS_STATE(pkm->status = PK_STATUS_PROBLEMS);
+    if (dns_is_down)
+      pk_log(PK_LOG_MANAGER_DEBUG, "Network appears to be down.");
+    PKS_STATE(pkm->status = (dns_is_down ? PK_STATUS_NO_NETWORK
+                                         : PK_STATUS_PROBLEMS));
   }
 }
 
