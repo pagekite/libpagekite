@@ -127,6 +127,8 @@ DECLSPEC_DLL int pagekite_add_listener(pagekite_mgr,
   void *callback_data);
 
 DECLSPEC_DLL int pagekite_set_log_mask(pagekite_mgr, int);
+DECLSPEC_DLL int pagekite_set_housekeeping_min_interval(pagekite_mgr, int);
+DECLSPEC_DLL int pagekite_set_housekeeping_max_interval(pagekite_mgr, int);
 DECLSPEC_DLL int pagekite_enable_watchdog(pagekite_mgr, int enable);
 DECLSPEC_DLL int pagekite_enable_fake_ping(pagekite_mgr pkm, int enable);
 DECLSPEC_DLL int pagekite_set_bail_on_errors(pagekite_mgr pkm, int errors);

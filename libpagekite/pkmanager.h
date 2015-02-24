@@ -18,11 +18,12 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#define PK_HOUSEKEEPING_INTERVAL_MIN    15  /* Seconds */
-#define PK_HOUSEKEEPING_INTERVAL_MAX   900  /* 15 minutes */
-#define PK_CHECK_WORLD_INTERVAL       3600  /* 1 hour */
-#define PK_DDNS_UPDATE_INTERVAL_MIN    360  /* Less than 300 makes no sense,
-                                               due to DNS caching TTLs. */
+#define PK_HOUSEKEEPING_INTERVAL_MIN       15 /* Seconds */
+#define PK_HOUSEKEEPING_INTERVAL_MAX_MIN  120 /* 2 minutes: lower is bad! */
+#define PK_HOUSEKEEPING_INTERVAL_MAX_DEF  300 /* 5 minutes */
+#define PK_CHECK_WORLD_INTERVAL          3600 /* 1 hour */
+#define PK_DDNS_UPDATE_INTERVAL_MIN       360 /* Less than 300 makes no sense,
+                                                 due to DNS caching TTLs. */
 
 struct pk_tunnel;
 struct pk_backend_conn;

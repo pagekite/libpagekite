@@ -1400,7 +1400,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->enable_watchdog = 0;
   pkm->want_spare_frontends = 0;
   pkm->housekeeping_interval_min = PK_HOUSEKEEPING_INTERVAL_MIN;
-  pkm->housekeeping_interval_max = PK_HOUSEKEEPING_INTERVAL_MAX;
+  pkm->housekeeping_interval_max = PK_HOUSEKEEPING_INTERVAL_MAX_DEF;
   pkm->check_world_interval = PK_CHECK_WORLD_INTERVAL;
   pkm->interval_fudge_factor = 2 * (rand() % PK_HOUSEKEEPING_INTERVAL_MIN);
 

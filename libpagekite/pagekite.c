@@ -190,6 +190,24 @@ int pagekite_set_log_mask(pagekite_mgr pkm, int mask)
   return 0;
 }
 
+int pagekite_set_housekeeping_min_interval(pagekite_mgr pkm, int seconds)
+{
+  if (pkm == NULL) return -1;
+  if (seconds < PK_HOUSEKEEPING_INTERVAL_MIN)
+    seconds = PK_HOUSEKEEPING_INTERVAL_MIN;
+  PK_MANAGER(pkm)->housekeeping_interval_min = seconds;
+  return seconds;
+}
+
+int pagekite_set_housekeeping_max_interval(pagekite_mgr pkm, int seconds)
+{
+  if (pkm == NULL) return -1;
+  if (seconds < PK_HOUSEKEEPING_INTERVAL_MAX_MIN)
+    seconds = PK_HOUSEKEEPING_INTERVAL_MAX_MIN;
+  PK_MANAGER(pkm)->housekeeping_interval_max = seconds;
+  return 0;
+}
+
 int pagekite_enable_watchdog(pagekite_mgr pkm, int enable)
 {
   if (pkm == NULL) return -1;
