@@ -560,7 +560,7 @@ void pkb_check_tunnels(struct pk_manager* pkm)
   }
   else if (pkm->status != PK_STATUS_REJECTED) {
     if (dns_is_down)
-      pk_log(PK_LOG_MANAGER_DEBUG, "Network appears to be down.");
+      pk_log(PK_LOG_MANAGER_INFO, "Network appears to be down.");
     PKS_STATE(pkm->status = (dns_is_down ? PK_STATUS_NO_NETWORK
                                          : PK_STATUS_PROBLEMS));
   }
