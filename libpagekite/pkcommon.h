@@ -1,3 +1,5 @@
+#include "config.h"
+
 #ifndef _GNU_SOURCE
 #  define _GNU_SOURCE 1
 #endif
