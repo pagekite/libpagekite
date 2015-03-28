@@ -56,6 +56,7 @@ void usage(int ecode) {
                   "\t-E N\tAllow eviction of streams idle for >N seconds\n"
                   "\t-F x\tUse x (a DNS name) as frontend pool\n"
                   "\t-R\tChoose frontends at random, instead of pinging\n"
+                  "\t-N\tDisable DNS-based updates of available frontends\n"
                   "\t-4\tDisable IPv4 frontends\n");
 #ifdef HAVE_IPV6
   fprintf(stderr, "\t-6\tDisable IPv6 frontends\n");
@@ -94,12 +95,7 @@ int main(int argc, char **argv) {
   int lua_no_defaults = 0;
   int gotargs = 0;
   int verbosity = 0;
-  int use_ipv4 = 1;
-#ifdef HAVE_IPV6
-  int use_ipv6 = 1;
-#endif
   int use_current = 1;
-  int use_ssl = 1;
   int use_fake_ping = 0;
   int use_watchdog = 0;
   int max_conns = 25;
@@ -109,19 +105,26 @@ int main(int argc, char **argv) {
   int ac;
   int pport;
   int lport;
+  int flags = (PK_WITH_SSL | PK_WITH_IPV4 | PK_WITH_DYNAMIC_FE_LIST);
+#ifdef HAVE_IPV6
+  flags |= PK_WITH_IPV6;
+#endif
 
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:Io:Ln:qRSvWZ"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:Io:LNn:qRSvWZ"))) {
     switch (ac) {
       case '4':
-        use_ipv4 = 0;
+        flags &= ~PK_WITH_IPV4;
         break;
-      case '6':
 #ifdef HAVE_IPV6
-        use_ipv6 = 0;
+      case '6':
+        flags &= ~PK_WITH_IPV6;
+        break;
 #endif
+      case 'N':
+        flags &= ~PK_WITH_DYNAMIC_FE_LIST;
         break;
       case 'C':
         use_current = 0;
@@ -133,7 +136,7 @@ int main(int argc, char **argv) {
         verbosity--;
         break;
       case 'I':
-        use_ssl = 0;
+        flags &= ~PK_WITH_SSL;
         break;
       case 'R':
         use_fake_ping = 1;
@@ -188,13 +191,6 @@ int main(int argc, char **argv) {
   signal(SIGUSR1, &raise_log_level);
 #endif
 
-  int flags = 0;
-  if (use_ssl) flags |= PK_WITH_SSL;
-  if (use_ipv4) flags |= PK_WITH_IPV4;
-#ifdef HAVE_IPV6
-  if (use_ipv6) flags |= PK_WITH_IPV6;
-#endif
-
   if (NULL == (m = pagekite_init("pagekitec",
                                  1 + (argc-1-gotargs)/5, /* Kites */
                                  PAGEKITE_NET_FE_MAX,
@@ -235,7 +231,9 @@ int main(int argc, char **argv) {
   /* The API could do this stuff on INIT, but since we allow for manually
      specifying a front-end hostname, we do things by hand. */
   if (fe_hostname) {
-    if (0 > pagekite_add_frontend(m, fe_hostname, 443)) {
+    if (0 > pagekite_lookup_and_add_frontend(m, fe_hostname, 443,
+                                             flags & PK_WITH_DYNAMIC_FE_LIST))
+    {
       pagekite_perror(m, argv[0]);
       safe_exit(EXIT_ERR_FRONTENDS);
     }

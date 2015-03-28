@@ -72,34 +72,52 @@ static struct pk_backend_conn* pkm_find_be_conn(struct pk_manager*,
                                                 struct pk_tunnel*, char*);
 
 
-static void pkm_yield(struct pk_manager *pkm)
+static void pkm_yield_start(struct pk_manager *pkm)
 {
   pthread_mutex_unlock(&(pkm->loop_lock));
+  pthread_yield();
+}
+static void pkm_yield_stop(struct pk_manager *pkm)
+{
+  pthread_yield();
   pthread_mutex_lock(&(pkm->loop_lock));
+}
+static void pkm_yield(struct pk_manager *pkm)
+{
+  pkm_yield_start(pkm);
+  pkm_yield_stop(pkm);
 }
 static void pkm_interrupt_cb(EV_P_ ev_async *w, int revents)
 {
   struct pk_manager* pkm = (struct pk_manager*) w->data;
-  pkm_yield(pkm);
+
+  /* This interleaving of locks guarantees that the event loop will be idle
+     and the caller of pkm_interrupt() will be holding the loop_lock when
+     it returns, and the event loop will not resume until the lock has been
+     handed over to, and returned by, the caller. */
+  pkm_yield_start(pkm);
+  pthread_mutex_lock(&(pkm->intr_lock));
+  pkm_yield_stop(pkm);
+  pthread_mutex_unlock(&(pkm->intr_lock));
+
   /* -Wall dislikes unused arguments */
   (void) loop;
   (void) (revents);
 }
 static void pkm_interrupt(struct pk_manager *pkm)
 {
+  /* Prevent multiple interrupts from running at once and trade locks
+     with the event loop thread. */
+  pthread_mutex_lock(&(pkm->intr_lock));
   ev_async_send(pkm->loop, &(pkm->interrupt));
+  pthread_mutex_lock(&(pkm->loop_lock));
+  pthread_mutex_unlock(&(pkm->intr_lock));
 }
 
 static void pkm_block(struct pk_manager *pkm)
 {
   if (!pthread_equal(pthread_self(), pkm->main_thread)) {
-/*
-    while (0 != pthread_mutex_trylock(&(pkm->loop_lock))) {
-      pkm_interrupt(pkm);
-    }
-*/
-    pkm_interrupt(pkm);
-    pthread_mutex_trylock(&(pkm->loop_lock));
+    if (0 != pthread_mutex_trylock(&(pkm->loop_lock))) pkm_interrupt(pkm);
   }
 }
 static void pkm_unblock(struct pk_manager *pkm)
@@ -107,6 +125,14 @@ static void pkm_unblock(struct pk_manager *pkm)
   if (!pthread_equal(pthread_self(), pkm->main_thread)) {
     pthread_mutex_unlock(&(pkm->loop_lock));
   }
+}
+void pkm_reconfig_start(struct pk_manager *pkm)
+{
+  pthread_mutex_lock(&(pkm->config_lock));
+}
+void pkm_reconfig_stop(struct pk_manager *pkm)
+{
+  pthread_mutex_unlock(&(pkm->config_lock));
 }
 
 static void pkm_quit_cb(EV_P_ ev_async *w, int revents)
@@ -139,8 +165,11 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
         (NULL != chunk->eof) ||
         (NULL != (pkb = pkm_connect_be(fe, chunk)))) {
       /* We are happy, pkb should be a valid connection. */
+      pkm_yield_start(fe->manager);
     }
     else {
+      pkm_yield_start(fe->manager);
+
       /* FIXME: Send back a nicer error */
       if ((NULL != chunk->request_proto) &&
           (0 == strncasecmp(chunk->request_proto, "https", 5))) {
@@ -172,6 +201,8 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
                                   chunk->request_proto, chunk->request_host);
     }
   }
+  else
+    pkm_yield_start(fe->manager);
 
   if (NULL != chunk->noop) {
     if (NULL != chunk->ping) {
@@ -189,6 +220,7 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
     }
   }
 
+  pkm_yield_stop(fe->manager);
   if (NULL != pkb) {
     if (0 < chunk->throttle_spd) {
       if (pkb->conn.send_window_kb > CONN_WINDOW_SIZE_KB_MINIMUM) {
@@ -241,6 +273,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
            chunk->request_proto, chunk->request_host, chunk->request_port);
     return NULL;
   }
+  pkm_yield_start(fe->manager);
 
   /* Look up the back-end... */
   addr = NULL;
@@ -266,6 +299,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
          EINPROGRESS never happens until we swap connect/set_non_blocking
          above.  Do that later once we've figured out error handling. */
       PKS_close(sockfd);
+      pkm_yield_stop(fe->manager);
       pkm_free_be_conn(pkb);
       pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: Failed to connect %s:%d",
                                   kite->local_domain, kite->local_port);
@@ -277,6 +311,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
    *        but that requires more buffering and fancy logic, so we're
    *        lazy for now.
    *        See also: http://developerweb.net/viewtopic.php?id=3196 */
+  pkm_yield_stop(fe->manager);
 
   pkb->kite = kite;
   pkb->conn.sockfd = sockfd;
@@ -681,7 +716,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
     fe = (pkm->tunnels + i);
     PK_ADD_MEMORY_CANARY(fe);
 
-    if (fe->fe_hostname == NULL) continue;
+    if (fe->fe_hostname == NULL || fe->ai == NULL) continue;
     if (!(fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS))) continue;
 
     if (fe->requests == NULL || fe->request_count != pkm->kite_max) {
@@ -898,6 +933,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
       }
     }
   }
+  pkm_yield_start(pkm);
 
   /* Finally, trigger the tunnel check on the blocking thread. */
   if (pkm->last_world_update + pkm->check_world_interval < time(0)) {
@@ -913,7 +949,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   PK_CHECK_MEMORY_CANARIES;
 
   pkm->next_tick = next_tick;
-  pkm_yield(pkm);
+  pkm_yield_stop(pkm);
 
   /* -Wall dislikes unused arguments */
   (void) loop;
@@ -1102,6 +1138,13 @@ int pkm_add_listener(struct pk_manager* pkm,
 int pkm_add_frontend(struct pk_manager* pkm,
                      const char* hostname, int port, int flags)
 {
+  return pkm_lookup_and_add_frontend(pkm, hostname, port, flags, 0);
+}
+
+int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
+                                const char* hostname, int port, int flags,
+                                int add_null_record)
+{
   struct addrinfo hints;
   struct addrinfo *result, *rp;
   char printip[128], sport[128];
@@ -1130,6 +1173,13 @@ int pkm_add_frontend(struct pk_manager* pkm,
     if (count == 0) freeaddrinfo(result);
   }
 
+  if (!count && add_null_record) {
+    if (NULL != pkm_add_frontend_ai(pkm, NULL, hostname, port, flags)) {
+      pk_log(PK_LOG_MANAGER_DEBUG, "Front-end placeholder: %s", hostname);
+      count++;
+    }
+  }
+
   PK_CHECK_MEMORY_CANARIES;
   return count;
 }
@@ -1150,26 +1200,29 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
    */
   for (which = 0; which < pkm->tunnel_max; which++) {
     fe = pkm->tunnels+which;
-    if (fe->ai == NULL) {
+    if (fe->fe_hostname == NULL) {
       if (adding == NULL) adding = fe;
     }
-    else if ((ai->ai_addrlen > 0) &&
+    else if ((ai != NULL) &&
+             (fe->ai != NULL) &&
+             (ai->ai_addrlen > 0) &&
              (0 == addrcmp(fe->ai->ai_addr, ai->ai_addr)))
     {
+      fe->last_configured = time(0);
       return NULL;
     }
   }
-  if (adding == NULL)
-    return pk_err_null(ERR_NO_MORE_FRONTENDS);
+  if (adding == NULL) return pk_err_null(ERR_NO_MORE_FRONTENDS);
 
+  adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
   adding->ai = ai;
-  adding->fe_hostname = strdup(hostname);
   adding->fe_port = port;
+  adding->fe_hostname = strdup(hostname);
   adding->last_ddnsup = 0;
   adding->error_count = 0;
-  adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
   adding->request_count = 0;
   adding->priority = 0;
+  adding->last_configured = time(0);
 
   return adding;
 }
@@ -1441,16 +1494,18 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->tick.data = (void *) pkm;
   ev_async_start(loop, &(pkm->tick));
 
-  /* Let external threads interrupt the loop */
-  ev_async_init(&(pkm->interrupt), pkm_interrupt_cb);
-  pkm->interrupt.data = (void *) pkm;
-  ev_async_start(loop, &(pkm->interrupt));
-
   /* Prepare blocking thread structures. */
+  pthread_mutex_init(&(pkm->config_lock), NULL);
+  pthread_mutex_init(&(pkm->intr_lock), NULL);
   pthread_mutex_init(&(pkm->loop_lock), NULL);
   pthread_mutex_init(&(pkm->blocking_jobs.mutex), NULL);
   pthread_cond_init(&(pkm->blocking_jobs.cond), NULL);
   pkm->blocking_jobs.count = 0;
+
+  /* Let external threads interrupt the loop */
+  ev_async_init(&(pkm->interrupt), pkm_interrupt_cb);
+  pkm->interrupt.data = (void *) pkm;
+  ev_async_start(loop, &(pkm->interrupt));
 
   /* Prepare lua */
   pkm->lua_enable_defaults = 1;

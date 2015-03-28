@@ -53,6 +53,7 @@ struct pk_tunnel {
   int                     error_count;
   char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
   time_t                  last_ping;
+  time_t                  last_configured;
   struct pk_manager*      manager;
   struct pk_parser*       parser;
   int                     request_count;
@@ -110,6 +111,8 @@ struct pk_manager {
   PK_MEMORY_CANARY
 
   pthread_t                main_thread;
+  pthread_mutex_t          config_lock;
+  pthread_mutex_t          intr_lock;
   pthread_mutex_t          loop_lock;
   struct ev_loop*          loop;
   ev_async                 interrupt;
@@ -151,6 +154,8 @@ void pkm_manager_free(struct pk_manager*);
 
 int                  pkm_add_frontend(struct pk_manager*,
                                       const char*, int, int);
+int                  pkm_lookup_and_add_frontend(struct pk_manager*,
+                                                 const char*, int, int, int);
 struct pk_tunnel*    pkm_add_frontend_ai(struct pk_manager*, struct addrinfo*,
                                          const char*, int, int);
 
@@ -165,6 +170,8 @@ void* pkm_run                       (void *);
 int pkm_run_in_thread               (struct pk_manager*);
 int pkm_wait_thread                 (struct pk_manager*);
 int pkm_stop_thread                 (struct pk_manager*);
+void pkm_reconfig_start             (struct pk_manager*);
+void pkm_reconfig_stop              (struct pk_manager*);
 
 int pkm_reconnect_all               (struct pk_manager*, int);
 int pkm_disconnect_unused           (struct pk_manager*);

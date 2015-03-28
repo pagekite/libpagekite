@@ -73,6 +73,8 @@ struct pk_global_state pk_state;
                             change; \
                             pthread_cond_broadcast(&(pk_state.cond)); \
                             pthread_mutex_unlock(&(pk_state.lock)); } 
+#define PKS_STATE_LOCK    pthread_mutex_lock(&(pk_state.lock)); {
+#define PKS_STATE_UNLOCK  } pthread_mutex_unlock(&(pk_state.lock));
 
 void pks_global_init(unsigned int log_level);
 int pks_logcopy(const char*, size_t len);

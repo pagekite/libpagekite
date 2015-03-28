@@ -123,7 +123,7 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
     highpri = 1024000;
     for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
       /* Is tunnel really a front-end? */
-      if (fe->fe_hostname == NULL) continue;
+      if ((fe->fe_hostname == NULL) || (fe->ai == NULL)) continue;
 
       prio = fe->priority + (25 * fe->error_count);
       if ((fe->ai) &&
@@ -144,7 +144,7 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
   wanted = 0;
   for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
     /* Is tunnel really a front-end? */
-    if (fe->fe_hostname == NULL) continue;
+    if ((fe->fe_hostname == NULL) || (fe->ai == NULL)) continue;
 
     /* If it's nailed up or fast: we want it. */
     if ((fe->conn.status & FE_STATUS_NAILED_UP) ||
@@ -305,6 +305,36 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
   PK_CHECK_MEMORY_CANARIES;
   return 0;
 }
+
+int pkb_check_frontend_dns(struct pk_manager* pkm)
+{
+  int i, changes;
+  struct pk_tunnel* fe;
+  char* last_fe_hostname;
+
+  PK_TRACE_FUNCTION;
+
+  /* Walk through frontend list, look each up in DNS and add new entries
+   * as necessary.
+   */
+  changes = 0;
+  last_fe_hostname = "";
+  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+    if ((fe->fe_hostname != NULL) &&
+        (0 != strcmp(fe->fe_hostname, last_fe_hostname))) {
+      pk_log(PK_LOG_MANAGER_DEBUG, "Checking for new IPs: %s", fe->fe_hostname);
+      changes += pkm_add_frontend(pkm, fe->fe_hostname, fe->fe_port, 0);
+      last_fe_hostname = fe->fe_hostname;
+    }
+  }
+  pk_log(PK_LOG_MANAGER_DEBUG, "Found %d new IPs", changes);
+
+  /* FIXME: 2nd pass, walk through list and remove obsolete entries */
+
+  PK_CHECK_MEMORY_CANARIES;
+  return changes;
+}
+
 
 void* pkb_tunnel_ping(void* void_fe) {
   struct pk_tunnel* fe = (struct pk_tunnel*) void_fe;
@@ -534,25 +564,8 @@ void pkb_check_world(struct pk_manager* pkm)
   PK_CHECK_MEMORY_CANARIES;
 }
 
-void pkb_check_tunnels(struct pk_manager* pkm)
+void pkb_update_state(struct pk_manager* pkm, int dns_is_down, int problems)
 {
-  int problems = 0;
-  int dns_is_down = 0;
-  PK_TRACE_FUNCTION;
-
-  pk_log(PK_LOG_MANAGER_DEBUG, "Checking network & tunnels...");
-
-  dns_is_down = (0 != pkb_check_kites_dns(pkm));
-  pkb_choose_tunnels(pkm);
-  pkb_log_fe_status(pkm);
-  problems += pkm_reconnect_all(pkm, dns_is_down);
-
-  if (!problems) pkm_disconnect_unused(pkm);
-
-  if (pkm->dynamic_dns_url && (pkm->status != PK_STATUS_REJECTED)) {
-    problems += pkb_update_dns(pkm);
-  }
-
   /* An update has happened, clear this flag. */
   pk_state.force_update = 0;
   if (problems == 0 && pk_state.live_tunnels > 0) {
@@ -564,6 +577,34 @@ void pkb_check_tunnels(struct pk_manager* pkm)
     PKS_STATE(pkm->status = (dns_is_down ? PK_STATUS_NO_NETWORK
                                          : PK_STATUS_PROBLEMS));
   }
+}
+
+void pkb_check_tunnels(struct pk_manager* pkm)
+{
+  int problems = 0;
+  int dns_is_down = 0;
+  PK_TRACE_FUNCTION;
+
+  pk_log(PK_LOG_MANAGER_DEBUG, "Checking network & tunnels...");
+
+  dns_is_down = (0 != pkb_check_kites_dns(pkm));
+
+  if (!dns_is_down && (pkb_check_frontend_dns(pkm) > 0)) {
+    pkb_update_state(pkm, dns_is_down, problems);
+    pkb_check_world(pkm);
+  }
+
+  pkb_choose_tunnels(pkm);
+  pkb_log_fe_status(pkm);
+  problems += pkm_reconnect_all(pkm, dns_is_down);
+
+  if (!problems) pkm_disconnect_unused(pkm);
+
+  if (pkm->dynamic_dns_url && (pkm->status != PK_STATUS_REJECTED)) {
+    problems += pkb_update_dns(pkm);
+  }
+
+  pkb_update_state(pkm, dns_is_down, problems);
 }
 
 void* pkb_run_blocker(void *void_pkblocker)
@@ -583,15 +624,19 @@ void* pkb_run_blocker(void *void_pkblocker)
         break;
       case PK_CHECK_WORLD:
         if (time(0) >= last_check_world + pkm->housekeeping_interval_min) {
+          pkm_reconfig_start((struct pk_manager*) job.ptr_data);
           pkb_check_world((struct pk_manager*) job.ptr_data);
           pkb_check_tunnels((struct pk_manager*) job.ptr_data);
           last_check_world = last_check_tunnels = time(0);
+          pkm_reconfig_stop((struct pk_manager*) job.ptr_data);
         }
         break;
       case PK_CHECK_FRONTENDS:
         if (time(0) >= last_check_tunnels + pkm->housekeeping_interval_min) {
+          pkm_reconfig_start((struct pk_manager*) job.ptr_data);
           pkb_check_tunnels((struct pk_manager*) job.ptr_data);
           last_check_tunnels = time(0);
+          pkm_reconfig_stop((struct pk_manager*) job.ptr_data);
         }
         break;
       case PK_ACCEPT_LUA:

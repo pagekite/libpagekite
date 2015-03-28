@@ -24,12 +24,12 @@ Note: For alternate license terms, see the file COPYING.md.
 #define _PAGEKITEC_DLL_H
 
 #ifdef ANDROID
-#define PK_VERSION "0.90.150224A"
+#define PK_VERSION "0.90.150327A"
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.90.150224W"
+#define PK_VERSION "0.90.150327W"
 #else
-#define PK_VERSION "0.90.150224C"
+#define PK_VERSION "0.90.150327C"
 #endif
 #endif
 
@@ -41,6 +41,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_WITH_IPV6                 0x0004
 #define PK_WITH_SERVICE_FRONTENDS    0x0008
 #define PK_WITHOUT_SERVICE_FRONTENDS 0x0010
+#define PK_WITH_DYNAMIC_FE_LIST      0x0020
 
 /* PageKite logging constants */
 #define PK_LOG_TUNNEL_DATA     0x000100
@@ -116,6 +117,10 @@ DECLSPEC_DLL int pagekite_add_kite(pagekite_mgr,
   int lport);
 
 DECLSPEC_DLL int pagekite_add_service_frontends(pagekite_mgr pkm, int);
+DECLSPEC_DLL int pagekite_lookup_and_add_frontend(pagekite_mgr,
+  const char* domain,
+  int port,
+  int update_from_dns);
 DECLSPEC_DLL int pagekite_add_frontend(pagekite_mgr,
   const char* domain,
   int port);

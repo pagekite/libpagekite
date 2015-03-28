@@ -32,7 +32,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 
-#define PK_DEFAULT_FLAGS (PK_WITH_SSL | PK_WITH_IPV4 | PK_WITH_IPV6)
+#define PK_DEFAULT_FLAGS (PK_WITH_SSL | PK_WITH_IPV4 | PK_WITH_IPV6 | \
+                          PK_WITH_DYNAMIC_FE_LIST)
 
 
 static struct pk_manager* PK_MANAGER(pagekite_mgr pkm) {
@@ -143,19 +144,22 @@ int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
 #ifdef HAVE_IPV6
   int fes_v6 = 0;
 #endif
+  int add_null_records;
 
   if (flags == PK_WITH_DEFAULTS) flags = PK_DEFAULT_FLAGS;
+  add_null_records = (flags & PK_WITH_DYNAMIC_FE_LIST);
 
   if (((flags & PK_WITH_IPV4) &&
-       (0 > (fes_v4 = pkm_add_frontend(PK_MANAGER(pkm),
-                                       PAGEKITE_NET_V4FRONTENDS,
-                                       FE_STATUS_AUTO))))
+       (0 > (fes_v4 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
+                                                  PAGEKITE_NET_V4FRONTENDS,
+                                                  FE_STATUS_AUTO,
+                                                  add_null_records))))
 #ifdef HAVE_IPV6
-         ||
-       ((flags & PK_WITH_IPV4) &&
-        (0 > (fes_v6 = pkm_add_frontend(PK_MANAGER(pkm),
-                                        PAGEKITE_NET_V6FRONTENDS,
-                                        FE_STATUS_AUTO))))
+  ||  ((flags & PK_WITH_IPV6) &&
+       (0 > (fes_v6 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
+                                                  PAGEKITE_NET_V6FRONTENDS,
+                                                  FE_STATUS_AUTO,
+                                                  add_null_records))))
 #endif
   ) {
     return -1;
@@ -267,12 +271,23 @@ int pagekite_add_kite(pagekite_mgr pkm,
           ) ? 0 : -1;
 }
 
+int pagekite_lookup_and_add_frontend(pagekite_mgr pkm,
+  const char* domain,
+  int port,
+  int dns_updates)
+{
+  if (pkm == NULL) return -1;
+  return pkm_lookup_and_add_frontend(PK_MANAGER(pkm), domain, port,
+                                     FE_STATUS_AUTO, dns_updates);
+}
+
 int pagekite_add_frontend(pagekite_mgr pkm,
   const char* domain,
   int port)
 {
   if (pkm == NULL) return -1;
-  return pkm_add_frontend(PK_MANAGER(pkm), domain, port, FE_STATUS_AUTO);
+  return pkm_lookup_and_add_frontend(PK_MANAGER(pkm), domain, port,
+                                     FE_STATUS_AUTO, 0);
 }
 
 int pagekite_add_listener(pagekite_mgr pkm,
