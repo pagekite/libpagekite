@@ -19,6 +19,7 @@
 -- -----------------------------------------------------------------------
 local pklua = {
   version = "unknown",
+  manager = nil,
 
   -- Global limits enforced by our simplistic HTTP daemon, to
   -- thwart RAM based DOS attacks (or bugs).
@@ -36,7 +37,7 @@ function pklua:_enable_defaults(enable)
         self:log_debug('Disabling plugin '..name)
         plugin.settings = nil
       end
-    end 
+    end
   end
 end
 function pklua:_set_setting(plugin_setting)
@@ -186,7 +187,7 @@ function pklua:test()
   handler = httpd:handler(fake_socket)
   while handler:get_request() do
     handler:respond("text/html",
-                    "<html><body><h1>Hello!</h1></body></html>\n") 
+                    "<html><body><h1>Hello!</h1></body></html>\n")
   end
   handler:close()
 end

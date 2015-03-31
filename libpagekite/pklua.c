@@ -17,7 +17,7 @@ If not, see: <http://www.apache.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 
 *******************************************************************************
-How it works:
+How it should work:
 
    - The Main event loop owns the "master Lua context".
    - Each blocker thread has their own secondary Lua context.
@@ -83,7 +83,7 @@ int _pklua_lua_socket_get_sockfd(lua_State* L)
       return sockfd;
     }
     lua_remove(L, -1);
-  } 
+  }
   lua_pushstring(L, "Incorrect arguments");
   lua_error(L);
   return -1;
@@ -104,7 +104,7 @@ void _pklua_lua_socket_get_buffer(lua_State* L,
       return;
     }
     lua_remove(L, -1);
-  } 
+  }
   lua_pushstring(L, "Incorrect arguments");
   lua_error(L);
 }
@@ -207,7 +207,7 @@ int pklua_lua_socket_recv(lua_State *L)
     int read_bytes = wantbytes ? (wantbytes - read_buffer.length) : 4096;
     if (read_bytes > 4096) read_bytes = 4096;
     while ((read_bytes = PKS_read(sockfd, sock_input, read_bytes)) < 0) {
-       /* Is this really an error? */      
+       /* Is this really an error? */
        if ((errno != 0) && (errno != EINTR) && (errno != EAGAIN)) break;
     }
     /* If EOF, return buffer contents */
@@ -255,7 +255,7 @@ int pklua_lua_pkm_add_socket_server(lua_State *L)
       !lua_isnumber(L, 4)) {
     lua_pushstring(L, "Incorrect arguments");
     return lua_error(L);
-  } 
+  }
   lua_getfield(L, 1, "_pkm");
   if (!lua_islightuserdata(L, -1)) {
     lua_pushstring(L, "Incorrect arguments");
@@ -269,7 +269,7 @@ int pklua_lua_pkm_add_socket_server(lua_State *L)
   int port = lua_tointeger(L, 4);
 
   pklua_socket_server_cb_data* data = malloc(sizeof(pklua_socket_server_cb_data)
-                                             + strlen(name) + 1); 
+                                             + strlen(name) + 1);
   strcpy(data->name, name);
   data->pkm = pkm;
   int lport = pkm_add_listener(pkm, host, port,
@@ -286,6 +286,59 @@ int pklua_lua_pkm_add_socket_server(lua_State *L)
     lua_pushstring(L, "Failed to add listener");
     return lua_error(L);
   }
+}
+
+int pklua_lua_pkm_get_vars(lua_State* L)
+{
+  struct pk_global_state* state = &pk_state;
+
+  pk_log(PK_LOG_LUA_DEBUG, "pklua_lua_pkm_get_vars(%p)", L);
+  int n = lua_gettop(L);
+  if (n != 1 || !lua_istable(L, 1)) {
+    lua_pushstring(L, "Incorrect arguments");
+    return lua_error(L);
+  }
+  lua_getfield(L, 1, "_pkm");
+  if (!lua_islightuserdata(L, -1)) {
+    lua_pushstring(L, "Incorrect arguments");
+    return lua_error(L);
+  }
+
+  struct pk_manager* manager = lua_touserdata(L, -1);
+  lua_remove(L, -1);
+
+  lua_newtable(L);
+  lua_pushstring(L, PK_VERSION);
+  lua_setfield(L, -2, "libpagekite_version");
+  #define PKM_INT(s, n) lua_pushinteger(L, s->n);\
+                        lua_setfield(L, -2, #s"_"#n)
+  #define PKM_STR(s, n) lua_pushstring(L, (s->n == NULL) ? "(null)" : s->n);\
+                        lua_setfield(L, -2, #s"_"#n)
+  PKM_INT(manager, status);
+  PKM_INT(manager, last_world_update);
+  PKM_INT(manager, next_tick);
+  PKM_INT(manager, enable_timer);
+  PKM_INT(manager, last_dns_update);
+  PKM_INT(manager, kite_max);
+  PKM_INT(manager, tunnel_max);
+  PKM_INT(manager, be_conn_max);
+  PKM_INT(manager, fancy_pagekite_net_rejection);
+  PKM_INT(manager, enable_watchdog);
+  PKM_INT(manager, want_spare_frontends);
+  PKM_INT(manager, housekeeping_interval_min);
+  PKM_INT(manager, housekeeping_interval_max);
+  PKM_INT(manager, check_world_interval);
+  PKM_STR(manager, dynamic_dns_url);
+  PKM_INT(state, live_streams);
+  PKM_INT(state, live_tunnels);
+  PKM_INT(state, live_listeners);
+  PKM_STR(state, app_id_short);
+  PKM_STR(state, app_id_long);
+  PKM_INT(state, quota_days);
+  PKM_INT(state, quota_conns);
+  PKM_INT(state, quota_mb);
+
+  return 1;
 }
 
 
@@ -325,6 +378,7 @@ void pklua_wrap_pk_manager(lua_State* L, struct pk_manager* pkm)
 {
   static const luaL_Reg pkm_methods[] = {
     { "_add_socket_server", pklua_lua_pkm_add_socket_server },
+    { "get_vars",           pklua_lua_pkm_get_vars },
     { NULL,                 NULL }
   };
   lua_newtable(L);
@@ -333,7 +387,7 @@ void pklua_wrap_pk_manager(lua_State* L, struct pk_manager* pkm)
   for (const luaL_Reg* reg = pkm_methods; reg->func != NULL; reg++) {
     lua_pushcfunction(L, reg->func);
     lua_setfield(L, -2, reg->name);
-  } 
+  }
 }
 
 
@@ -357,12 +411,14 @@ lua_State* pklua_get_lua(struct pk_manager* pkm) {
     /* Add some native methods, register as pklua */
     for (reg = pklua_methods; reg->func != NULL; reg++) {
       luaL_register(L, NULL, reg);
-    } 
+    }
     lua_setglobal(L, "pklua");
 
     lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
     lua_pushstring(L, PK_VERSION);
     lua_setfield(L, -2, "version");
+    pklua_wrap_pk_manager(L, pkm);
+    lua_setfield(L, -2, "manager");
     lua_remove(L, -1);
 
     pklua_configure(L, pkm);
