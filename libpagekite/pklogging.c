@@ -27,6 +27,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #endif
 
 #include "utils.h"
+#include "pkhooks.h"
 #include "pkstate.h"
 #include "pkerror.h"
 #include "pkconn.h"
@@ -58,7 +59,7 @@ int pk_log(int level, const char* fmt, ...)
     len += (r = vsnprintf(output + len, 4000 - len, fmt, args));
     va_end(args);
 
-    if (r > 0) {
+    if ((r > 0) && PK_HOOK(PK_HOOK_LOG, len, output, NULL)) {
       pks_logcopy(output, len);
       log_file = pk_state.log_file; /* Avoid race conditions if it changes. */
       if (log_file != NULL) {

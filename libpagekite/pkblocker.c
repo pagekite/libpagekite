@@ -25,6 +25,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "utils.h"
 #include "pkerror.h"
 #include "pkstate.h"
+#include "pkhooks.h"
 #include "pkconn.h"
 #include "pkproto.h"
 #include "pkblocker.h"
@@ -616,6 +617,7 @@ void* pkb_run_blocker(void *void_pkblocker)
   struct pk_manager* pkm = this->manager;
 
   pk_log(PK_LOG_MANAGER_DEBUG, "Started blocking thread.");
+  PK_HOOK(PK_HOOK_START_BLOCKER, 0, this, pkm);
 
   while (1) {
     pkb_get_job(&(pkm->blocking_jobs), &job);
@@ -625,17 +627,23 @@ void* pkb_run_blocker(void *void_pkblocker)
       case PK_CHECK_WORLD:
         if (time(0) >= last_check_world + pkm->housekeeping_interval_min) {
           pkm_reconfig_start((struct pk_manager*) job.ptr_data);
-          pkb_check_world((struct pk_manager*) job.ptr_data);
-          pkb_check_tunnels((struct pk_manager*) job.ptr_data);
-          last_check_world = last_check_tunnels = time(0);
+          if (PK_HOOK(PK_HOOK_CHECK_WORLD, 0, this, pkm)) {
+            pkb_check_world((struct pk_manager*) job.ptr_data);
+            pkb_check_tunnels((struct pk_manager*) job.ptr_data);
+            last_check_world = last_check_tunnels = time(0);
+            PK_HOOK(PK_HOOK_CHECK_WORLD, 1, this, pkm);
+          }
           pkm_reconfig_stop((struct pk_manager*) job.ptr_data);
         }
         break;
       case PK_CHECK_FRONTENDS:
         if (time(0) >= last_check_tunnels + pkm->housekeeping_interval_min) {
           pkm_reconfig_start((struct pk_manager*) job.ptr_data);
-          pkb_check_tunnels((struct pk_manager*) job.ptr_data);
-          last_check_tunnels = time(0);
+          if (PK_HOOK(PK_HOOK_CHECK_TUNNELS, 0, this, pkm)) {
+            pkb_check_tunnels((struct pk_manager*) job.ptr_data);
+            last_check_tunnels = time(0);
+            PK_HOOK(PK_HOOK_CHECK_TUNNELS, 1, this, pkm);
+          }
           pkm_reconfig_stop((struct pk_manager*) job.ptr_data);
         }
         break;

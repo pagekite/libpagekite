@@ -28,6 +28,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkerror.h"
 #include "pkconn.h"
 #include "pkstate.h"
+#include "pkhooks.h"
 #include "pkproto.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
@@ -158,6 +159,8 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
   PK_TRACE_FUNCTION;
   pk_log_chunk(chunk);
 
+  PK_HOOK(PK_HOOK_CHUNK_INCOMING, 0, chunk, fe);
+
   pkb = NULL;
   if (NULL != chunk->sid) {
     if ((NULL != (pkb = pkm_find_be_conn(fe->manager, fe, chunk->sid))) ||
@@ -213,7 +216,9 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
   }
   else if (NULL != pkb) {
     if (NULL == chunk->eof) {
-      pkc_write(&(pkb->conn), chunk->data, chunk->length);
+      if (PK_HOOK(PK_HOOK_DATA_OUTGOING, chunk->length, chunk->data, pkb)) {
+        pkc_write(&(pkb->conn), chunk->data, chunk->length);
+      }
     }
     else {
       pkm_parse_eof(pkb, chunk->eof);
@@ -872,6 +877,8 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
 
   PK_TRACE_FUNCTION;
   pkw_pet_watchdog();
+
+  PK_HOOK(PK_HOOK_TICK, now, pkm, NULL);
 
   /* First, we look at the state of the world and schedule (or cancel)
    * our next tick. */
@@ -1583,14 +1590,17 @@ void* pkm_run(void *void_pkm)
   }
  */
 
-  pthread_mutex_lock(&(pkm->loop_lock));
-  ev_loop(pkm->loop, 0);
-  pthread_mutex_unlock(&(pkm->loop_lock));
+  if (PK_HOOK(PK_HOOK_START_EV_LOOP, 0, pkm, NULL)) {
+    pthread_mutex_lock(&(pkm->loop_lock));
+    ev_loop(pkm->loop, 0);
+    pthread_mutex_unlock(&(pkm->loop_lock));
+  }
 
   pkb_stop_blockers(pkm);
   if (pkm->enable_watchdog) pkw_stop_watchdog(pkm);
   pkm_reset_manager(pkm);
-  pk_log(PK_LOG_MANAGER_DEBUG, "Event loop exited.");
+  pk_log(PK_LOG_MANAGER_DEBUG, "Event loop and workers stopped.");
+  PK_HOOK(PK_HOOK_STOPPED, 0, pkm, NULL);
   return void_pkm;
 }
 

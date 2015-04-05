@@ -237,11 +237,12 @@ typedef struct pklua_socket_server_cb_data_ {
   char               name[];
 } pklua_socket_server_cb_data;
 
-static void pklua_socket_server_accepted_cb(int sockfd, void* void_data) {
+static int pklua_socket_server_accepted_cb(int sockfd, void* void_data) {
   pk_log(PK_LOG_LUA_DEBUG,
          "pklua_socket_server_accepted_cb(%d, %p)", sockfd, void_data);
   pklua_socket_server_cb_data* data = (pklua_socket_server_cb_data*) void_data;
   pkb_add_job(&(data->pkm->blocking_jobs), PK_ACCEPT_LUA, sockfd, void_data);
+  return 0;
 }
 
 int pklua_lua_pkm_add_socket_server(lua_State *L)

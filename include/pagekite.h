@@ -73,7 +73,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PAGEKITE_NET_LPORT_MAX 1000
 #define PAGEKITE_NET_FE_MAX 25
 
-typedef void (pagekite_callback_t) (int, void*);
+typedef int (pagekite_callback_t) (int, void*);
+typedef int (pagekite_callback2_t) (int, void*, void*);
 
 #ifndef PAGEKITE_CONSTANTS_ONLY
 #ifdef __cplusplus

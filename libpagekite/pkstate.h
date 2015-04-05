@@ -63,7 +63,7 @@ struct pk_global_state {
   int             quota_mb;
 };
 
-#ifdef __IN_PKSTATE_C__
+#ifndef __IN_PKSTATE_C__
 extern struct pk_global_state pk_state;
 #else
 struct pk_global_state pk_state;
@@ -71,6 +71,7 @@ struct pk_global_state pk_state;
 
 #define PKS_STATE(change) { pthread_mutex_lock(&(pk_state.lock)); \
                             change; \
+                            PK_HOOK(PK_HOOK_STATE_CHANGED, 0, &pk_state, NULL); \
                             pthread_cond_broadcast(&(pk_state.cond)); \
                             pthread_mutex_unlock(&(pk_state.lock)); } 
 #define PKS_STATE_LOCK    pthread_mutex_lock(&(pk_state.lock)); {

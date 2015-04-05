@@ -17,10 +17,11 @@ CLINK ?= -L. -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
 TOBJ = sha1_test.o
 
 OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o pklua.o \
-      pklogging.o pkstate.o utils.o pd_sha1.o pkwatchdog.o pagekite.o \
+      pklogging.o pkstate.o pkhooks.o utils.o pd_sha1.o pkwatchdog.o \
+      pagekite.o \
       $(TARGET_OBJ)
-HDRS = common.h utils.h pkstate.h pkconn.h pkerror.h pkproto.h pklogging.h \
-       pkmanager.h pklua.h pd_sha1.h pkwatchdog.h Makefile \
+HDRS = common.h utils.h pkstate.h pkhooks.h pkconn.h pkerror.h pkproto.h \
+       pklogging.h pkmanager.h pklua.h pd_sha1.h pkwatchdog.h Makefile \
        ../include/pagekite.h
 
 ROBJ = pkrelay.o
@@ -117,6 +118,7 @@ pagekite.o: $(HDRS)
 pagekiter.o: $(HDRS) $(RHDRS)
 pagekite-jni.o: $(HDRS)
 pkblocker.o: $(HDRS)
+pkhooks.o: $(HDRS)
 pklua.o: $(HDRS) pklualua.h
 pkconn.o: common.h utils.h pkerror.h pklogging.h
 pkerror.o: common.h utils.h pkerror.h pklogging.h
