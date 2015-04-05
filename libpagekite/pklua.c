@@ -48,6 +48,8 @@ How it should work:
 #include <lua5.1/lauxlib.h>
 #include <lua5.1/lualib.h>
 
+pk_lua_thread_map_t* pk_lua_thread_map = NULL;
+
 
 /*** LUA extensions to interact with libpagekite ****************************/
 
@@ -394,8 +396,35 @@ void pklua_wrap_pk_manager(lua_State* L, struct pk_manager* pkm)
 
 /*** Libpagekite-facing code ************************************************/
 
+lua_State* pklua_get_thread_lua() {
+  pk_lua_thread_map_t* map = pk_lua_thread_map;
+  while (map != NULL) {
+    if (pthread_equal(pthread_self(), map->tid)) return map->lua;
+    map = (pk_lua_thread_map_t*) map->next;
+  }
+  return NULL;
+}
+
+lua_State* pklua_new_thread_lua() {
+  pk_lua_thread_map_t** mapp = &pk_lua_thread_map;
+  while (*mapp != NULL) mapp = (pk_lua_thread_map_t**) &((*mapp)->next);
+  *mapp = malloc(sizeof(pk_lua_thread_map_t));
+  (*mapp)->tid = pthread_self();
+  (*mapp)->lua = lua_open();
+  (*mapp)->next = NULL;
+  return (*mapp)->lua;
+}
+
+/* Returns the Lua object for this thread, or NULL if none exists.
+ * If pkm != NULL, a new Lua object will be created and initialized
+ * instead of returning NULL.
+ */
 lua_State* pklua_get_lua(struct pk_manager* pkm) {
-  lua_State* L = lua_open();
+  lua_State* L = pklua_get_thread_lua();
+  if ((L != NULL) || (pkm == NULL)) return L;
+
+  /* No Lua object found, pkm != NULL => create new Lua state */
+  L = pklua_new_thread_lua();
   const luaL_Reg* reg;
 
   /* FIXME: We would rather not use luaL_openlibs(L), because we probably
@@ -455,13 +484,12 @@ int pklua_configure(lua_State* L, struct pk_manager* pkm)
   return 0;
 }
 
-int pklua_add_listeners(lua_State* L, struct pk_manager* pkm) {
-  pk_log(PK_LOG_LUA_DEBUG, "pklua_add_listeners(%p, %p)", L, pkm);
+int pklua_add_listeners(lua_State* L) {
+  pk_log(PK_LOG_LUA_DEBUG, "pklua_add_listeners(%p)", L);
   lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
   lua_getfield(L, -1, "_configure_socket_servers");
   lua_pushvalue(L, -2);
-  pklua_wrap_pk_manager(L, pkm);
-  lua_call(L, 2, 0);
+  lua_call(L, 1, 0);
   return 0;
 }
 
@@ -472,10 +500,9 @@ void pklua_socket_server_accepted(lua_State* L, int sockfd, void* void_data) {
   lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
   lua_getfield(L, -1, "_socket_server_accept");
   lua_pushvalue(L, -2);
-  pklua_wrap_pk_manager(L, data->pkm);
   lua_pushstring(L, data->name);
   pklua_wrap_sock(L, sockfd);
-  lua_pcall(L, 4, 0, 0);
+  lua_pcall(L, 3, 0, 0);
 }
 
 #endif

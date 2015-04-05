@@ -19,17 +19,25 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 #ifdef HAVE_LUA
 
+typedef struct {
+  pthread_t tid;
+  lua_State* lua;
+  void* next;
+} pk_lua_thread_map_t;
+
+extern pk_lua_thread_map_t* pk_lua_thread_map;
+
 lua_State* pklua_get_lua(struct pk_manager*);
 void pklua_close_lua(lua_State*);
 
 int pklua_configure(lua_State*, struct pk_manager*);
-int pklua_add_listeners(lua_State*, struct pk_manager*);
+int pklua_add_listeners(lua_State*);
 void pklua_socket_server_accepted(lua_State*, int, void*);
 
 #else 
-#define pklua_get_lua(m)                       NULL;
+#define pklua_get_lua(m)                       (m) ? NULL : NULL;
 #define pklua_close_lua(l)                     (void) l;
-#define pklua_configure(l, m)                  (void) m;
-#define pklua_add_listeners(l, m)              (void) m;
-#define pklua_socket_server_accepted(l, s, d)  (void) s;
+#define pklua_configure(l, m)                  (void) l; (void) m;
+#define pklua_add_listeners(l)                 (void) l;
+#define pklua_socket_server_accepted(l, s, d)  (void) l; (void) s; (void) d;
 #endif

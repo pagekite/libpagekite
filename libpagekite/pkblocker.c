@@ -616,8 +616,12 @@ void* pkb_run_blocker(void *void_pkblocker)
   struct pk_blocker* this = (struct pk_blocker*) void_pkblocker;
   struct pk_manager* pkm = this->manager;
 
+  /* Initialize Lua state for this thread/blocker. */
+  if (pkm->lua != NULL) this->lua = pklua_get_lua(pkm);
+
   pk_log(PK_LOG_MANAGER_DEBUG, "Started blocking thread.");
   PK_HOOK(PK_HOOK_START_BLOCKER, 0, this, pkm);
+
 
   while (1) {
     pkb_get_job(&(pkm->blocking_jobs), &job);
@@ -670,9 +674,6 @@ int pkb_start_blockers(struct pk_manager *pkm, int n)
     if (pkm->blocking_threads[i] == NULL) {
       pkm->blocking_threads[i] = malloc(sizeof(struct pk_blocker));
       pkm->blocking_threads[i]->manager = pkm;
-      if (pkm->lua != NULL) {
-        pkm->blocking_threads[i]->lua = pklua_get_lua(pkm);
-      }
       if (0 > pthread_create(&(pkm->blocking_threads[i]->thread), NULL,
                              pkb_run_blocker,
                              (void *) pkm->blocking_threads[i])) {

@@ -1575,7 +1575,7 @@ void* pkm_run(void *void_pkm)
 
   if (0 == pkm_configure_lua(pkm)) {
     /* Ask Lua to configure listeners */
-    pklua_add_listeners(pkm->lua, pkm);
+    pklua_add_listeners(pkm->lua);
   };
 
 /*

@@ -59,18 +59,18 @@ function pklua:add_socket_server(name, about, settings, func)
     callback = func
   }
 end
-function pklua:_configure_socket_servers(pkm)
+function pklua:_configure_socket_servers()
   for name, plugin in pairs(self.plugins) do
     if plugin.plugin_type == 'socket_server' and plugin.settings then
       host, port = plugin.settings:match("^(.+):(.+)$")
       if host == nil or port == nil then
         host, port = 'localhost', plugin.settings
       end
-      pkm:_add_socket_server(name, host, tonumber(port))
+      self.manager:_add_socket_server(name, host, tonumber(port))
     end
   end
 end
-function pklua:_socket_server_accept(pkm, name, sock)
+function pklua:_socket_server_accept(name, sock)
   -- FIXME: Rewrite this to use coroutines, so our main event loop
   --        can handle this stuff too?
   plugin = self.plugins[name]
