@@ -288,6 +288,46 @@ void digest_to_hex(const unsigned char* digest, char *output)
     *c = '\0';
 }
 
+void pk_rlock_init(pk_rlock_t* rlock)
+{
+  rlock->count = 0;
+  rlock->owner = pthread_self();
+  pthread_mutex_init(&(rlock->check_lock), NULL);
+  pthread_mutex_init(&(rlock->lock_lock), NULL);
+}
+
+void pk_rlock_lock(pk_rlock_t* rlock)
+{
+  pthread_mutex_lock(&(rlock->check_lock));
+  if (!pthread_equal(pthread_self(), rlock->owner)) {
+    pthread_mutex_unlock(&(rlock->check_lock));
+    pthread_mutex_lock(&(rlock->lock_lock));
+    pthread_mutex_lock(&(rlock->check_lock));
+    rlock->owner = pthread_self();
+    rlock->count = 0;
+  }
+  rlock->count += 1;
+  pthread_mutex_unlock(&(rlock->check_lock));
+}
+
+void pk_rlock_unlock(pk_rlock_t* rlock)
+{
+  pthread_mutex_lock(&(rlock->check_lock));
+  if (pthread_equal(pthread_self(), rlock->owner)) {
+    rlock->count -= 1;
+    if (rlock->count < 1) {
+      rlock->count = 0;
+      pthread_mutex_unlock(&(rlock->lock_lock));
+    }
+  }
+  else {
+    /* Allow other threads to force the release of the lock */
+    pthread_mutex_unlock(&(rlock->lock_lock));
+    rlock->count = 0;
+  }
+  pthread_mutex_unlock(&(rlock->check_lock));
+}
+
 #if PK_MEMORY_CANARIES
 #define MAX_CANARIES 102400
 void** canaries[MAX_CANARIES];

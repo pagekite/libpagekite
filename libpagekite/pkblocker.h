@@ -47,7 +47,7 @@ struct pk_job_pile {
 
 struct pk_blocker {
   pthread_t          thread;
-  lua_State*         lua;
+  pk_lua_t*          lua;
   struct pk_manager* manager;
 };
 

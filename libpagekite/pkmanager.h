@@ -103,8 +103,7 @@ struct pk_manager {
   struct pk_tunnel*        tunnels;
   struct pk_backend_conn*  be_conns;
 
-  lua_State*               lua;
-  pthread_mutex_t          lua_lock;
+  pk_lua_t*                lua;
   unsigned int             lua_enable_defaults:1;
   const char**             lua_settings;
 

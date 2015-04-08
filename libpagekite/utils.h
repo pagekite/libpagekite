@@ -32,6 +32,9 @@ char *in_addr_to_str(const struct sockaddr*, char*, size_t);
 int addrcmp(const struct sockaddr *, const struct sockaddr *);
 int http_get(const char*, char*, size_t);
 void digest_to_hex(const unsigned char* digest, char *output);
+void pk_rlock_init(pk_rlock_t*);
+void pk_rlock_lock(pk_rlock_t*);
+void pk_rlock_unlock(pk_rlock_t*);
 
 #if PK_MEMORY_CANARIES
 # define PK_MEMORY_CANARY           void* canary;

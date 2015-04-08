@@ -27,8 +27,9 @@ local pklua = {
   max_http_headers = 100,
   max_http_upload_bytes = 10 * 1024 * 1024,
 
-  -- Plugin registry!
-  plugins = {}
+  -- Plugin & hook registry!
+  plugins = {},
+  hooks = {}
 }
 function pklua:_enable_defaults(enable)
   if not enable then
@@ -49,14 +50,43 @@ function pklua:_set_setting(plugin_setting)
     self:log_error('No such plugin: '..name)
   end
 end
+function pklua:_init_plugins()
+  for name, plugin in pairs(self.plugins) do
+    if plugin.settings ~= nil and plugin.init ~= nil then
+      plugin.init()
+      self:log_debug('Initialized plugin '..name)
+    end
+  end
+end
+
+-- These routines have to do with hooks and callbacks -----------------
+function pklua:_hook_bridge(hook_id, iv1, pv1, pv2)
+  if self.hooks[hook_id] ~= nil then
+    return self.hooks[hook_id](hook_id, iv1, pv1, pv2)
+  else
+    return -1
+  end
+end
+function pklua:add_hook(hook_name, func)
+  hook_id = self:get_hook_list()[hook_name]
+  if hook_id ~= nil then
+    self.hooks[hook_id] = func
+    self:_bridge_hook_to_lua(hook_id)
+    self:log_debug('Registered lua bridge for hook '..hook_name..'='..hook_id)
+  else
+    self:log_error('No such hook: '..hook_name)
+  end
+end
+
 
 -- These routines have to do with socket_server plugins -----------------
-function pklua:add_socket_server(name, about, settings, func)
+function pklua:add_socket_server(name, about, settings, init, handler)
   self.plugins[name] = {
     plugin_type = 'socket_server',
+    init = init,
     about = about,
     settings = tostring(settings),
-    callback = func
+    callback = handler
   }
 end
 function pklua:_configure_socket_servers()

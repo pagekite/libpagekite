@@ -60,5 +60,5 @@ pagekite_callback2_t* pk_hooks[PK_HOOK_MAX] = {
 /* This macro will return -1 (a true value) if the hook is undefined,
  * or the return value of the callback function itself. */
 #define PK_HOOK(n, i, p1, p2) \
-        ((pk_hooks[n] == NULL) ? -1 : (pk_hooks[n])(i, p1, p2))
+        ((pk_hooks[n] == NULL) ? -1 : (pk_hooks[n])(n, i, p1, p2))
 

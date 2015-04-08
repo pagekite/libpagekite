@@ -1517,8 +1517,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   /* Prepare lua */
   pkm->lua_enable_defaults = 1;
   pkm->lua_settings = NULL;
-  pkm->lua = pklua_get_lua(pkm);
-  pthread_mutex_init(&(pkm->lua_lock), NULL);
+  pkm->lua = pklua_unlock_lua(pklua_get_locked_lua(pkm));
 
   /* SIGPIPE is boring */
 #ifndef _MSC_VER
@@ -1570,6 +1569,8 @@ void* pkm_run(void *void_pkm)
 {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
+  if (pkm->lua) pklua_set_thread_lua(pkm->lua);
+
   if (pkm->enable_watchdog) pkw_start_watchdog(pkm);
   pkb_start_blockers(pkm, pkm->lua_enable_defaults ? 5 : 1);
 
@@ -1598,9 +1599,12 @@ void* pkm_run(void *void_pkm)
 
   pkb_stop_blockers(pkm);
   if (pkm->enable_watchdog) pkw_stop_watchdog(pkm);
-  pkm_reset_manager(pkm);
   pk_log(PK_LOG_MANAGER_DEBUG, "Event loop and workers stopped.");
   PK_HOOK(PK_HOOK_STOPPED, 0, pkm, NULL);
+
+  if (pkm->lua) pklua_remove_thread_lua();
+  pkm_reset_manager(pkm);
+
   return void_pkm;
 }
 

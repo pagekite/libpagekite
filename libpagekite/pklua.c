@@ -32,6 +32,7 @@ How it should work:
 
 #include "common.h"
 #include "utils.h"
+#include "pkhooks.h"
 #include "pkstate.h"
 #include "pkerror.h"
 #include "pkconn.h"
@@ -48,7 +49,8 @@ How it should work:
 #include <lua5.1/lauxlib.h>
 #include <lua5.1/lualib.h>
 
-pk_lua_thread_map_t* pk_lua_thread_map = NULL;
+pk_lua_t*        pk_lua_thread_map = NULL;
+pthread_mutex_t* pk_lua_thread_map_lock = NULL;
 
 
 /*** LUA extensions to interact with libpagekite ****************************/
@@ -86,7 +88,7 @@ int _pklua_lua_socket_get_sockfd(lua_State* L)
     }
     lua_remove(L, -1);
   }
-  lua_pushstring(L, "Incorrect arguments");
+  lua_pushstring(L, "Incorrect arguments in get_sockfd");
   lua_error(L);
   return -1;
 }
@@ -107,7 +109,7 @@ void _pklua_lua_socket_get_buffer(lua_State* L,
     }
     lua_remove(L, -1);
   }
-  lua_pushstring(L, "Incorrect arguments");
+  lua_pushstring(L, "Incorrect arguments in socket_get_buffer");
   lua_error(L);
 }
 void _pklua_lua_socket_free_buffer(lua_State* L, int stack_pos)
@@ -153,7 +155,7 @@ int pklua_lua_socket_send(lua_State* L)
     lua_pushinteger(L, data_len);
     return 1;
   }
-  lua_pushstring(L, "Incorrect arguments");
+  lua_pushstring(L, "Incorrect arguments in socket_send");
   lua_error(L);
   return -1;
 }
@@ -256,12 +258,12 @@ int pklua_lua_pkm_add_socket_server(lua_State *L)
       !lua_isstring(L, 2) ||
       !lua_isstring(L, 3) ||
       !lua_isnumber(L, 4)) {
-    lua_pushstring(L, "Incorrect arguments");
+    lua_pushstring(L, "Incorrect arguments in add_socket_server");
     return lua_error(L);
   }
   lua_getfield(L, 1, "_pkm");
   if (!lua_islightuserdata(L, -1)) {
-    lua_pushstring(L, "Incorrect arguments");
+    lua_pushstring(L, "Incorrect arguments in add_socket_server (2)");
     return lua_error(L);
   }
 
@@ -291,19 +293,19 @@ int pklua_lua_pkm_add_socket_server(lua_State *L)
   }
 }
 
-int pklua_lua_pkm_get_vars(lua_State* L)
+int pklua_lua_pkm_get_metrics(lua_State* L)
 {
   struct pk_global_state* state = &pk_state;
 
-  pk_log(PK_LOG_LUA_DEBUG, "pklua_lua_pkm_get_vars(%p)", L);
+  pk_log(PK_LOG_LUA_DEBUG, "pklua_lua_pkm_get_metrics(%p)", L);
   int n = lua_gettop(L);
   if (n != 1 || !lua_istable(L, 1)) {
-    lua_pushstring(L, "Incorrect arguments");
+    lua_pushstring(L, "Incorrect arguments in get_metrics");
     return lua_error(L);
   }
   lua_getfield(L, 1, "_pkm");
   if (!lua_islightuserdata(L, -1)) {
-    lua_pushstring(L, "Incorrect arguments");
+    lua_pushstring(L, "Incorrect arguments in get_metrics (2)");
     return lua_error(L);
   }
 
@@ -344,18 +346,77 @@ int pklua_lua_pkm_get_vars(lua_State* L)
   return 1;
 }
 
+int pklua_hook_bridge(int hook_id, int iv, void* p1, void* p2);
+int pklua_lua_pklua_bridge_hook_to_lua(lua_State *L)
+{
+  pk_log(PK_LOG_LUA_DEBUG, "pklua_lua_pklua_bridge_hook_to_lua(%p)", L);
+  int n = lua_gettop(L);
+  if (n != 2 ||
+      !lua_istable(L, 1) ||
+      !lua_isnumber(L, 2)) {
+    lua_pushstring(L, "Incorrect arguments in bridge_hook_to_lua");
+    return lua_error(L);
+  }
+  int hook_id = lua_tointeger(L, 2);
+  lua_remove(L, 1);
+  lua_remove(L, 1);
+
+  pagekite_callback2_t* cb = &pklua_hook_bridge;
+  if ((hook_id < 0) ||
+      (hook_id >= PK_HOOK_MAX) ||
+      ((pk_hooks[hook_id] != NULL) && (pk_hooks[hook_id] != cb))) {
+    pk_log(PK_LOG_ERROR, "Hook invalid or already registered: %d", hook_id);
+    lua_pushstring(L, "Hook invalid or already registered");
+    return lua_error(L);
+  }
+
+  pk_hooks[hook_id] = cb;
+  return 0;
+}
+
+int pklua_lua_pklua_get_hook_list(lua_State* L)
+{
+  pk_log(PK_LOG_LUA_DEBUG, "pklua_lua_pklua_get_hook_list(%p)", L);
+
+  lua_newtable(L);
+  #define PKM_HOOK(n) lua_pushinteger(L, n); lua_setfield(L, -2, #n)
+  PKM_HOOK(PK_HOOK_STOPPED);
+  PKM_HOOK(PK_HOOK_START_EV_LOOP);
+  PKM_HOOK(PK_HOOK_START_BLOCKER);
+  PKM_HOOK(PK_HOOK_LOG);
+  PKM_HOOK(PK_HOOK_TICK);
+  PKM_HOOK(PK_HOOK_CHECK_WORLD);
+  PKM_HOOK(PK_HOOK_CHECK_TUNNELS);
+  PKM_HOOK(PK_HOOK_STATE_CHANGED);
+  PKM_HOOK(PK_HOOK_BE_CONN_WRAP);
+  PKM_HOOK(PK_HOOK_FE_CONN_WRAP);
+  PKM_HOOK(PK_HOOK_BE_CONN_OPENED);
+  PKM_HOOK(PK_HOOK_BE_CONN_CLOSED);
+  PKM_HOOK(PK_HOOK_FE_CONN_OPENED);
+  PKM_HOOK(PK_HOOK_FE_CONN_CLOSED);
+  PKM_HOOK(PK_HOOK_FE_DISCONNECT);
+  PKM_HOOK(PK_HOOK_CHUNK_INCOMING);
+  PKM_HOOK(PK_HOOK_CHUNK_OUTGOING);
+  PKM_HOOK(PK_HOOK_DATA_INCOMING);
+  PKM_HOOK(PK_HOOK_DATA_OUTGOING);
+
+  return 1;
+}
+
 
 /*** Internals **************************************************************/
 
 static const luaL_Reg pklua_methods[] = {
-  { "log_error", pklua_lua_pklua_log_error },
-  { "log_debug", pklua_lua_pklua_log_debug },
-  { "log",       pklua_lua_pklua_log },
+  { "log_error",           pklua_lua_pklua_log_error },
+  { "log_debug",           pklua_lua_pklua_log_debug },
+  { "log",                 pklua_lua_pklua_log },
+  { "_bridge_hook_to_lua", pklua_lua_pklua_bridge_hook_to_lua },
+  { "get_hook_list",       pklua_lua_pklua_get_hook_list },
   { NULL,        NULL }
 };
 
 /* Create a Lua object wrapper around a socket, push onto the Lua stack */
-void pklua_wrap_sock(lua_State* L, int sockfd)
+void _pklua_wrap_sock(lua_State* L, int sockfd)
 {
   static const luaL_Reg sock_methods[] = {
     { "__gc",    pklua_lua_socket_close },
@@ -377,11 +438,11 @@ void pklua_wrap_sock(lua_State* L, int sockfd)
 }
 
 /* Create a Lua object wrapper around a pkmanager, push onto the Lua stack */
-void pklua_wrap_pk_manager(lua_State* L, struct pk_manager* pkm)
+void _pklua_wrap_pk_manager(lua_State* L, struct pk_manager* pkm)
 {
   static const luaL_Reg pkm_methods[] = {
     { "_add_socket_server", pklua_lua_pkm_add_socket_server },
-    { "get_vars",           pklua_lua_pkm_get_vars },
+    { "get_metrics",        pklua_lua_pkm_get_metrics },
     { NULL,                 NULL }
   };
   lua_newtable(L);
@@ -396,75 +457,82 @@ void pklua_wrap_pk_manager(lua_State* L, struct pk_manager* pkm)
 
 /*** Libpagekite-facing code ************************************************/
 
-lua_State* pklua_get_thread_lua() {
-  pk_lua_thread_map_t* map = pk_lua_thread_map;
-  while (map != NULL) {
-    if (pthread_equal(pthread_self(), map->tid)) return map->lua;
-    map = (pk_lua_thread_map_t*) map->next;
+static pk_lua_t* get_thread_lua()
+{
+  /* FIXME: Configuring the thread list lock this way is a potential race.
+     However, in practice the master "setup" thread should invoke this well
+     before forking off any other threads, so not too worried. */
+  if (pk_lua_thread_map_lock == NULL) {
+    pk_lua_thread_map_lock = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(pk_lua_thread_map_lock, NULL);
   }
+
+  pthread_mutex_lock(pk_lua_thread_map_lock);
+  pk_lua_t* map = pk_lua_thread_map;
+  while (map != NULL) {
+    if (pthread_equal(pthread_self(), map->tid)) {
+      pthread_mutex_unlock(pk_lua_thread_map_lock);
+      return map;
+    }
+    map = (pk_lua_t*) map->next;
+  }
+  pthread_mutex_unlock(pk_lua_thread_map_lock);
   return NULL;
 }
 
-lua_State* pklua_new_thread_lua() {
-  pk_lua_thread_map_t** mapp = &pk_lua_thread_map;
-  while (*mapp != NULL) mapp = (pk_lua_thread_map_t**) &((*mapp)->next);
-  *mapp = malloc(sizeof(pk_lua_thread_map_t));
-  (*mapp)->tid = pthread_self();
-  (*mapp)->lua = lua_open();
-  (*mapp)->next = NULL;
-  return (*mapp)->lua;
-}
+static pk_lua_t* pklua_new_thread_lua(pk_lua_t* src)
+{
+  pthread_mutex_lock(pk_lua_thread_map_lock);
 
-/* Returns the Lua object for this thread, or NULL if none exists.
- * If pkm != NULL, a new Lua object will be created and initialized
- * instead of returning NULL.
- */
-lua_State* pklua_get_lua(struct pk_manager* pkm) {
-  lua_State* L = pklua_get_thread_lua();
-  if ((L != NULL) || (pkm == NULL)) return L;
+  pk_lua_t** mapp = &pk_lua_thread_map;
+  while (*mapp != NULL) mapp = (pk_lua_t**) &((*mapp)->next);
 
-  /* No Lua object found, pkm != NULL => create new Lua state */
-  L = pklua_new_thread_lua();
-  const luaL_Reg* reg;
-
-  /* FIXME: We would rather not use luaL_openlibs(L), because we probably
-   *        want a stricter sandbox? */;
-  luaL_openlibs(L);
-
-  /* Load compiled-in pklua.lua + plugins */
-  if ((0 != luaL_loadstring(L, pklualua)) ||
-      (0 != lua_pcall(L, 0, LUA_MULTRET, 0))) {
-    pk_log(PK_LOG_ERROR, "Lua init failed: %s", lua_tostring(L, -1));
-    return NULL;
+  pk_lua_t* map = *mapp = malloc(sizeof(pk_lua_t));
+  if (src == NULL) {
+    map->lock = malloc(sizeof(pk_rlock_t));
+    pk_rlock_init(map->lock);
   }
   else {
-    /* Add some native methods, register as pklua */
-    for (reg = pklua_methods; reg->func != NULL; reg++) {
-      luaL_register(L, NULL, reg);
-    }
-    lua_setglobal(L, "pklua");
-
-    lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
-    lua_pushstring(L, PK_VERSION);
-    lua_setfield(L, -2, "version");
-    pklua_wrap_pk_manager(L, pkm);
-    lua_setfield(L, -2, "manager");
-    lua_remove(L, -1);
-
-    pklua_configure(L, pkm);
-    luaL_dostring(L, "pklua:log('Loaded pklua.lua v' .. pklua.version);");
+    map->lock = src->lock;
   }
+  pklua_lock_lua(map);
 
-  return L;
+  map->tid = pthread_self();
+  map->lua = (src == NULL) ? lua_open() : src->lua;
+  map->is_copy = (src != NULL);
+  map->next = NULL;
+
+  pthread_mutex_unlock(pk_lua_thread_map_lock);
+  return map;
 }
 
-void pklua_close_lua(lua_State* L)
+void pklua_free_thread_lua(pk_lua_t* map)
 {
-  if (L != NULL) lua_close(L);
+  pthread_mutex_lock(pk_lua_thread_map_lock);
+  pklua_lock_lua(map);
+
+  pk_lua_t** mapp = &pk_lua_thread_map;
+  while (*mapp != NULL) {
+    if (*mapp == map) {
+      pk_lua_t* mapn = map->next;
+      if (!map->is_copy) {
+        free(map->lock);
+        lua_close(map->lua);
+      }
+      free(map);
+      *mapp = mapn;
+      pthread_mutex_unlock(pk_lua_thread_map_lock);
+      return;
+    }
+    mapp = (pk_lua_t**) &((*mapp)->next);
+  }
+  pthread_mutex_unlock(pk_lua_thread_map_lock);
 }
 
-int pklua_configure(lua_State* L, struct pk_manager* pkm)
+int pklua_configure(pk_lua_t *PL, struct pk_manager* pkm)
 {
+  lua_State* L = pklua_lock_lua(PL)->lua;
+
   pk_log(PK_LOG_LUA_DEBUG, "pklua_configure(%p, %p)", L, pkm);
   lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
 
@@ -480,20 +548,105 @@ int pklua_configure(lua_State* L, struct pk_manager* pkm)
     lua_call(L, 2, 0);
   }
 
+  lua_getfield(L, -1, "_init_plugins");
+  lua_pushvalue(L, -2);
+  lua_call(L, 1, 0);
+
   lua_remove(L, -1);
+
+  pklua_unlock_lua(PL);
   return 0;
 }
 
-int pklua_add_listeners(lua_State* L) {
+/* Returns the Lua object for this thread, or NULL if none exists.
+ * If pkm != NULL, a new Lua object will be created and initialized
+ * instead of returning NULL.
+ */
+pk_lua_t* pklua_get_unlocked_lua(struct pk_manager* pkm)
+{
+  pk_lua_t* PL = get_thread_lua();
+  if ((PL != NULL) || (pkm == NULL)) return PL;
+
+  /* No Lua object found, pkm != NULL => create new Lua state */
+  PL = pklua_new_thread_lua(NULL);
+  lua_State* L = PL->lua;
+  const luaL_Reg* reg;
+
+  /* FIXME: We would rather not use luaL_openlibs(L), because we probably
+   *        want a stricter sandbox? */;
+  luaL_openlibs(L);
+
+  /* Load compiled-in pklua.lua + plugins */
+  if ((0 != luaL_loadstring(L, pklualua)) ||
+      (0 != lua_pcall(L, 0, LUA_MULTRET, 0))) {
+    pk_log(PK_LOG_ERROR, "Lua init failed: %s", lua_tostring(L, -1));
+    pklua_unlock_lua(PL);
+    return NULL;
+  }
+
+  /* Add some native methods, register as pklua */
+  for (reg = pklua_methods; reg->func != NULL; reg++) {
+    luaL_register(L, NULL, reg);
+  }
+  lua_setglobal(L, "pklua");
+
+  lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
+  lua_pushstring(L, PK_VERSION);
+  lua_setfield(L, -2, "version");
+  _pklua_wrap_pk_manager(L, pkm);
+  lua_setfield(L, -2, "manager");
+  lua_remove(L, -1);
+
+  pklua_configure(pklua_unlock_lua(PL), pkm);
+  pklua_lock_lua(PL);
+  luaL_dostring(L, "pklua:log('Loaded pklua.lua v' .. pklua.version);");
+
+  return pklua_unlock_lua(PL);
+}
+pk_lua_t* pklua_get_locked_lua(struct pk_manager* pkm)
+{
+  return pklua_lock_lua(pklua_get_unlocked_lua(pkm));
+}
+
+pk_lua_t* pklua_lock_lua(pk_lua_t* PL) {
+  if (PL != NULL) pk_rlock_lock(PL->lock);
+  return PL;
+}
+
+pk_lua_t* pklua_unlock_lua(pk_lua_t* PL) {
+  if (PL != NULL) pk_rlock_unlock(PL->lock);
+  return PL;
+}
+
+void pklua_close_lua(pk_lua_t* PL)
+{
+  if (PL != NULL) pklua_free_thread_lua(PL);
+}
+
+void pklua_set_thread_lua(pk_lua_t* PL)
+{
+  assert(NULL == get_thread_lua());
+  pklua_unlock_lua(pklua_new_thread_lua(PL));
+}
+
+void pklua_remove_thread_lua()
+{
+  pklua_free_thread_lua(pklua_unlock_lua(pklua_get_locked_lua(NULL)));
+}
+
+int pklua_add_listeners(pk_lua_t* PL) {
+  lua_State* L = pklua_lock_lua(PL)->lua;
   pk_log(PK_LOG_LUA_DEBUG, "pklua_add_listeners(%p)", L);
   lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
   lua_getfield(L, -1, "_configure_socket_servers");
   lua_pushvalue(L, -2);
-  lua_call(L, 1, 0);
-  return 0;
+  int rv = lua_pcall(L, 1, 0, 0);
+  pklua_unlock_lua(PL);
+  return rv;
 }
 
-void pklua_socket_server_accepted(lua_State* L, int sockfd, void* void_data) {
+void pklua_socket_server_accepted(pk_lua_t* PL, int sockfd, void* void_data) {
+  lua_State* L = pklua_lock_lua(PL)->lua;
   pk_log(PK_LOG_LUA_DEBUG,
          "pklua_socket_server_accepted(%p, %d, %p)", L, sockfd, void_data);
   pklua_socket_server_cb_data* data = (pklua_socket_server_cb_data*) void_data;
@@ -501,8 +654,36 @@ void pklua_socket_server_accepted(lua_State* L, int sockfd, void* void_data) {
   lua_getfield(L, -1, "_socket_server_accept");
   lua_pushvalue(L, -2);
   lua_pushstring(L, data->name);
-  pklua_wrap_sock(L, sockfd);
+  _pklua_wrap_sock(L, sockfd);
   lua_pcall(L, 3, 0, 0);
+  pklua_unlock_lua(PL);
+}
+
+int pklua_hook_bridge(int hook_id, int iv, void* p1, void* p2) {
+  int rv = -1;
+
+  pk_lua_t* PL = pklua_get_locked_lua(NULL);
+  if (PL == NULL) {
+    pk_log(PK_LOG_ERROR, "No Lua state found for hook %d", hook_id);
+    return -1;
+  }
+
+  lua_State* L = PL->lua;
+  lua_getfield(L, LUA_GLOBALSINDEX, "pklua");
+  lua_getfield(L, -1, "_hook_bridge");
+  lua_pushvalue(L, -2);
+  lua_pushinteger(L, hook_id);
+  lua_pushinteger(L, iv);
+  if (p1) lua_pushlightuserdata(L, p1); else lua_pushnil(L);
+  if (p2) lua_pushlightuserdata(L, p2); else lua_pushnil(L);
+  if (lua_pcall(L, 5, 1, 0) == 0) {
+    rv = lua_tointeger(L, -1);
+    lua_remove(L, -1);
+  }
+  lua_remove(L, -1);
+
+  pklua_unlock_lua(PL);
+  return rv;
 }
 
 #endif

@@ -151,6 +151,25 @@ typedef unsigned int              uint32_t;
 #  undef HAVE_LUA
 #endif
 
+typedef struct {
+  int count;
+  pthread_t owner;
+  pthread_mutex_t check_lock;
+  pthread_mutex_t lock_lock;
+} pk_rlock_t;
+
+typedef struct {
+#ifdef HAVE_LUA
+  lua_State* lua;
+#else
+  void* lua;
+#endif
+  pthread_t tid;
+  pk_rlock_t* lock;
+  void* next;
+  int is_copy:1;
+} pk_lua_t;
+
 #define PARSER_BYTES_MIN   1 * 1024
 #define PARSER_BYTES_AVG   2 * 1024
 #define PARSER_BYTES_MAX   4 * 1024  /* <= CONN_IO_BUFFER_SIZE */
