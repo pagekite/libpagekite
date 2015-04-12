@@ -24,11 +24,11 @@ all: pagekitec httpkite
 windows: pagekitec.exe
 
 .unix:
-	@make clean
+	@$(MAKE) clean
 	@touch .unix
 
 .win32:
-	@make clean
+	@$(MAKE) clean
 	@touch .win32
 
 httpkite: .unix httpkite.o
