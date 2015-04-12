@@ -145,7 +145,7 @@ typedef unsigned int              uint32_t;
 #endif
 
 #if defined(HAVE_LUA) && (HAVE_LUA != 0)
-#  include <lua5.1/lua.h>
+#  include <lua.h>
 #else
 #  define lua_State void
 #  undef HAVE_LUA

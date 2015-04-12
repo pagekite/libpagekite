@@ -5,15 +5,28 @@ CC=$(CROSS)gcc
 LD=$(CROSS)ld
 AR=$(CROSS)ar
 PKG_CONFIG=$(CROSS)pkg-config
-TARGET_CFLAGS ?= -fpic -I/usr/include/libev
-TARGET_CLINK ?= -lev
 TARGET_OBJ ?= 
 
-OPT ?= -g -O3
-CFLAGS ?= -std=c99 -fno-strict-aliasing -I../../include/ $(TARGET_CFLAGS) $(OPT)
-CWARN ?= -pedantic -Wall -W
-CLINK ?= -L../../lib -lpthread -lssl -lcrypto \
-         -llua5.1 -ldl -lm -lc $(TARGET_CLINK)
+LIB_CFLAGS:= $(CFLAGS) -std=c99 -fno-strict-aliasing -I../../include/ -fpic
+LIB_LDFLAGS:= ${LDFLAGS} -L../../lib
+LIB_LIBS:= -lpthread -lssl -lcrypt -ldl -lm -lev
+LIB_CFLAGS+=$(shell $(PKG_CONFIG) --cflags libev)
+# lua distro maintainers are teh suck.
+# http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=498416
+# http://lua-users.org/lists/lua-l/2008-09/msg00184.html
+ifeq ($(shell $(PKG_CONFIG) lua5.1 --exists && echo yes),yes)
+  LUA_PKG=lua5.1
+else
+ ifeq ($(shell $(PKG_CONFIG) lua-5.1 --exists && echo yes),yes)
+   LUA_PKG=lua-5.1
+ else
+  ifeq ($(shell $(PKG_CONFIG) lua --exists && echo yes),yes)
+    LUA_PKG=lua
+  endif
+ endif
+endif
+LIB_CFLAGS+=$(shell $(PKG_CONFIG) --cflags $(LUA_PKG))
+LIB_LIBS+=$(shell $(PKG_CONFIG) --libs $(LUA_PKG))
 
 HDRS = ../../include/pagekite.h
 
@@ -32,16 +45,16 @@ windows: pagekitec.exe
 	@touch .win32
 
 httpkite: .unix httpkite.o
-	$(CC) $(CFLAGS) -o httpkite httpkite.o $(CLINK) -lpagekite
+	$(CC) $(LIB_CFLAGS) -o httpkite httpkite.o $(LIB_LDFLAGS) $(LIB_LIBS) -lpagekite
 
 hello: .unix hello.o
-	$(CC) $(CFLAGS) -o hello hello.o $(CLINK) -lpagekite
+	$(CC) $(LIB_CFLAGS) -o hello hello.o $(LIB_LDFLAGS) $(LIB_LIBS) -lpagekite
 
 pagekitec: .unix pagekitec.o
-	$(CC) $(CFLAGS) -o pagekitec pagekitec.o -lpagekite $(CLINK)
+	$(CC) $(LIB_CFLAGS) -o pagekitec pagekitec.o -lpagekite $(LIB_LDFLAGS) $(LIB_LIBS)
 
 pagekitec.exe: .win32 pagekitec.o
-	$(CC) $(CFLAGS) -o pagekitec.exe pagekitec.o $(CLINK) -lpagekite_dll
+	$(CC) $(LIB_CFLAGS) -o pagekitec.exe pagekitec.o $(LIB_LDFLAGS) $(LIB_LIBS) -lpagekite_dll
 
 clean:
 	rm -vf tests pagekite[cr] hello httpkite *.exe *.o .win32 .unix
@@ -50,10 +63,10 @@ allclean: clean
 	find . -name '*.o' |xargs rm -vf
 
 httpkite.o: httpkite.c
-	$(CC) $(CFLAGS) -I../../libpagekite $(CWARN) -c $<
+	$(CC) $(LIB_CFLAGS) -I../../libpagekite -c $<
 
 .c.o:
-	$(CC) $(CFLAGS) $(CWARN) -c $<
+	$(CC) $(LIB_CFLAGS) -c $<
 
 httpkite.o: $(HDRS)
 pagekite.o: $(HDRS)

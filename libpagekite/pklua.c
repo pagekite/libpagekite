@@ -45,8 +45,8 @@ How it works:
 #include "pklua.h"
 #include "pklualua.h"
 
-#include <lua5.1/lauxlib.h>
-#include <lua5.1/lualib.h>
+#include <lauxlib.h>
+#include <lualib.h>
 
 
 /*** LUA extensions to interact with libpagekite ****************************/
