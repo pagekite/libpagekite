@@ -1,7 +1,7 @@
 default:
-	@cd backends && make
+	@$(MAKE) -C backends
 
 buildclean:
-	@cd backends && make clean
+	@$(MAKE) -C backends clean
 
 clean: buildclean

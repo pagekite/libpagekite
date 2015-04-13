@@ -59,12 +59,12 @@ windows: .win32 libpagekite.dll
 
 .win32:
 	@echo Switching to win32 build mode
-	@make clean
+	@$(MAKE) clean
 	@touch .win32
 
 .unix:
 	@echo Switching to unix build mode
-	@make clean
+	@$(MAKE) clean
 	@touch .unix
 
 tests: .unix tests.o $(OBJ) $(TOBJ)
