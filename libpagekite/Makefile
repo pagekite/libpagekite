@@ -5,14 +5,13 @@ CC=$(CROSS)gcc
 LD=$(CROSS)ld
 AR=$(CROSS)ar
 PKG_CONFIG=$(CROSS)pkg-config
-TARGET_CFLAGS ?= -fpic -I/usr/include/libev
-TARGET_CLINK ?= -lev
 TARGET_OBJ ?= 
 
 OPT ?= -g -O3
-CFLAGS ?= -std=c99 -fno-strict-aliasing -I../include/ $(TARGET_CFLAGS) $(OPT)
+LIB_CFLAGS:= $(CFLAGS) $(OPT) -std=c99 -I../include -fpic
+LIB_CFLAGS+=$(shell $(PKG_CONFIG) --cflags libev)
 CWARN ?= -pedantic -Wall -W
-CLINK ?= -L. -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
+CLINK ?= -L. -lpthread -lssl -lcrypto -lm -lev
 
 TOBJ = sha1_test.o
 
@@ -65,26 +64,26 @@ windows: .win32 libpagekite.dll
 	@touch .unix
 
 tests: .unix tests.o $(OBJ) $(TOBJ)
-	$(CC) $(CFLAGS) -o tests tests.o $(OBJ) $(TOBJ) $(CLINK)
+	$(CC) $(LIB_CFLAGS) -o tests tests.o $(OBJ) $(TOBJ) $(CLINK)
 
 libpagekite.so: .unix $(OBJ)
-	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(CLINK)
+	$(CC) $(LIB_CFLAGS) -shared -o libpagekite.so $(OBJ) $(CLINK)
 
 libpagekite-full: .unix $(OBJ) $(ROBJ)
-	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(ROBJ) $(CLINK)
+	$(CC) $(LIB_CFLAGS) -shared -o libpagekite.so $(OBJ) $(ROBJ) $(CLINK)
 
 pagekiter: pagekiter.o $(OBJ) $(ROBJ)
-	$(CC) $(CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)
+	$(CC) $(LIB_CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)
 
 libpagekite.dll: .win32 $(OBJ)
 	$(CC) -shared -o libpagekite.dll $(OBJ) $(CLINK) \
               -Wl,--out-implib,libpagekite_dll.a
 
 evwrap.o: mxe/evwrap.c
-	$(CC) $(CFLAGS) -w -c mxe/evwrap.c
+	$(CC) $(LIB_CFLAGS) -w -c mxe/evwrap.c
 
 pagekite.o: pagekite.c
-	$(CC) $(CFLAGS) $(CWARN) $(DEFINES) -DBUILDING_PAGEKITE_DLL=1 -c $<
+	$(CC) $(LIB_CFLAGS) $(CWARN) $(DEFINES) -DBUILDING_PAGEKITE_DLL=1 -c $<
 
 version: pagekite.h.in
 	sed -e "s/@DATE@/`date '+%y%m%d'`/g" <pagekite.h.in >../include/pagekite.h
@@ -96,7 +95,7 @@ allclean: clean
 	find . -name '*.o' |xargs rm -vf
 
 .c.o:
-	$(CC) $(CFLAGS) $(CWARN) $(DEFINES) -c $<
+	$(CC) $(LIB_CFLAGS) $(CWARN) $(DEFINES) -c $<
 
 pagekite.o: $(HDRS)
 pagekiter.o: $(HDRS) $(RHDRS)
