@@ -5,14 +5,13 @@ CC=$(CROSS)gcc
 LD=$(CROSS)ld
 AR=$(CROSS)ar
 PKG_CONFIG=$(CROSS)pkg-config
-TARGET_CFLAGS ?= -fpic -I/usr/include/libev
-TARGET_CLINK ?= -lev
 TARGET_OBJ ?= 
 
 OPT ?= -g -O3
-CFLAGS ?= -std=c99 -fno-strict-aliasing -I../../include/ $(TARGET_CFLAGS) $(OPT)
+LIB_CFLAGS:= $(CFLAGS) $(OPT) -std=c99 -fno-strict-aliasing -I../../include/ -fpic
+LIB_CFLAGS+=$(shell $(PKG_CONFIG) --cflags libev)
 CWARN ?= -pedantic -Wall -W
-CLINK ?= -L../../lib -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
+CLINK ?= -L../../lib -lpthread -lssl -lcrypto -lm -lev
 
 HDRS = ../../include/pagekite.h
 
@@ -31,16 +30,16 @@ windows: pagekitec.exe
 	@touch .win32
 
 httpkite: .unix httpkite.o
-	$(CC) $(CFLAGS) -o httpkite httpkite.o $(CLINK) -lpagekite
+	$(CC) $(LIB_CFLAGS) -o httpkite httpkite.o $(CLINK) -lpagekite
 
 hello: .unix hello.o
-	$(CC) $(CFLAGS) -o hello hello.o $(CLINK) -lpagekite
+	$(CC) $(LIB_CFLAGS) -o hello hello.o $(CLINK) -lpagekite
 
 pagekitec: .unix pagekitec.o
-	$(CC) $(CFLAGS) -o pagekitec pagekitec.o $(CLINK) -lpagekite
+	$(CC) $(LIB_CFLAGS) -o pagekitec pagekitec.o $(CLINK) -lpagekite
 
 pagekitec.exe: .win32 pagekitec.o
-	$(CC) $(CFLAGS) -o pagekitec.exe pagekitec.o $(CLINK) -lpagekite_dll
+	$(CC) $(LIB_CFLAGS) -o pagekitec.exe pagekitec.o $(CLINK) -lpagekite_dll
 
 clean:
 	rm -vf tests pagekite[cr] hello httpkite *.exe *.o .win32 .unix
@@ -49,10 +48,10 @@ allclean: clean
 	find . -name '*.o' |xargs rm -vf
 
 httpkite.o: httpkite.c
-	$(CC) $(CFLAGS) -I../../libpagekite $(CWARN) -c $<
+	$(CC) $(LIB_CFLAGS) -I../../libpagekite $(CWARN) -c $<
 
 .c.o:
-	$(CC) $(CFLAGS) $(CWARN) -c $<
+	$(CC) $(LIB_CFLAGS) $(CWARN) -c $<
 
 httpkite.o: $(HDRS)
 pagekite.o: $(HDRS)
