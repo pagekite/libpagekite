@@ -555,8 +555,12 @@ void pkb_check_world(struct pk_manager* pkm)
 {
   PK_TRACE_FUNCTION;
 
-  if (pkm->status == PK_STATUS_NO_NETWORK) return;
-  pk_log(PK_LOG_MANAGER_DEBUG, "Checking state of world...");
+  if (pkm->status == PK_STATUS_NO_NETWORK) {
+    pk_log(PK_LOG_MANAGER_DEBUG, "Waiting for network... (v%s)", PK_VERSION);
+    return;
+  }
+  pk_log(PK_LOG_MANAGER_DEBUG,
+         "Checking state of world... (v%s)", PK_VERSION);
   pkb_clear_transient_flags(pkm);
   pkb_check_kites_dns(pkm);
   pkb_check_tunnel_pingtimes(pkm);
@@ -586,7 +590,8 @@ void pkb_check_tunnels(struct pk_manager* pkm)
   int dns_is_down = 0;
   PK_TRACE_FUNCTION;
 
-  pk_log(PK_LOG_MANAGER_DEBUG, "Checking network & tunnels...");
+  pk_log(PK_LOG_MANAGER_DEBUG,
+         "Checking network & tunnels... (v%s)", PK_VERSION);
 
   dns_is_down = (0 != pkb_check_kites_dns(pkm));
 

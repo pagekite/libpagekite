@@ -888,8 +888,8 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   {
     pkm->timer.repeat = pkm->next_tick;
     ev_timer_again(pkm->loop, &(pkm->timer));
-    pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, next=%d]",
-           pkm->enable_timer ? "yes" : "no", pkm->next_tick);
+    pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, next=%d, v=%s]",
+           pkm->enable_timer ? "yes" : "no", pkm->next_tick, PK_VERSION);
 
     /* We slow down exponentially by default... */
     next_tick += increment;
@@ -913,8 +913,8 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   }
   else {
     ev_timer_stop(pkm->loop, &(pkm->timer));
-    pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, stopped]",
-           pkm->enable_timer ? "yes" : "no");
+    pk_log(PK_LOG_MANAGER_DEBUG, "Tick!  [repeating=%s, stopped, v=%s]",
+           pkm->enable_timer ? "yes" : "no", PK_VERSION);
     /* Reset interval. */
     next_tick = 1 + pkm->housekeeping_interval_min;
   }
