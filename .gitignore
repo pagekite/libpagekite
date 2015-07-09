@@ -17,3 +17,6 @@ libpagekite/pklualua.h
 httpkite
 pagekitec
 tests
+build
+tags
+
