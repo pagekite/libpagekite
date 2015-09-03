@@ -81,13 +81,12 @@ libpagekite-full: .unix $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(ROBJ) $(CLINK)
 
 pklualua.h: pklua.lua Makefile ../contrib/plugins
-	echo 'static const char* pklualua = (' >pklualua.h
-	(for FN in pklua.lua ../contrib/plugins/*.lua; do \
-	  grep -v -e '^return ' <$$FN |\
-	  sed -e 's/\\/\\\\/g; s/"/\\"/g; s/^/"/; s/$$/\\n"/' ;\
-	done) >>pklualua.h
-	echo '"return pklua"' >>pklualua.h
-	echo ');' >>pklualua.h
+	cat pklua.lua |grep -v -e '^return ' >pklua_combined.lua
+	cat ../contrib/plugins/*.lua >>pklua_combined.lua
+	echo 'return pklua' >>pklua_combined.lua
+	../tools/embedfiles.py pklua_combined.lua \
+          |sed -e 's/embedded_file_data_0/pklualua/' >pklualua.h
+	rm -f pklua_combined.lua
 
 pagekiter: pagekiter.o $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)

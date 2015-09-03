@@ -577,7 +577,7 @@ pk_lua_t* pklua_get_unlocked_lua(struct pk_manager* pkm)
   luaL_openlibs(L);
 
   /* Load compiled-in pklua.lua + plugins */
-  if ((0 != luaL_loadstring(L, pklualua)) ||
+  if ((0 != luaL_loadstring(L, (const char*) pklualua)) ||
       (0 != lua_pcall(L, 0, LUA_MULTRET, 0))) {
     pk_log(PK_LOG_ERROR, "Lua init failed: %s", lua_tostring(L, -1));
     pklua_unlock_lua(PL);
