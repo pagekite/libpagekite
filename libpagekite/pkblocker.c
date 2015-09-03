@@ -443,7 +443,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   struct pk_tunnel** fes;
   struct pk_tunnel* fe;
   struct pk_pagekite* kite;
-  char printip[128], get_result[10240], *result;
+  char printip[128], get_result[10240], *result, *lastup;
   char address_list[1024], payload[2048], signature[2048], url[2048], *alp;
 
   PK_TRACE_FUNCTION;
@@ -483,8 +483,10 @@ int pkb_update_dns(struct pk_manager* pkm)
   if (!address_list[0]) return 0;
 
   bogus = 0;
+  lastup = "";
   for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
-    if (kite->protocol[0] != '\0') {
+    if ((kite->protocol[0] != '\0') &&
+        (0 != strcasecmp(lastup, kite->public_domain))) {
       PKS_STATE(pkm->status = PK_STATUS_DYNDNS);
       sprintf(payload, "%s:%s", kite->public_domain, address_list);
       pk_sign(NULL, kite->auth_secret, payload, 100, signature);
@@ -498,6 +500,7 @@ int pkb_update_dns(struct pk_manager* pkm)
         bogus++;
       }
       else {
+        lastup = kite->public_domain;
         result = skip_http_header(rlen, get_result);
         if ((strncasecmp(result, "nochg", 5) == 0) ||
             (strncasecmp(result, "good", 4) == 0)) {
@@ -562,8 +565,8 @@ void pkb_check_world(struct pk_manager* pkm)
   pk_log(PK_LOG_MANAGER_DEBUG,
          "Checking state of world... (v%s)", PK_VERSION);
   pkb_clear_transient_flags(pkm);
-  pkb_check_kites_dns(pkm);
   pkb_check_tunnel_pingtimes(pkm);
+  pkb_check_kites_dns(pkm);
   pkb_log_fe_status(pkm);
   pkm->last_world_update = time(0) + pkm->interval_fudge_factor;
   PK_CHECK_MEMORY_CANARIES;
