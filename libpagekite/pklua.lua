@@ -20,6 +20,7 @@
 local pklua = {
   version = "unknown",
   manager = nil,
+  metrics = { testing = 1234 },
 
   -- Global limits enforced by our simplistic HTTP daemon, to
   -- thwart RAM based DOS attacks (or bugs).
@@ -96,7 +97,11 @@ function pklua:_configure_socket_servers()
       if host == nil or port == nil then
         host, port = 'localhost', plugin.settings
       end
-      self.manager:_add_socket_server(name, host, tonumber(port))
+      if port ~= nil then
+        for p in string.gmatch(port, '%d+') do
+          self.manager:_add_socket_server(name, host, tonumber(p))
+        end
+      end
     end
   end
 end

@@ -303,22 +303,24 @@ int pklua_lua_pkm_get_metrics(lua_State* L)
     lua_pushstring(L, "Incorrect arguments in get_metrics");
     return lua_error(L);
   }
+
   lua_getfield(L, 1, "_pkm");
   if (!lua_islightuserdata(L, -1)) {
     lua_pushstring(L, "Incorrect arguments in get_metrics (2)");
     return lua_error(L);
   }
-
   struct pk_manager* manager = lua_touserdata(L, -1);
   lua_remove(L, -1);
 
   lua_newtable(L);
+  int metrics = lua_gettop(L); /* Relatives offsets would break below */
+
   lua_pushstring(L, PK_VERSION);
-  lua_setfield(L, -2, "libpagekite_version");
+  lua_setfield(L, metrics, "libpagekite_version");
   #define PKM_INT(s, n) lua_pushinteger(L, s->n);\
-                        lua_setfield(L, -2, #s"_"#n)
+                        lua_setfield(L, metrics, #s"_"#n)
   #define PKM_STR(s, n) lua_pushstring(L, (s->n == NULL) ? "(null)" : s->n);\
-                        lua_setfield(L, -2, #s"_"#n)
+                        lua_setfield(L, metrics, #s"_"#n)
   PKM_INT(manager, status);
   PKM_INT(manager, last_world_update);
   PKM_INT(manager, next_tick);
@@ -343,6 +345,35 @@ int pklua_lua_pkm_get_metrics(lua_State* L)
   PKM_INT(state, quota_conns);
   PKM_INT(state, quota_mb);
 
+  /* Copy Lua metrics from master Lua context */
+  pk_lua_t* mgr_lua;
+  if ((mgr_lua = pklua_lock_lua(manager->lua)) != NULL) {
+
+    lua_State* ML = mgr_lua->lua;
+    lua_getfield(ML, LUA_GLOBALSINDEX, "pklua");
+    lua_getfield(ML, -1, "metrics");
+    /* ML stack: -1=metrics, -2=pklua */
+
+    lua_pushnil(ML);
+    while (lua_next(ML, -2)) {
+      /* copy key and value so lua_tostring doesn't corrupt */
+      lua_pushvalue(ML, -2);
+      lua_pushvalue(ML, -2);
+      /* ML stack: -1=value copy, -2=key copy, -3=value, -4=key, -5=metrics */
+
+      lua_pushinteger(L, lua_tointeger(ML, -1));
+      lua_setfield(L, metrics, lua_tostring(ML, -2));
+
+      lua_pop(ML, 3);
+      /* ML stack: -1=key, -2=metrics */
+    }
+
+    lua_remove(ML, -1);
+    lua_remove(ML, -1);
+    pklua_unlock_lua(mgr_lua);
+  }
+
+  /* L stack: -1 = new table */
   return 1;
 }
 
