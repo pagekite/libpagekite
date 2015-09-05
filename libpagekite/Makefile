@@ -43,7 +43,7 @@ DEFINES=-DHAVE_IPV6=$(HAVE_IPV6) \
 
 NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
-default: libpagekite.so
+default: libpagekite-agpl.so libpagekite.so libpagekite.a
 
 relay: pagekiter
 
@@ -77,8 +77,8 @@ libpagekite.a: .unix $(OBJ)
 libpagekite.so: .unix $(OBJ)
 	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(CLINK)
 
-libpagekite-full: .unix $(OBJ) $(ROBJ)
-	$(CC) $(CFLAGS) -shared -o libpagekite.so $(OBJ) $(ROBJ) $(CLINK)
+libpagekite-agpl.so: .unix $(OBJ) $(ROBJ)
+	$(CC) $(CFLAGS) -shared -o libpagekite-agpl.so $(OBJ) $(ROBJ) $(CLINK)
 
 pklualua.h: pklua.lua Makefile ../contrib/plugins
 	cat pklua.lua |grep -v -e '^return ' >pklua_combined.lua

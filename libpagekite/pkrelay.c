@@ -20,7 +20,6 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#define PAGEKITE_CONSTANTS_ONLY
 #include "pagekite.h"
 
 #include "common.h"
@@ -34,10 +33,44 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkrelay.h"
 #include "pklogging.h"
 
-struct pk_listener* pkr_add_listener(struct pk_manager* m, int lport) {
-  return NULL;
+
+static void pkr_new_conn_readable_cb(EV_P_ ev_io* w, int revents)
+{
+  struct pk_backend_conn* pkb = (struct pk_backend_conn*) w->data;
+  
+  PK_TRACE_FUNCTION;
+  
+  /* We have data: peek() at it to find out what it is!
+   *   - Is this TLS?
+   *       - Is it a connection to a remote tunneled backend?
+   *       - Is it a connection to one of our own certs?
+   *       - None of the above: eat the data, return an error
+   *   - Is this HTTP?
+   *       - Is it a connection to a remote tunneled backend?
+   *       - Is it a connection to an internal LUA HTTPd?
+   *       - Is it a PageKite tunnel request?
+   *       - None of the above: eat the data, return an error
+   *   - Does this belong to a LUA plugin?
+   *   - Need more data? Wait...
+   *   - Else: close silently
+   */
+
+  PK_CHECK_MEMORY_CANARIES;
+
+  /* -Wall dislikes unused arguments */
+  (void) loop;
+  (void) revents;
 }
 
-struct pk_listener* pkr_add_listener_v6(struct pk_manager* m, int lport) {
-  return NULL;
+
+/* This is the public library method; we define it here instead of in
+ * pagekite.c to simplify building the library without AGPLv3 code.
+ */
+int pagekite_add_relay_listener(pagekite_mgr pkm, int port)
+{
+  if (pkm == NULL) return -1;
+
+  struct pk_manager* m = (struct pk_manager*) pkm;
+  return -1;
 }
+

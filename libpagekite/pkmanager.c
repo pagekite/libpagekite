@@ -1067,7 +1067,9 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
   strncpyz(kite->auth_secret, auth_secret, PK_SECRET_LENGTH);
   strncpyz(kite->public_domain, public_domain, PK_DOMAIN_LENGTH);
   kite->public_port = public_port;
-  strncpyz(kite->local_domain, local_domain, PK_DOMAIN_LENGTH);
+  kite->local_domain[0] = '\0';
+  if (local_domain != NULL)
+    strncpyz(kite->local_domain, local_domain, PK_DOMAIN_LENGTH);
   kite->local_port = local_port;
 
   /* Allow the public port to be specified as part of the protocol */
