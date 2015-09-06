@@ -66,11 +66,6 @@ static void pkm_reset_manager(struct pk_manager*);
 static struct pk_pagekite* pkm_find_kite(struct pk_manager*,
                                          const char*, const char*, int);
 static unsigned char pkm_sid_shift(char *);
-struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager*,
-                                          struct pk_tunnel*, char *);
-static void pkm_free_be_conn(struct pk_backend_conn* pkb);
-static struct pk_backend_conn* pkm_find_be_conn(struct pk_manager*,
-                                                struct pk_tunnel*, char*);
 
 
 static void pkm_yield_start(struct pk_manager *pkm)
@@ -690,14 +685,15 @@ static void pkm_listener_cb(EV_P_ ev_io* w, int revents)
   int client_fd;
   struct pk_backend_conn* pkl = (struct pk_backend_conn*) w->data;
 
-  client_fd = PKS_accept(pkl->conn.sockfd,
-                         (struct sockaddr*) &client_addr, &client_len);
-
-  if (pkl->callback_func != NULL) {
-    (pkl->callback_func)(client_fd, pkl->callback_data);
-  }
-  else {
-    close(client_fd);
+  if (0 <= (client_fd = PKS_accept(pkl->conn.sockfd,
+                                   (struct sockaddr*) &client_addr,
+                                   &client_len))) {
+    if (pkl->callback_func != NULL) {
+      (pkl->callback_func)(client_fd, pkl->callback_data);
+    }
+    else {
+      close(client_fd);
+    }
   }
 
   (void) loop;
@@ -1305,13 +1301,13 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
   return NULL;
 }
 
-static void pkm_free_be_conn(struct pk_backend_conn* pkb)
+void pkm_free_be_conn(struct pk_backend_conn* pkb)
 {
   pkb->conn.status = CONN_STATUS_UNKNOWN;
 }
 
-static struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
-                                                struct pk_tunnel* fe, char* sid)
+struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
+                                         struct pk_tunnel* fe, char* sid)
 {
   int i;
   unsigned char shift;
@@ -1559,14 +1555,6 @@ int pkm_configure_lua(struct pk_manager* pkm)
   return 0;
 }
 
-/*
-static void pkm_web_ui_accepted_cb(int sockfd, void* void_pkm)
-{
-  struct pk_manager* pkm = (struct pk_manager*) void_pkm;
-  pkb_add_job(&(pkm->blocking_jobs), PK_ACCEPT_UI, sockfd, pkm);
-}
-*/
-
 void* pkm_run(void *void_pkm)
 {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
@@ -1580,18 +1568,6 @@ void* pkm_run(void *void_pkm)
     /* Ask Lua to configure listeners */
     pklua_add_listeners(pkm->lua);
   };
-
-/*
-  int lport;
-  if (pkm->web_ui_host != NULL) {
-    lport = pkm_add_listener(pkm,
-                             pkm->web_ui_host,
-                             pkm->web_ui_port,
-                             (pagekite_callback_t*) &pkm_web_ui_accepted_cb,
-                             (void*) pkm);
-    if (lport > 0) pkm->web_ui_port = lport;
-  }
- */
 
   if (PK_HOOK(PK_HOOK_START_EV_LOOP, 0, pkm, NULL)) {
     pthread_mutex_lock(&(pkm->loop_lock));

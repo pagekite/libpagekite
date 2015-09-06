@@ -165,6 +165,13 @@ struct pk_pagekite*  pkm_add_kite(struct pk_manager*,
 int                 pkm_add_listener(struct pk_manager*, const char*, int,
                                      pagekite_callback_t*, void*);
 
+struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager*,
+                                          struct pk_tunnel*, char *);
+void pkm_free_be_conn(struct pk_backend_conn* pkb);
+struct pk_backend_conn* pkm_find_be_conn(struct pk_manager*,
+                                         struct pk_tunnel*, char*);
+
+
 void* pkm_run                       (void *);
 int pkm_run_in_thread               (struct pk_manager*);
 int pkm_wait_thread                 (struct pk_manager*);
