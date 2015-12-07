@@ -18,6 +18,23 @@ If not, see: <http://www.gnu.org/licenses/agpl.html>
 
 Note: For alternate license terms, see the file COPYING.md.
 
+*******************************************************************************
+
+The PageKite tunneling protocol is completely symmetric, so once a
+connection has been identified, the same event loop as handles connectors
+will work for relays.
+
+Connections are accepted and identified like so:
+
+  - Listeners added to main event-loop: pkr_conn_accepted_cb
+  - A be_conn is allocated for each incoming connection
+  - Event-loop watches for incoming data: pkr_new_conn_readable_cb
+  - A "peek" is used to try recognize protocols
+  - Once a protocol is identified, a few things may happen:
+     - The be_conn may be wrapped with TLS/SSL
+     - The be_conn may be discarded and upgraded to a tunnel
+     - The be_conn may be assigned as a stream to a particular tunnel
+
 ******************************************************************************/
 
 #include "pagekite.h"
@@ -141,6 +158,7 @@ static int _pkr_handle_ssltls(EV_P_ ev_io* w,
   return PROTO_UNDECIDED;
 }
 
+
 static int _pkr_handle_http(EV_P_ ev_io* w,
                             struct pk_backend_conn* pkb,
                             char* peeked,
@@ -170,10 +188,11 @@ static int _pkr_handle_http(EV_P_ ev_io* w,
     char* host = strcasestr(peeked, "\nHost: ");
     if (host) {
       host += 7;
-      char* eol = strchr(host, ':');
-      if (!eol) eol = strchr(host, '\n');
+      char* eol = strchr(host, '\n');
       if (eol) *eol-- = '\0';
       if (eol && (*eol == '\r')) *eol = '\0';
+      eol = strchr(host, ':');
+      if (eol) *eol = '\0';
     }
     fprintf(stderr, "Is HTTP %s\n", host ? host : "(unknown)");
     return PROTO_FAILED;

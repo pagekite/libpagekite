@@ -45,8 +45,6 @@ NDK_PROJECT_PATH ?= "/home/bre/Projects/android-ndk-r8"
 
 default: libpagekite-agpl.so libpagekite.so libpagekite.a
 
-relay: pagekiter
-
 all: runtests libpagekite.so
 
 runtests: tests

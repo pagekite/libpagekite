@@ -16,7 +16,7 @@ all: native windows
 native:
 	@echo '=== Building for '`uname`' ==='
 	cd libpagekite && make
-	@mv -v libpagekite/*.so lib/
+	@mv -v libpagekite/*.a libpagekite/*.so lib/
 	cd contrib/backends/ && make
 	@mv -v contrib/backends/pagekitec bin/
 	@echo
@@ -25,12 +25,17 @@ native:
 	@echo  $$ export LD_LIBRARY_PATH=`pwd`/lib
 	@echo
 
+nativerelay: native
+	cd contrib/relays/ && make
+	@mv -v contrib/relays/pagekiter bin/
+
 windows:
 	@echo '=== Building for win32 ==='
 	cd libpagekite && ../tools/bash.mxe -c 'make windows'
 	@mv -v libpagekite/*.dll libpagekite/*.a lib/
 	cd contrib/backends/ && ../../tools/bash.mxe -c 'make windows'
-	@mv -v contrib/backends/*.exe bin/
+	cd contrib/relays/ && ../../tools/bash.mxe -c 'make windows'
+	@mv -v contrib/{backends,relays}/*.exe bin/
 	@echo
 
 version:

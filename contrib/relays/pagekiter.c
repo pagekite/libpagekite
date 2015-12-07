@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
   int gotargs = 0;
   int verbosity = 0;
   int use_watchdog = 0;
-  int max_kites = 25;
+  int init_kites = 25;
   int ac;
   int flags = (PK_WITH_SSL | PK_WITH_IPV4 | PK_AS_FRONTEND_RELAY);
 #ifdef HAVE_IPV6
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
         flags &= ~PK_WITH_SSL;
         break;
       case 'k':
-        if ((1 != sscanf(optarg, "%d", &max_kites)) || (max_kites < 1)) {
+        if ((1 != sscanf(optarg, "%d", &init_kites)) || (init_kites < 1)) {
           usage(EXIT_ERR_USAGE);
         }
         gotargs++;
@@ -163,9 +163,9 @@ int main(int argc, char **argv) {
   signal(SIGUSR1, &raise_log_level);
 #endif
 
-  max_kites += (argc-1-gotargs)/3;
+  init_kites += (argc-1-gotargs)/3;
   if (NULL == (m = pagekite_init("pagekiter",
-                                 max_kites, max_kites, 3 * max_kites,
+                                 init_kites, init_kites, 4 * init_kites,
                                  NULL,
                                  flags,
                                  verbosity)))

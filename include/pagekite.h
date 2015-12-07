@@ -42,6 +42,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_WITH_SERVICE_FRONTENDS    0x0008
 #define PK_WITHOUT_SERVICE_FRONTENDS 0x0010
 #define PK_WITH_DYNAMIC_FE_LIST      0x0020
+#define PK_AS_FRONTEND_RELAY         0x0100
 
 /* PageKite logging constants */
 #define PK_LOG_TUNNEL_DATA     0x000100
@@ -150,6 +151,9 @@ DECLSPEC_DLL int pagekite_get_status(pagekite_mgr);
 DECLSPEC_DLL char* pagekite_get_log(pagekite_mgr);
 DECLSPEC_DLL int pagekite_free(pagekite_mgr);
 DECLSPEC_DLL void pagekite_perror(pagekite_mgr, const char*);
+#if WITH_PAGEKITE_RELAY
+DECLSPEC_DLL int pagekite_add_relay_listener(pagekite_mgr, int port);
+#endif
 
 #ifdef __cplusplus
 }

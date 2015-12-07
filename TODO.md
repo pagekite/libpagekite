@@ -30,12 +30,12 @@ These are Things TO DO for libpagekite.
                   easily adding PageKite support to existing TCP/IP servers.
    * Windows compatibility and build rules
    * pkmanager.c: add listeners, for built in web UI and relays
+   * pkmanager.c: make update/reconnect schedule tweakable
 
 ### Ahead ###
 
    * pkmanager.c: add callbacks for watching/influencing data flow
    * pkproto.c: add SSL support - finish cert checking code
-   * pkmanager.c: make update/reconnect schedule tweakable
 
    * pklua.c: make libpagekite extensible with lua code
    * pkwebui.c: built-in web server (lua?)
