@@ -1,23 +1,24 @@
 default:
-	@make native PK_TESTS=0
+	@make -f Makefile.pk native PK_TESTS=0
 
 optimized:
-	@make all OPT="-O3 -s" PK_TESTS=0
+	@make -f Makefile.pk all OPT="-O3 -s" PK_TESTS=0
 
 debug:
 	@cd libpagekite && make tests PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
-	@make all PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
+	@make -f Makefile.pk all PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
 
 debugwindows:
-	@make windows PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
+	@make -f Makefile.pk windows PK_MEMORY_CANARIES=1 PK_TRACE=1 PK_TESTS=1
 
 all: native windows
 
 native:
 	@echo '=== Building for '`uname`' ==='
-	cd libpagekite && make
+	cp /dev/null config.h
+	cd libpagekite && make -f Makefile.pk
 	@mv -v libpagekite/*.a libpagekite/*.so lib/
-	cd contrib/backends/ && make
+	cd contrib/backends/ && make -f Makefile.pk
 	@mv -v contrib/backends/pagekitec bin/
 	@echo
 	@echo Note: To run the apps, you may need to do this first:
@@ -26,23 +27,23 @@ native:
 	@echo
 
 nativerelay: native
-	cd contrib/relays/ && make
+	cd contrib/relays/ && make -f Makefile.pk
 	@mv -v contrib/relays/pagekiter bin/
 
 windows:
 	@echo '=== Building for win32 ==='
-	cd libpagekite && ../tools/bash.mxe -c 'make windows'
+	cd libpagekite && ../tools/bash.mxe -c 'make -f Makefile.pk windows'
 	@mv -v libpagekite/*.dll libpagekite/*.a lib/
-	cd contrib/backends/ && ../../tools/bash.mxe -c 'make windows'
+	cd contrib/backends/ && ../../tools/bash.mxe -c 'make -f Makefile.pk windows'
 	@mv -v contrib/backends/*.exe bin/
 	@echo
 
 version:
-	@cd libpagekite && make version
+	@cd libpagekite && make -f Makefile.pk version
 
 buildclean:
-	@cd contrib && make clean
-	@cd libpagekite && make clean
+	@cd contrib && make -f Makefile.pk clean
+	@cd libpagekite && make -f Makefile.pk clean
 
 clean: buildclean
 	rm -rf bin/* lib/*

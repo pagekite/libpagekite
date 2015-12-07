@@ -37,6 +37,10 @@ AC_ARG_WITH(lua,
 		[Do not compile pagekite lua bindings even if Lua is available])],
 		[], [with_lua=yes])
 
+AC_ARG_WITH(agpl-relay,
+	[AS_HELP_STRING([--with-agpl-relay],
+		[Compile pagekite relay support (AGPLv3 code)])],
+		[with_relay=yes], [with_relay=no])
 
 # Checks for programs.
 AC_PROG_CC
@@ -186,9 +190,15 @@ AC_SUBST([LUA_INCLUDE])
 AC_SUBST([LUA_LIBS])
 
 
+AS_IF([test "x$with_agpl_relay" = 'xyes'],
+	[with_relay='yes'], [with_relay='no'])
+AM_CONDITIONAL(HAVE_RELAY, test "x$with_relay" = "xyes")
+
+
 AC_CONFIG_FILES([Makefile
   libpagekite/Makefile
   libpagekite/libpagekite.pc
   contrib/backends/Makefile
+  contrib/relays/Makefile
 ])
 AC_OUTPUT

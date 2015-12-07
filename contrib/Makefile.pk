@@ -1,0 +1,8 @@
+default:
+	@cd backends && make -f Makefile.pk
+
+buildclean:
+	@cd backends && make -f Makefile.pk clean
+	@cd relays && make -f Makefile.pk clean
+
+clean: buildclean
