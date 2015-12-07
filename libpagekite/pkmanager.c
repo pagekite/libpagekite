@@ -811,10 +811,11 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
   struct pk_backend_conn* pkb;
   char buffer[1025];
   unsigned int status;
-  int i, j, disconnect, disconnected;
+  int i, j, disconnect, disconnected, ping_window;
 
   PK_TRACE_FUNCTION;
   disconnected = 0;
+  ping_window = time(0) - 4*pkm->housekeeping_interval_min;
 
   /* Loop through all configured tunnels:
    *   - if no streams are live, disconnect
@@ -826,6 +827,11 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
     if (fe->fe_hostname == NULL) continue;
     if (fe->conn.sockfd <= 0) continue;
     if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) continue;
+
+    /* If we haven't been sending pings, then that means there is still
+     * traffic, so disconnecting would be bad. Note, we cannot check
+     * conn.activity directly because the pings reset that! */
+    if (fe->last_ping < ping_window) continue;
 
     /* Check if there are any live streams... */
     disconnect = 1;
