@@ -155,7 +155,7 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
   int bytes;
 
   PK_TRACE_FUNCTION;
-  pk_log_chunk(chunk);
+  pk_log_chunk(fe, chunk);
 
   PK_HOOK(PK_HOOK_CHUNK_INCOMING, 0, chunk, fe);
 

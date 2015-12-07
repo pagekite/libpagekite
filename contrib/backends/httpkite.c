@@ -49,7 +49,7 @@ void handle_request(void* data, struct pk_chunk *chunk) {
   struct pk_conn* pkc = data;
   int bytes;
 
-  pk_log_chunk(chunk);
+  pk_log_chunk(NULL, chunk);
   if (chunk->ping) {
     bytes = pk_format_pong(buffer);
     pkc_write(pkc, buffer, bytes);

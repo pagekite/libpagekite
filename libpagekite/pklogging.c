@@ -103,38 +103,48 @@ int pk_log(int level, const char* fmt, ...)
   return r;
 }
 
-int pk_log_chunk(struct pk_chunk* chnk) {
+int pk_log_chunk(struct pk_tunnel* fe, struct pk_chunk* chnk) {
   int i;
   int r = 0;
+  char fe_ip[1024];
+  if (fe != NULL && fe->ai != NULL) {
+    in_addr_to_str(fe->ai->ai_addr, fe_ip, 1024);
+  }
+  else {
+    strcpy(fe_ip, "(unknown)");
+  }
   if (chnk->ping) {
-    r += pk_log(PK_LOG_TUNNEL_HEADERS, "PING");
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "PING from %s", fe_ip);
   }
   else if (chnk->sid) {
     if (chnk->noop) {
-      r += pk_log(PK_LOG_TUNNEL_DATA, "[sid=%s] NOOP: (eof:%d skb:%d spd:%d)",
-                                      chnk->sid, chnk->eof,
-                                      chnk->remote_sent_kb, chnk->throttle_spd);
+      r += pk_log(PK_LOG_TUNNEL_DATA,
+                  "[sid=%s] NOOP: (eof:%d skb:%d spd:%d) from %s",
+                  chnk->sid, chnk->eof,
+                  chnk->remote_sent_kb, chnk->throttle_spd, fe_ip);
     }
     else if (chnk->eof) {
-      r += pk_log(PK_LOG_TUNNEL_DATA, "[sid=%s] EOF: %s", chnk->sid, chnk->eof);
+      r += pk_log(PK_LOG_TUNNEL_DATA, "[sid=%s] EOF: %s via %s",
+                                      chnk->sid, chnk->eof, fe_ip);
     }
     else {
       if (chnk->request_host) {
         r += pk_log(PK_LOG_TUNNEL_CONNS,
-                    "[%s]:%d requested %s://%s:%d%s [sid=%s]",
+                    "[%s]:%d requested %s://%s:%d%s [sid=%s] via %s",
                     chnk->remote_ip, chnk->remote_port,
                     chnk->request_proto, chnk->request_host, chnk->request_port,
-                    chnk->remote_tls ? " (encrypted)" : "", chnk->sid);
+                    chnk->remote_tls ? " (encrypted)" : "", chnk->sid, fe_ip);
       }
-      r += pk_log(PK_LOG_TUNNEL_DATA, "[sid=%s] DATA: %d bytes",
-                                      chnk->sid, chnk->length);
+      r += pk_log(PK_LOG_TUNNEL_DATA, "[sid=%s] DATA: %d bytes via %s",
+                                      chnk->sid, chnk->length, fe_ip);
     }
   }
   else if (chnk->noop) {
-    r += pk_log(PK_LOG_TUNNEL_HEADERS, "Received NOOP");
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "Received NOOP from %s", fe_ip);
   }
   else {
-    r += pk_log(PK_LOG_TUNNEL_HEADERS, "Weird: Non-ping chnk with no SID");
+    r += pk_log(PK_LOG_TUNNEL_HEADERS, "Weird: Non-ping chnk with no SID from %s",
+                                       fe_ip);
   }
   for (i = 0; i < chnk->header_count; i++) {
     r += pk_log(PK_LOG_TUNNEL_HEADERS, "Header: %s", chnk->headers[i]);
