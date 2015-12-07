@@ -40,6 +40,14 @@ For more low-level fun, `httpkite.c` can also be of some value.
 
 This project has a Wiki page: <https://pagekite.net/wiki/Floss/LibPageKite/>
 
+To build on Linux, use:
+
+    $ ./autogen.sh
+    $ ./configure
+    $ make
+
+See `./configure --help` for some options.
+
 
 ## Getting started on Windows ##
 
@@ -48,7 +56,7 @@ the MXE environment, built with pthread and openssl at least.
 
 You can the cross-compile Windows binaries and a DLL like so:
 
-    $ make windows
+    $ make -f Makefile.pk windows
 
 Check `docs/API.txt` for more details.
 
