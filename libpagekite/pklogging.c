@@ -48,19 +48,21 @@ int pk_log(int level, const char* fmt, ...)
 
   if (level & pk_state.log_mask) {
 #ifdef _MSC_VER
-    len = sprintf(output, "ts=%x; ll=%x; lm=%x; msg=",
-                          (int) time(0), logged_lines++, level);
+    len = sprintf(output, "ts=%x; ll=%x; msg=",
+                          (int) time(0), logged_lines++);
 #else
-# ifdef PK_LOG_FORMAT
-    len = sprintf(output, "ts=%x; tid=%x; ll=%x; lm=%x; msg=",
-                          (int) time(0), (int) pthread_self(),
-                          logged_lines++, level);
-# else
     struct timeval t;
     char tsbuf[30];
     gettimeofday(&t, NULL);
     strftime(tsbuf, sizeof(tsbuf), "%Y-%m-%d %H:%M:%S", localtime(&t.tv_sec));
-    len = snprintf(output, 4000, "[%s.%03d][%d] ", tsbuf, (int)t.tv_usec / 1000, level);
+# ifdef HAVE_DS_LOG_FORMAT
+    len = snprintf(output, 4000, "[%s.%03d][%x] ",
+                           tsbuf, (int)t.tv_usec / 1000, (int) pthread_self());
+# else
+    len = sprintf(output, "t=%s.%03d; ts=%x; tid=%x; ll=%x; msg=",
+                          tsbuf, (int)t.tv_usec / 1000,
+                          (int) time(0), (int) pthread_self(),
+                          logged_lines++);
 # endif
 #endif
     va_start(args, fmt);

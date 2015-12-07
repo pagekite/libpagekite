@@ -39,8 +39,14 @@ AC_ARG_WITH(lua,
 
 AC_ARG_WITH(agpl-relay,
 	[AS_HELP_STRING([--with-agpl-relay],
-		[Compile pagekite relay support (AGPLv3 code)])],
+		[Compile libpagekite relay support (AGPLv3 code)])],
 		[with_relay=yes], [with_relay=no])
+
+AC_ARG_WITH(ds-logfmt,
+	[AS_HELP_STRING([--with-ds-logfmt],
+		[Compile libpagekite with DigitalSTROM log format.])],
+		[with_ds_logfmt=yes], [with_ds_logfmt=no])
+
 
 # Checks for programs.
 AC_PROG_CC
@@ -193,6 +199,19 @@ AC_SUBST([LUA_LIBS])
 AS_IF([test "x$with_agpl_relay" = 'xyes'],
 	[with_relay='yes'], [with_relay='no'])
 AM_CONDITIONAL(HAVE_RELAY, test "x$with_relay" = "xyes")
+if test "$with_relay" = "yes"; then
+  AC_DEFINE([HAVE_RELAY], [1], [Define to 1 if you want AGPLv3 relay code.])
+  HAVE_RELAY=1
+fi
+
+
+AS_IF([test "x$with_ds_logfmt" = 'xyes'],
+	[with_ds_logfmt='yes'], [with_ds_logfmt='no'])
+AM_CONDITIONAL(HAVE_DS_LOG_FORMAT, test "x$with_ds_logfmt" = "xyes")
+if test "$with_ds_logfmt" = "yes"; then
+  AC_DEFINE([HAVE_DS_LOG_FORMAT], [1], [Define to 1 to use DigitalSTROM log format.])
+  HAVE_DS_LOGFMT=1
+fi
 
 
 AC_CONFIG_FILES([Makefile
