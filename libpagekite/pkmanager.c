@@ -67,6 +67,9 @@ static struct pk_pagekite* pkm_find_kite(struct pk_manager*,
                                          const char*, const char*, int);
 static unsigned char pkm_sid_shift(char *);
 
+#ifdef _MSC_VER
+static void pthread_yield(void) {}
+#endif
 
 static void pkm_yield_start(struct pk_manager *pkm)
 {
@@ -1512,10 +1515,12 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->interrupt.data = (void *) pkm;
   ev_async_start(loop, &(pkm->interrupt));
 
+#if HAVE_LUA
   /* Prepare lua */
   pkm->lua_enable_defaults = 1;
   pkm->lua_settings = NULL;
   pkm->lua = pklua_unlock_lua(pklua_get_locked_lua(pkm));
+#endif
 
   /* SIGPIPE is boring */
 #ifndef _MSC_VER
@@ -1559,15 +1564,17 @@ void* pkm_run(void *void_pkm)
 {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
-  if (pkm->lua) pklua_set_thread_lua(pkm->lua);
-
   if (pkm->enable_watchdog) pkw_start_watchdog(pkm);
+
+#if HAVE_LUA
+  if (pkm->lua) pklua_set_thread_lua(pkm->lua);
   pkb_start_blockers(pkm, pkm->lua_enable_defaults ? 5 : 1);
 
   if (0 == pkm_configure_lua(pkm)) {
     /* Ask Lua to configure listeners */
     pklua_add_listeners(pkm->lua);
   };
+#endif
 
   if (PK_HOOK(PK_HOOK_START_EV_LOOP, 0, pkm, NULL)) {
     pthread_mutex_lock(&(pkm->loop_lock));
@@ -1580,7 +1587,9 @@ void* pkm_run(void *void_pkm)
   pk_log(PK_LOG_MANAGER_DEBUG, "Event loop and workers stopped.");
   PK_HOOK(PK_HOOK_STOPPED, 0, pkm, NULL);
 
+#if HAVE_LUA
   if (pkm->lua) pklua_remove_thread_lua();
+#endif
   pkm_reset_manager(pkm);
 
   return void_pkm;

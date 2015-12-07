@@ -16,6 +16,7 @@ export TARGET_CFLAGS='-I.'
 export TARGET_CLINK='-lz -lws2_32 -lgdi32 -lgpg-error'
 export TARGET_OBJ='evwrap.o'
 export HAVE_IPV6=0
+export HAVE_LUA=0
 echo "PS1='\$? \[\033[1;33m\]\\w\[\033[0m\] mxe> '" \
     > .mxe.bashrc
 

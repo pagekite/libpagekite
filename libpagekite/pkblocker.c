@@ -624,10 +624,12 @@ void* pkb_run_blocker(void *void_pkblocker)
   struct pk_blocker* this = (struct pk_blocker*) void_pkblocker;
   struct pk_manager* pkm = this->manager;
 
+#if HAVE_LUA
   /* Initialize Lua state for this thread/blocker. */
   if (pkm->lua != NULL) {
     this->lua = pklua_unlock_lua(pklua_get_locked_lua(pkm));
   }
+#endif
 
   pk_log(PK_LOG_MANAGER_DEBUG, "Started blocking thread.");
   PK_HOOK(PK_HOOK_START_BLOCKER, 0, this, pkm);
@@ -661,7 +663,9 @@ void* pkb_run_blocker(void *void_pkblocker)
         }
         break;
       case PK_ACCEPT_LUA:
+#if HAVE_LUA
         pklua_socket_server_accepted(this->lua, job.int_data, job.ptr_data);
+#endif
         break;
       case PK_ACCEPT_FE:
         /* FIXME: Do something more useful here */
@@ -688,7 +692,9 @@ int pkb_start_blockers(struct pk_manager *pkm, int n)
                              (void *) pkm->blocking_threads[i])) {
         pk_log(PK_LOG_MANAGER_ERROR, "Failed to start blocking thread.");
         free(pkm->blocking_threads[i]);
+#if HAVE_LUA
         pklua_close_lua(pkm->blocking_threads[i]->lua);
+#endif
         pkm->blocking_threads[i] = NULL;
         return (pk_error = ERR_NO_THREAD);
       }
@@ -705,7 +711,9 @@ void pkb_stop_blockers(struct pk_manager *pkm)
   for (i = 0; i < MAX_BLOCKING_THREADS; i++) {
     if (pkm->blocking_threads[i] != NULL) {
       pthread_join(pkm->blocking_threads[i]->thread, NULL);
+#if HAVE_LUA
       pklua_close_lua(pkm->blocking_threads[i]->lua);
+#endif
       free(pkm->blocking_threads[i]);
       pkm->blocking_threads[i] = NULL;
     }

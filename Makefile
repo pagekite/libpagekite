@@ -34,8 +34,7 @@ windows:
 	cd libpagekite && ../tools/bash.mxe -c 'make windows'
 	@mv -v libpagekite/*.dll libpagekite/*.a lib/
 	cd contrib/backends/ && ../../tools/bash.mxe -c 'make windows'
-	cd contrib/relays/ && ../../tools/bash.mxe -c 'make windows'
-	@mv -v contrib/{backends,relays}/*.exe bin/
+	@mv -v contrib/backends/*.exe bin/
 	@echo
 
 version:

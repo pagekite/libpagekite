@@ -6,14 +6,13 @@ LD=$(CROSS)ld
 AR=$(CROSS)ar
 PKG_CONFIG=$(CROSS)pkg-config
 TARGET_CFLAGS ?= -fpic -I/usr/include/libev
-TARGET_CLINK ?= -lev
+TARGET_CLINK ?= -lev -llua5.1 -ldl -lm -lc
 TARGET_OBJ ?= 
 
 OPT ?= -g -O3
 CFLAGS ?= -std=c99 -fno-strict-aliasing -I../../include/ $(TARGET_CFLAGS) $(OPT)
 CWARN ?= -pedantic -Wall -W
-CLINK ?= -L../../lib -lpthread -lssl -lcrypto \
-         -llua5.1 -ldl -lm -lc $(TARGET_CLINK)
+CLINK ?= -L../../lib -lpthread -lssl -lcrypto $(TARGET_CLINK)
 
 HDRS = ../../include/pagekite.h
 
