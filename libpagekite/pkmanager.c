@@ -210,6 +210,7 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
       bytes = pk_format_pong(reply);
       pkc_write(&(fe->conn), reply, bytes);
       pk_log(PK_LOG_TUNNEL_DATA, "> --- > Pong!");
+      fe->last_ping = time(0); /* Record this, even if not initiated by us */
     }
   }
   else if (NULL != pkb) {
