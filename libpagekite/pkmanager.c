@@ -1579,8 +1579,11 @@ void* pkm_run(void *void_pkm)
 
 #if HAVE_LUA
   if (pkm->lua) pklua_set_thread_lua(pkm->lua);
+#endif
+
   pkb_start_blockers(pkm, pkm->lua_enable_defaults ? 5 : 1);
 
+#if HAVE_LUA
   if (0 == pkm_configure_lua(pkm)) {
     /* Ask Lua to configure listeners */
     pklua_add_listeners(pkm->lua);
