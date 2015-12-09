@@ -545,14 +545,20 @@ void pkb_log_fe_status(struct pk_manager* pkm)
         ddnsinfo[0] = '\0';
         if (fe->last_ddnsup) {
           ddnsup_ago = time(0) - fe->last_ddnsup;
-          sprintf(ddnsinfo, " (in dns %us ago)", ddnsup_ago);
+          sprintf(ddnsinfo, " (in DNS %us ago)", ddnsup_ago);
         }
-        pk_log(PK_LOG_MANAGER_DEBUG, "0x%8.8x E:%d %s%s%s",
-                                     fe->conn.status,
-                                     fe->error_count,
-                                     printip,
-                                     (fe->conn.sockfd > 0) ? " live" : "",
-                                     ddnsinfo);
+        pk_log(PK_LOG_MANAGER_DEBUG,
+               "Relay; status=0x%8.8x; errors=%d; info=%s%s%s%s%s%s%s%s",
+               fe->conn.status,
+               fe->error_count,
+               printip,
+               (fe->conn.status & FE_STATUS_REJECTED) ? " rejected": "",
+               (fe->conn.status & FE_STATUS_WANTED) ? " wanted": "",
+               (fe->conn.status & FE_STATUS_LAME) ? " lame": "",
+               (fe->conn.status & FE_STATUS_IN_DNS) ? " in-DNS": "",
+               (fe->conn.status & FE_STATUS_IS_FAST) ? " fast": "",
+               (fe->conn.sockfd > 0) ? " live" : "",
+               ddnsinfo);
       }
     }
   }
@@ -703,6 +709,9 @@ int pkb_start_blockers(struct pk_manager *pkm, int n)
         return (pk_error = ERR_NO_THREAD);
       }
       n--;
+    }
+    else {
+      pk_log(PK_LOG_MANAGER_ERROR, "Blocking thread %d already started?", i);
     }
   }
   return 0;
