@@ -210,7 +210,10 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
       bytes = pk_format_pong(reply);
       pkc_write(&(fe->conn), reply, bytes);
       pk_log(PK_LOG_TUNNEL_DATA, "> --- > Pong!");
-      fe->last_ping = time(0); /* Record this, even if not initiated by us */
+      /* Record this ping, even if not initiated by us. This allows us to
+       * use pings as a metric of whether a tunnel is in use, to prevent
+       * premature disconnections. */
+      fe->last_ping = time(0);
     }
   }
   else if (NULL != pkb) {
@@ -834,9 +837,9 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
     if (fe->conn.sockfd <= 0) continue;
     if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) continue;
 
-    /* If we haven't been sending pings, then that means there is still
-     * traffic, so disconnecting would be bad. Note, we cannot check
-     * conn.activity directly because the pings reset that! */
+    /* If we haven't been sending/seeing pings, then that means there
+     * is recent traffic, so disconnecting would be bad. Note, we cannot
+     * check conn.activity directly because pings reset that! */
     if (fe->last_ping < ping_window) continue;
 
     /* Check if there are any live streams... */
