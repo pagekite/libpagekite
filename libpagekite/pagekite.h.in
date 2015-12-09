@@ -74,6 +74,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PAGEKITE_NET_LPORT_MAX 1000
 #define PAGEKITE_NET_FE_MAX 25
 
+#define PK_DEFAULT_SOCKET_TIMEOUT 15
+
 typedef int (pagekite_callback_t) (int, void*);
 typedef int (pagekite_callback2_t) (int, int, void*, void*);
 

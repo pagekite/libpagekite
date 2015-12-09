@@ -111,6 +111,7 @@ typedef unsigned int              uint32_t;
 #  define PKS_bind(s, d, l)     bind(_get_osfhandle(s), d, l)
 #  define PKS_listen(s, bl)     listen(_get_osfhandle(s), bl)
 #  define PKS_accept(s, d, l)   accept(_get_osfhandle(s), d, l)
+#  define PKS_setsockopt(f, l, o, v, s)  setsockopt(_get_osfhandle(f), l, o, v, s)
 #  define PKS_EV_FD(s)          s
 #else
 #  define PKS(s)                s
@@ -125,6 +126,7 @@ typedef unsigned int              uint32_t;
 #  define PKS_bind(s, d, l)     bind(s, d, l)
 #  define PKS_listen(s, bl)     listen(s, bl)
 #  define PKS_accept(s, d, l)   accept(s, d, l)
+#  define PKS_setsockopt(f, l, o, v, s) setsockopt(f, l, o, v, s)
 #  define PKS_EV_FD(s)          s
 #endif
 

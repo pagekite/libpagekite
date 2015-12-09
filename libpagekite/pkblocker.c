@@ -339,7 +339,7 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
 
 void* pkb_tunnel_ping(void* void_fe) {
   struct pk_tunnel* fe = (struct pk_tunnel*) void_fe;
-  struct timeval tv1, tv2;
+  struct timeval tv1, tv2, to;
   char buffer[1024], printip[1024];
   int sockfd, bytes, want;
 
@@ -353,8 +353,12 @@ void* pkb_tunnel_ping(void* void_fe) {
   }
   else {
     gettimeofday(&tv1, NULL);
+    to.tv_sec = pk_state.socket_timeout_s;
+    to.tv_usec = 0;
     if ((0 > (sockfd = PKS_socket(fe->ai->ai_family, fe->ai->ai_socktype,
                                   fe->ai->ai_protocol))) ||
+        PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *) &to, sizeof(to))) ||
+        PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *) &to, sizeof(to))) ||
         PKS_fail(PKS_connect(sockfd, fe->ai->ai_addr, fe->ai->ai_addrlen)) ||
         PKS_fail(PKS_write(sockfd, PK_FRONTEND_PING, strlen(PK_FRONTEND_PING))))
     {

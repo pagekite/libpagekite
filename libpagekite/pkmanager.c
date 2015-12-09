@@ -291,10 +291,15 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
   }
 
   /* Try to connect and set non-blocking. */
+  struct timeval to;
+  to.tv_sec = pk_state.socket_timeout_s;
+  to.tv_usec = 0;
   errno = sockfd = 0;
   if ((NULL == addr) ||
       (0 > (sockfd = PKS_socket(AF_INET, SOCK_STREAM, 0))) ||
       PKS_fail(PKS_connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))) ||
+      PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *) &to, sizeof(to))) ||
+      PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *) &to, sizeof(to))) ||
       (0 > set_non_blocking(sockfd)))
   {
     if (errno != EINPROGRESS) {

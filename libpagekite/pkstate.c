@@ -36,6 +36,7 @@ void pks_global_init(unsigned int log_mask) {
 
   pk_state.bail_on_errors = 0;
   pk_state.conn_eviction_idle_s = 0;
+  pk_state.socket_timeout_s = PK_DEFAULT_SOCKET_TIMEOUT;
   pk_state.fake_ping = 0;
 
   pk_state.have_ssl = 0;

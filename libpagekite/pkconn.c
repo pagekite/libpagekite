@@ -56,12 +56,18 @@ void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
 #endif
 }
 
+
 int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
 {
+  struct timeval to;
   int fd;
+  to.tv_sec = pk_state.socket_timeout_s;
+  to.tv_usec = 0;
   pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
   if ((0 > (fd = PKS_socket(ai->ai_family, ai->ai_socktype,
                             ai->ai_protocol))) ||
+      PKS_fail(PKS_setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *) &to, sizeof(to))) ||
+      PKS_fail(PKS_setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (char *) &to, sizeof(to))) ||
       PKS_fail(PKS_connect(fd, ai->ai_addr, ai->ai_addrlen))) {
     pkc->sockfd = -1;
     if (fd >= 0) PKS_close(fd);
