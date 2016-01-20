@@ -151,7 +151,7 @@ typedef unsigned int              uint32_t;
 #  undef HAVE_OPENSSL
 #endif
 
-#if defined(HAVE_LUA) && (HAVE_LUA != 0)
+#if defined(HAVE_LUA) && (HAVE_LUA != 0) && defined(HAVE_LUA_H)
 #  include <lua.h>
 #else
 #  define lua_State void
