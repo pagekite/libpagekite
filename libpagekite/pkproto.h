@@ -125,6 +125,7 @@ struct pk_chunk {
   int             quota_days;      /* QDays: Quota, days left                */
   int             quota_conns;     /* QConns: Quota, connections left        */
   int             quota_mb;        /* Quota: Quota, megabytes left           */
+  int             first_chunk:1;   /* Is this the first chunk of data?       */
   ssize_t         length;          /* Length of available chunk data.        */
   ssize_t         total;           /* Length of total chunk data.            */
   ssize_t         offset;          /* Offset of current fragment.            */
@@ -169,5 +170,6 @@ int               pk_connect_ai(struct pk_conn*, struct addrinfo*, int,
 int               pk_connect(struct pk_conn*, char*, int,
                              unsigned int, struct pk_kite_request*, char*,
                              SSL_CTX*);
+int               pk_http_forwarding_headers_hook(int, int, void*, void*);
 
 int pkproto_test(void);

@@ -62,7 +62,8 @@ void usage(int ecode) {
   fprintf(stderr, "\t-6\tDisable IPv6 frontends\n");
 #endif
   fprintf(stderr, "\t-C\tDisable auto-adding current DNS IP as a front-end\n"
-                  "\t-W\tEnable watchdog thread (dumps core if we lock up)\n");
+                  "\t-W\tEnable watchdog thread (dumps core if we lock up)\n"
+                  "\t-H\tDo not add X-Forwarded-Proto and X-Forwarded-For\n");
 #ifdef HAVE_LUA
   fprintf(stderr, "\t-o S=N\tEnable Lua plugin S with argument N\n"
                   "\t-L\tDisable by default all Lua plugins\n");
@@ -98,6 +99,7 @@ int main(int argc, char **argv) {
   int use_current = 1;
   int use_fake_ping = 0;
   int use_watchdog = 0;
+  int modify_http_headers = 1;
   int max_conns = 25;
   int spare_frontends = 0;
   char* fe_hostname = NULL;
@@ -113,7 +115,7 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:Io:LNn:qRSvWZ"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:HIo:LNn:qRSvWZ"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -146,6 +148,9 @@ int main(int argc, char **argv) {
         break;
       case 'W':
         use_watchdog = 1;
+        break;
+      case 'H':
+        modify_http_headers = 0;
         break;
       case 'F':
         gotargs++;
@@ -206,6 +211,7 @@ int main(int argc, char **argv) {
   /* Set all the parameters */
   pagekite_want_spare_frontends(m, spare_frontends);
   pagekite_enable_watchdog(m, use_watchdog);
+  pagekite_enable_http_forwarding_headers(m, modify_http_headers);
   pagekite_enable_fake_ping(m, use_fake_ping);
   pagekite_set_bail_on_errors(m, bail_on_errors);
   pagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);

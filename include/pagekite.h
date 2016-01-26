@@ -24,12 +24,12 @@ Note: For alternate license terms, see the file COPYING.md.
 #define _PAGEKITEC_DLL_H
 
 #ifdef ANDROID
-#define PK_VERSION "0.90.150327A"
+#define PK_VERSION "0.90.160126A"
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.90.150327W"
+#define PK_VERSION "0.90.160126W"
 #else
-#define PK_VERSION "0.90.150327C"
+#define PK_VERSION "0.90.160126C"
 #endif
 #endif
 
@@ -139,6 +139,7 @@ DECLSPEC_DLL int pagekite_set_log_mask(pagekite_mgr, int);
 DECLSPEC_DLL int pagekite_set_housekeeping_min_interval(pagekite_mgr, int);
 DECLSPEC_DLL int pagekite_set_housekeeping_max_interval(pagekite_mgr, int);
 DECLSPEC_DLL int pagekite_enable_watchdog(pagekite_mgr, int enable);
+DECLSPEC_DLL int pagekite_enable_http_forwarding_headers(pagekite_mgr, int enable);
 DECLSPEC_DLL int pagekite_enable_fake_ping(pagekite_mgr pkm, int enable);
 DECLSPEC_DLL int pagekite_set_bail_on_errors(pagekite_mgr pkm, int errors);
 DECLSPEC_DLL int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int);

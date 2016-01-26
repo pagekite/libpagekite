@@ -39,10 +39,10 @@ typedef enum {
   PK_HOOK_FE_CONN_CLOSED  = 19,
   PK_HOOK_FE_DISCONNECT   = 20,
 
-  PK_HOOK_CHUNK_INCOMING  = 28, /* 0, pk_chunk, pk_tunnel       => (ignored) */
+  PK_HOOK_CHUNK_INCOMING  = 28, /* 0, pk_chunk, pk_backend_conn => (ignored) */
   PK_HOOK_CHUNK_OUTGOING  = 29,
   PK_HOOK_DATA_INCOMING   = 30,
-  PK_HOOK_DATA_OUTGOING   = 31, /* bytes, data, pk_backend_conn => pkc_write? */
+  PK_HOOK_DATA_OUTGOING   = 31, /* 0, pk_chunk, pk_backend_conn => pkc_write? */
 } pk_hook_t;
 #define PK_HOOK_MAX         32
 

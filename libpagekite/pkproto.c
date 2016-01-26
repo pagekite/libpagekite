@@ -81,6 +81,7 @@ void chunk_reset_values(struct pk_chunk* chunk)
   chunk->quota_days = -1;
   chunk->quota_conns = -1;
   chunk->quota_mb = -1;
+  chunk->first_chunk = 0;
   chunk->length = -1;
   chunk->total = -1;
   chunk->offset = 0;
@@ -752,6 +753,50 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
     return (pk_error = ERR_CONNECT_LOOKUP);
   }
   return (pk_error = ERR_CONNECT_CONNECT);
+}
+
+int pk_http_forwarding_headers_hook(int hook_id, int iv, void* p1, void* p2)
+{
+  static unsigned char rewrite_space[PARSER_BYTES_MAX + 256];
+  char forwarding_headers[1024];
+  struct pk_chunk *chunk = (struct pk_chunk*) p1;
+  struct pk_backend_conn *pkb = (struct pk_backend_conn*) p2;
+
+  if (chunk->first_chunk &&
+      chunk->request_proto &&
+      chunk->remote_ip &&
+      (0 == strcasecmp(chunk->request_proto, "http")) &&
+      (strlen(chunk->remote_ip) < 128) &&
+      (chunk->length < PARSER_BYTES_MAX))
+  {
+      int added = 0;
+      char *s = chunk->data;
+      char *d = rewrite_space;
+      char *nl = "\n";
+      int countdown = chunk->length;
+
+      /* This ensures that d-2 is safe in the loop below. */
+      if (countdown--) *d++ = *s++;
+
+      while (countdown-- > 0) {
+        *d++ = *s++;
+        if (!added && (*(d-1) == '\n')) {
+          if (*(d-2) == '\r') nl = "\r\n";
+          added = sprintf(d,
+                          "X-Forwarded-Proto: %s%sX-Forwarded-For: %s%s",
+                          chunk->remote_tls ? "https" : "http", nl,
+                          chunk->remote_ip, nl);
+          d += added;
+        }
+      }
+
+      if (added) {
+        chunk->length += added;
+        chunk->data = rewrite_space;
+      }
+  }
+
+  return 0;
 }
 
 

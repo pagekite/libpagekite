@@ -157,8 +157,6 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
   PK_TRACE_FUNCTION;
   pk_log_chunk(fe, chunk);
 
-  PK_HOOK(PK_HOOK_CHUNK_INCOMING, 0, chunk, fe);
-
   pkb = NULL;
   if (NULL != chunk->sid) {
     if ((NULL != (pkb = pkm_find_be_conn(fe->manager, fe, chunk->sid))) ||
@@ -204,6 +202,8 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
   }
   else
     pkm_yield_start(fe->manager);
+
+  PK_HOOK(PK_HOOK_CHUNK_INCOMING, 0, chunk, pkb);
 
   if (NULL != chunk->noop) {
     if (NULL != chunk->ping) {
@@ -325,6 +325,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
    *        See also: http://developerweb.net/viewtopic.php?id=3196 */
   pkm_yield_stop(fe->manager);
 
+  chunk->first_chunk = 1;
   pkb->kite = kite;
   pkb->conn.sockfd = sockfd;
 

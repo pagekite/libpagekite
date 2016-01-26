@@ -31,6 +31,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
+#include "pkhooks.h"
 
 #define PK_DEFAULT_FLAGS (PK_WITH_SSL | PK_WITH_IPV4 | PK_WITH_IPV6 | \
                           PK_WITH_DYNAMIC_FE_LIST)
@@ -216,6 +217,12 @@ int pagekite_enable_watchdog(pagekite_mgr pkm, int enable)
 {
   if (pkm == NULL) return -1;
   PK_MANAGER(pkm)->enable_watchdog = (enable > 0);
+  return 0;
+}
+
+int pagekite_enable_http_forwarding_headers(pagekite_mgr pkm, int enable)
+{
+  pk_hooks[PK_HOOK_CHUNK_INCOMING] = &pk_http_forwarding_headers_hook;
   return 0;
 }
 
