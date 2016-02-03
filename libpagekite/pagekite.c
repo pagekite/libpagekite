@@ -140,6 +140,103 @@ pagekite_mgr pagekite_init_pagekitenet(
   return pkm;
 }
 
+pagekite_mgr pagekite_init_whitelabel(
+  const char* app_id,
+  int max_kites,
+  int max_conns,
+  int flags,
+  int verbosity,
+  const char* whitelabel_tld)
+{
+  char dynamic_dns_url[256];
+  pagekite_mgr pkm;
+
+  if (flags == PK_WITH_DEFAULTS) flags = PK_DEFAULT_FLAGS;
+
+  if (whitelabel_tld) {
+    sprintf(dynamic_dns_url, PAGEKITE_NET_WL_DDNS, whitelabel_tld);
+  }
+  else {
+    strcpy(dynamic_dns_url, PAGEKITE_NET_DDNS);
+  }
+
+  if (NULL == (pkm = pagekite_init(app_id,
+                                   max_kites,
+                                   PAGEKITE_NET_FE_MAX,
+                                   max_conns,
+                                   dynamic_dns_url,
+                                   flags, verbosity)))
+  {
+    return NULL;
+  }
+
+  /* If flags say anything about service frontends, do nothing: either
+     it was already done, or we're not supposed to do anything. */
+  if (!(flags & (PK_WITHOUT_SERVICE_FRONTENDS|PK_WITH_SERVICE_FRONTENDS))) {
+    if (0 > pagekite_add_whitelabel_frontends(pkm, flags, whitelabel_tld)) {
+      pkm_manager_free(PK_MANAGER(pkm));
+      return NULL;
+    }
+  }
+
+  return pkm;
+}
+
+int pagekite_add_whitelabel_frontends(
+  pagekite_mgr pkm,
+  int flags,
+  const char* whitelabel_tld)
+{
+  int fes_v4 = 0;
+  char fdomain_v4[256];
+#ifdef HAVE_IPV6
+  int fes_v6 = 0;
+  char fdomain_v6[256];
+#endif
+  int add_null_records;
+
+  if (!whitelabel_tld)
+    return pagekite_add_service_frontends(pkm, flags);
+
+  if (flags == PK_WITH_DEFAULTS) flags = PK_DEFAULT_FLAGS;
+  add_null_records = (flags & PK_WITH_DYNAMIC_FE_LIST);
+
+  sprintf(fdomain_v4, PAGEKITE_NET_WL_V4FRONTENDS, whitelabel_tld);
+#ifdef HAVE_IPV6
+  sprintf(fdomain_v6, PAGEKITE_NET_WL_V6FRONTENDS, whitelabel_tld);
+#endif
+
+  if (((flags & PK_WITH_IPV4) &&
+       (0 > (fes_v4 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
+                                                  fdomain_v4,
+                                                  PAGEKITE_NET_WL_FRONTEND_PORT,
+                                                  FE_STATUS_AUTO,
+                                                  add_null_records))))
+#ifdef HAVE_IPV6
+  ||  ((flags & PK_WITH_IPV6) &&
+       (0 > (fes_v6 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
+                                                  fdomain_v6,
+                                                  PAGEKITE_NET_WL_FRONTEND_PORT,
+                                                  FE_STATUS_AUTO,
+                                                  add_null_records))))
+#endif
+  ) {
+    return -1;
+  }
+
+#ifdef HAVE_IPV6
+  int fes = fes_v4 + fes_v6;
+#else
+  int fes = fes_v4;
+#endif
+  if (0 == fes) {
+    pk_set_error(ERR_NO_FRONTENDS);
+    return -1;
+  }
+  return fes;
+
+}
+
 int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
   int fes_v4 = 0;
 #ifdef HAVE_IPV6

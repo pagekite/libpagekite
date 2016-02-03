@@ -50,6 +50,7 @@ void usage(int ecode) {
   fprintf(stderr, "\t-I\tConnect insecurely, without SSL.\n");
 #endif
   fprintf(stderr, "\t-S\tStatic setup, disable FE failover and DDNS updates\n"
+                  "\t-w D\tWhite-label configuration using domain D.\n"
                   "\t-c N\tSet max connection count to N (default = 25)\n"
                   "\t-n N\tAlways connect to N spare frontends (default = 0)\n"
                   "\t-B N\tBail out (abort) after N logged errors\n"
@@ -92,6 +93,7 @@ int main(int argc, char **argv) {
   char* kitename;
   char* secret;
   char* lua_settings[MAX_PLUGIN_ARGS+1];
+  char* whitelabel_tld = NULL;
   int lua_settingc = 0;
   int lua_no_defaults = 0;
   int gotargs = 0;
@@ -115,7 +117,7 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:HIo:LNn:qRSvWZ"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:HIo:LNn:qRSvWw:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -151,6 +153,10 @@ int main(int argc, char **argv) {
         break;
       case 'H':
         modify_http_headers = 0;
+        break;
+      case 'w':
+        gotargs++;
+        whitelabel_tld = strdup(optarg);
         break;
       case 'F':
         gotargs++;
@@ -196,13 +202,28 @@ int main(int argc, char **argv) {
   signal(SIGUSR1, &raise_log_level);
 #endif
 
-  if (NULL == (m = pagekite_init("pagekitec",
-                                 1 + (argc-1-gotargs)/5, /* Kites */
-                                 PAGEKITE_NET_FE_MAX,
-                                 max_conns,
-                                 ddns_url,
-                                 flags,
-                                 verbosity)))
+  if (whitelabel_tld != NULL)
+  {
+    if (NULL == (m = pagekite_init_whitelabel(
+      "pagekitec",
+      1 + (argc-1-gotargs)/5, /* Kites */
+      max_conns,
+      flags,
+      verbosity,
+      whitelabel_tld)))
+    {
+      pagekite_perror(m, argv[0]);
+      safe_exit(EXIT_ERR_MANAGER_INIT);
+    }
+  }
+  else if (NULL == (m = pagekite_init(
+    "pagekitec",
+    1 + (argc-1-gotargs)/5, /* Kites */
+    PAGEKITE_NET_FE_MAX,
+    max_conns,
+    ddns_url,
+    flags,
+    verbosity)))
   {
     pagekite_perror(m, argv[0]);
     safe_exit(EXIT_ERR_MANAGER_INIT);
@@ -240,6 +261,12 @@ int main(int argc, char **argv) {
     if (0 > pagekite_lookup_and_add_frontend(m, fe_hostname, 443,
                                              flags & PK_WITH_DYNAMIC_FE_LIST))
     {
+      pagekite_perror(m, argv[0]);
+      safe_exit(EXIT_ERR_FRONTENDS);
+    }
+  }
+  else if (whitelabel_tld != NULL) {
+    if (0 > pagekite_add_whitelabel_frontends(m, flags, whitelabel_tld)) {
       pagekite_perror(m, argv[0]);
       safe_exit(EXIT_ERR_FRONTENDS);
     }

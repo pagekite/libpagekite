@@ -74,6 +74,11 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PAGEKITE_NET_LPORT_MAX 1000
 #define PAGEKITE_NET_FE_MAX 25
 
+#define PAGEKITE_NET_WL_DDNS "http://dnsup.%s/?hostname=%%s&myip=%%s&sign=%%s"
+#define PAGEKITE_NET_WL_V4FRONTENDS "fe.%s"
+#define PAGEKITE_NET_WL_V6FRONTENDS "fe6.%s"
+#define PAGEKITE_NET_WL_FRONTEND_PORT 443
+
 #define PK_DEFAULT_SOCKET_TIMEOUT 15
 
 typedef int (pagekite_callback_t) (int, void*);
@@ -112,6 +117,14 @@ DECLSPEC_DLL pagekite_mgr pagekite_init_pagekitenet(
   int flags,
   int verbosity);
 
+DECLSPEC_DLL pagekite_mgr pagekite_init_whitelabel(
+  const char* app_id,
+  int max_kites,
+  int max_conns,
+  int flags,
+  int verbosity,
+  const char* whitelabel_tld);
+
 DECLSPEC_DLL int pagekite_add_kite(pagekite_mgr,
   const char* proto,
   const char* kitename,
@@ -121,6 +134,12 @@ DECLSPEC_DLL int pagekite_add_kite(pagekite_mgr,
   int lport);
 
 DECLSPEC_DLL int pagekite_add_service_frontends(pagekite_mgr pkm, int);
+
+DECLSPEC_DLL int pagekite_add_whitelabel_frontends(
+  pagekite_mgr pkm,
+  int flags,
+  const char* whitelabel_tld);
+
 DECLSPEC_DLL int pagekite_lookup_and_add_frontend(pagekite_mgr,
   const char* domain,
   int port,
