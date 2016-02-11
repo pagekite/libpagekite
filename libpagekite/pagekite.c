@@ -422,17 +422,17 @@ int pagekite_poll(pagekite_mgr pkm, int timeout) {
   return 0;
 }
 
-int pagekite_start(pagekite_mgr pkm) {
+int pagekite_thread_start(pagekite_mgr pkm) {
   if (pkm == NULL) return -1;
   return pkm_run_in_thread(PK_MANAGER(pkm));
 }
 
-int pagekite_wait(pagekite_mgr pkm) {
+int pagekite_thread_wait(pagekite_mgr pkm) {
   if (pkm == NULL) return -1;
   return pkm_wait_thread(PK_MANAGER(pkm));
 }
 
-int pagekite_stop(pagekite_mgr pkm) {
+int pagekite_thread_stop(pagekite_mgr pkm) {
   if (pkm == NULL) return -1;
   if (0 > pkm_stop_thread(PK_MANAGER(pkm))) return -1;
   return 0;

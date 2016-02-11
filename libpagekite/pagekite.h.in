@@ -133,10 +133,10 @@ DECLSPEC_DLL int pagekite_add_kite(pagekite_mgr,
   const char* backend,
   int lport);
 
-DECLSPEC_DLL int pagekite_add_service_frontends(pagekite_mgr pkm, int);
+DECLSPEC_DLL int pagekite_add_service_frontends(pagekite_mgr,
+  int flags);
 
-DECLSPEC_DLL int pagekite_add_whitelabel_frontends(
-  pagekite_mgr pkm,
+DECLSPEC_DLL int pagekite_add_whitelabel_frontends(pagekite_mgr,
   int flags,
   const char* whitelabel_tld);
 
@@ -144,6 +144,7 @@ DECLSPEC_DLL int pagekite_lookup_and_add_frontend(pagekite_mgr,
   const char* domain,
   int port,
   int update_from_dns);
+
 DECLSPEC_DLL int pagekite_add_frontend(pagekite_mgr,
   const char* domain,
   int port);
@@ -154,21 +155,21 @@ DECLSPEC_DLL int pagekite_add_listener(pagekite_mgr,
   pagekite_callback_t* callback_func,
   void *callback_data);
 
-DECLSPEC_DLL int pagekite_set_log_mask(pagekite_mgr, int);
-DECLSPEC_DLL int pagekite_set_housekeeping_min_interval(pagekite_mgr, int);
-DECLSPEC_DLL int pagekite_set_housekeeping_max_interval(pagekite_mgr, int);
+DECLSPEC_DLL int pagekite_set_log_mask(pagekite_mgr, int mask);
+DECLSPEC_DLL int pagekite_set_housekeeping_min_interval(pagekite_mgr, int interval);
+DECLSPEC_DLL int pagekite_set_housekeeping_max_interval(pagekite_mgr, int interval);
 DECLSPEC_DLL int pagekite_enable_watchdog(pagekite_mgr, int enable);
 DECLSPEC_DLL int pagekite_enable_http_forwarding_headers(pagekite_mgr, int enable);
 DECLSPEC_DLL int pagekite_enable_fake_ping(pagekite_mgr pkm, int enable);
 DECLSPEC_DLL int pagekite_set_bail_on_errors(pagekite_mgr pkm, int errors);
-DECLSPEC_DLL int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int);
+DECLSPEC_DLL int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int seconds);
 DECLSPEC_DLL int pagekite_enable_lua_plugins(pagekite_mgr pkm, int, char**);
 DECLSPEC_DLL int pagekite_want_spare_frontends(pagekite_mgr, int spares);
 DECLSPEC_DLL int pagekite_tick(pagekite_mgr);
 DECLSPEC_DLL int pagekite_poll(pagekite_mgr, int timeout);
-DECLSPEC_DLL int pagekite_start(pagekite_mgr);
-DECLSPEC_DLL int pagekite_wait(pagekite_mgr);
-DECLSPEC_DLL int pagekite_stop(pagekite_mgr);
+DECLSPEC_DLL int pagekite_thread_start(pagekite_mgr);
+DECLSPEC_DLL int pagekite_thread_wait(pagekite_mgr);
+DECLSPEC_DLL int pagekite_thread_stop(pagekite_mgr);
 DECLSPEC_DLL int pagekite_get_status(pagekite_mgr);
 DECLSPEC_DLL char* pagekite_get_log(pagekite_mgr);
 DECLSPEC_DLL int pagekite_free(pagekite_mgr);

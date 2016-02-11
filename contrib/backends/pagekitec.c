@@ -278,12 +278,12 @@ int main(int argc, char **argv) {
     }
   }
 
-  if (0 > pagekite_start(m)) {
+  if (0 > pagekite_thread_start(m)) {
     pagekite_perror(m, argv[0]);
     safe_exit(EXIT_ERR_START_THREAD);
   }
 
-  pagekite_wait(m);
+  pagekite_thread_wait(m);
   pagekite_free(m);
 
   return 0;

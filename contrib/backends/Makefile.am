@@ -10,3 +10,7 @@ pagekitec_SOURCES = pagekitec.c
 pagekitec_CFLAGS = $(LIBEV_CFLAGS) $(LUA_INCLUDE) -I$(top_srcdir)/include -I$(top_srcdir)/libpagekite
 pagekitec_LDADD = $(top_srcdir)/libpagekite/libpagekite.la
 pagekitec_LDFLAGS = $(LUA_LIBS)
+
+if HAVE_JAVA
+dist_noinst_JAVA = PageKiteTest.java
+endif

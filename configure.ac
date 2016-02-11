@@ -37,6 +37,11 @@ AC_ARG_WITH(lua,
 		[Do not compile pagekite lua bindings even if Lua is available])],
 		[], [with_lua=yes])
 
+AC_ARG_WITH(java,
+	[AS_HELP_STRING([--without-java],
+		[Do not compile pagekite java bindings even if Java is available])],
+		[], [with_java=yes])
+
 AC_ARG_WITH(agpl-relay,
 	[AS_HELP_STRING([--with-agpl-relay],
 		[Compile libpagekite relay support (AGPLv3 code)])],
@@ -57,8 +62,19 @@ AM_PROG_CC_C_O
 
 LT_INIT
 
+# Check for JNI, Java
+if test "$with_java" = "yes"; then
+    AX_JNI_INCLUDE_DIR
+    for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS; do
+      CPPFLAGS="$CPPFLAGS -I$JNI_INCLUDE_DIR"
+    done
+    AC_SUBST(JAVAC)
+    AC_SUBST(CPPFLAGS)
+fi
+AM_CONDITIONAL(HAVE_JAVA, test "x$with_java" = "xyes")
+
 # Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h inttypes.h limits.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/socket.h sys/statfs.h sys/time.h sys/timeb.h unistd.h])
+AC_CHECK_HEADERS([jni.h arpa/inet.h fcntl.h float.h inttypes.h limits.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/socket.h sys/statfs.h sys/time.h sys/timeb.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 m4_ifdef([AC_CHECK_HEADER_STDBOOL], [AC_CHECK_HEADER_STDBOOL])
@@ -195,7 +211,6 @@ AM_CONDITIONAL(HAVE_LUA, test "x$with_lua" = "xyes")
 AC_SUBST([LUA_INCLUDE])
 AC_SUBST([LUA_LIBS])
 
-
 AS_IF([test "x$with_agpl_relay" = 'xyes'],
 	[with_relay='yes'], [with_relay='no'])
 AM_CONDITIONAL(HAVE_RELAY, test "x$with_relay" = "xyes")
@@ -213,11 +228,14 @@ if test "$with_ds_logfmt" = "yes"; then
   HAVE_DS_LOGFMT=1
 fi
 
+JAVAROOT="\$(top_builddir)/java-classes/"
+AC_SUBST(JAVAROOT)
 
 AC_CONFIG_FILES([Makefile
   libpagekite/Makefile
   libpagekite/libpagekite.pc
   contrib/backends/Makefile
   contrib/relays/Makefile
+  bindings/java/Makefile
 ])
 AC_OUTPUT

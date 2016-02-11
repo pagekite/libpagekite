@@ -41,8 +41,8 @@ int main(int argc, const char** argv) {
     }
 
     /* Start the worker thread, wait for it to exit. */
-    assert(-1 < pagekite_start(pkm));
-    assert(-1 < pagekite_wait(pkm));
+    assert(-1 < pagekite_thread_start(pkm));
+    assert(-1 < pagekite_thread_wait(pkm));
 
     /* Not reached: Nothing actually shuts us down in this app. */
     assert(-1 < pagekite_free(pkm));
