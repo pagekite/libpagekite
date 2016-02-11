@@ -41,7 +41,7 @@ windows:
 version:
 	@cd libpagekite && make -f Makefile.pk version
 	@mkdir -p bindings/java/net/pagekite/lib
-	@python2 bindings/make-bindings.py include/pagekite.h \
+	python2 bindings/make-bindings.py include/pagekite.h \
                 bindings/java/net/pagekite/lib/PageKiteAPI.java \
                 libpagekite/pagekite-jni.c
 

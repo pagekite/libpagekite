@@ -36,6 +36,10 @@ import subprocess
 import sys
 
 
+def uncomment(string):
+    return re.sub(r'\/\*.+?\*\/', '', string, flags=re.DOTALL)
+
+
 def java_ret_type(ret_type):
     ret_type = ret_type.strip()
     if ret_type in ('pagekite_mgr', 'void'):
@@ -55,13 +59,13 @@ def java_name(func_name):
 
 
 def java_arg(arg):
-    var_type, var_name = arg.rsplit(' ', 1)
+    var_type, var_name = uncomment(arg).rsplit(' ', 1)
     return '%s %s' % (java_ret_type(var_type), var_name)
 
 
 def java_class(constants, functions):
     methods = []
-    for ret_type, func_name, args in functions:
+    for ret_type, func_name, args, docs, argstr in functions:
         if args and args[0].startswith('pagekite_mgr'):
             args = args[1:]
         try:
@@ -99,7 +103,7 @@ def jni_ret_type(ret_type):
 
 
 def jni_arg(arg):
-    var_type, var_name = arg.rsplit(' ', 1)
+    var_type, var_name = uncomment(arg).rsplit(' ', 1)
     return '%s j%s' % (jni_ret_type(var_type), var_name)
 
 
@@ -165,7 +169,7 @@ def jni_func(ret_type, func_name, args):
 
 def jni_code(functions):
     jni_functions = []
-    for ret_type, func_name, args in functions:
+    for ret_type, func_name, args, docs, argstr in functions:
         try:
             jni_functions.append(jni_func(ret_type, func_name, args))
         except ValueError:
@@ -192,11 +196,9 @@ static pagekite_mgr pagekite_manager_global = NULL;
         'constants': '',
         'functions': '\n\n'.join(jni_functions)}
 
-
 def get_constants(pagekite_h):
     constants = []
-    pagekite_h = re.sub(r'\/\*.+?\*\/', '', pagekite_h, flags=re.DOTALL)
-    for line in pagekite_h.splitlines():
+    for line in uncomment(pagekite_h).splitlines():
         try:
             if line.startswith('#define '):
                 define, varname, value = line.split(' ', 2)
@@ -209,19 +211,19 @@ def get_constants(pagekite_h):
 
 def get_functions(pagekite_h):
     functions = []
-    func_re = re.compile(r'(?:DECLSPEC_DLL\s+)?'
+    func_re = re.compile(r'(?:\/\*(.*)\*\/\s+)?'
+                          '(?:DECLSPEC_DLL\s+)?'
                           '((?:[^\(\s]+\s+)*)'
                           '(pagekite_\S+)'
-                          '\((.*)\)$')
-    pagekite_h = re.sub(r'\/\*.+?\*\/', '', pagekite_h, flags=re.DOTALL)
-    for statement in (s.strip().replace('\n', ' ')
-                      for s in pagekite_h.split(';')):
+                          '\((.*)\)$', flags=re.DOTALL)
+    for statement in (s.strip() for s in pagekite_h.split(';')):
         m = re.match(func_re, statement)
         if m:
-            ret_type, func_name, args = (m.group(1), m.group(2), m.group(3))
-            args = [a.strip() for a in args.split(',')]
+            docs, ret_type, func_name, argstr = (
+                m.group(1), m.group(2), m.group(3), m.group(4))
+            args = [a.strip() for a in uncomment(argstr).split(',')]
             if '_relay_' not in func_name and '_lua_' not in func_name:
-                functions.append([ret_type, func_name, args])
+                functions.append([ret_type, func_name, args, docs, argstr])
     return functions
 
 
