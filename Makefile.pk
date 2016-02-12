@@ -38,7 +38,10 @@ windows:
 	@mv -v contrib/backends/*.exe bin/
 	@echo
 
-version:
+version: publicapi
+	@git add -f `find . -name Makefile.am` configure
+
+publicapi:
 	@cd libpagekite && make -f Makefile.pk version
 	@mkdir -p bindings/java/net/pagekite/lib
 	python2 bindings/make-bindings.py include/pagekite.h \
