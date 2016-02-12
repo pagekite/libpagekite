@@ -39,7 +39,8 @@ windows:
 	@echo
 
 version: publicapi
-	@git add -f `find . -name Makefile.am` configure
+	@git add -f `find . -name \*.in` 
+	@git add -f config{ure,.sub,.guess} install-sh missing 
 
 publicapi:
 	@cd libpagekite && make -f Makefile.pk version
