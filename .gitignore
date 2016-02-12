@@ -6,6 +6,8 @@
 *.slo
 *.exe
 *.dll
+*.class
+*.stamp
 *.csproj.user
 .win32
 .unix

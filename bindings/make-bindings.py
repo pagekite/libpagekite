@@ -87,7 +87,7 @@ public class PageKiteAPI extends Object
     %(methods)s
 
     static {
-        System.loadLibrary("libpagekite");
+        System.loadLibrary("pagekite");
     }
 }
 """ % { 'boilerplate': BOILERPLATE % {

@@ -81,6 +81,6 @@ public class PageKiteAPI extends Object
     /* FIXME: void pagekite_perror(const char*) */
 
     static {
-        System.loadLibrary("libpagekite");
+        System.loadLibrary("pagekite");
     }
 }
