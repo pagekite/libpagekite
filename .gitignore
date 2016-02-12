@@ -13,6 +13,9 @@
 .unix
 .deps
 .libs
+bin/
+lib/
+include/libpagekite/
 contrib/Windows-GUI/bin/
 contrib/Windows-GUI/obj/
 libpagekite/pklualua.h

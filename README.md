@@ -18,7 +18,6 @@ For more information about PageKite, see http://pagekite.org/
 
 The structure is as follows:
 
-    Makefile            A few recipes for building common targets
     bindings/           Library bindings for other programming languages
     contrib/            Things that use libpagekite
     doc/                Documentation
