@@ -2,8 +2,8 @@
 #
 # This file is Copyright 2016, The Beanstalks Project ehf.
 #
-# This tool automatically creates bindings for other languages, based on
-# the contents of pagekite.h.
+# This tool automatically creates language bindings and documentation, based
+# on the contents of pagekite.h.
 #
 # See boilerplate below. :-)
 #
@@ -34,10 +34,30 @@ import datetime
 import re
 import subprocess
 import sys
+import traceback
+
+
+def disemvowel(string):
+    return re.sub(r'[aeiouy_]', '', string)
+
+
+def wraplines(string):
+    ll = re.compile(r'([^\n]{60}\S+) +', flags=re.DOTALL)
+    while re.search(ll, string):
+        string = re.sub(ll, '\\1\n', string)
+    return string
 
 
 def uncomment(string):
     return re.sub(r'\/\*.+?\*\/', '', string, flags=re.DOTALL)
+
+
+def comment(string, default=''):
+    cmnt = re.search(r'\/\*(.+?)\*\/', string, flags=re.DOTALL)
+    if cmnt:
+        return cmnt.group(1).strip()
+    else:
+        return default
 
 
 def java_ret_type(ret_type):
@@ -46,7 +66,7 @@ def java_ret_type(ret_type):
         return 'boolean'
     elif ret_type.replace(' ', '') in ('char*', 'constchar*'):
         return 'String'
-    elif ret_type == 'int':
+    elif ret_type in ('int', 'pk_neg_fail'):
         return 'int'
     else:
         raise ValueError('Unknown return value type: %s' % ret_type)
@@ -110,6 +130,7 @@ def jni_arg(arg):
 def jni_fail(ret_type):
     return {
         'int': '-1',
+        'pk_neg_fail': '-1',
         'boolean': 'JNI_FALSE',
         'String': 'NULL'
     }[java_ret_type(ret_type)];
@@ -196,13 +217,105 @@ static pagekite_mgr pagekite_manager_global = NULL;
         'constants': '',
         'functions': '\n\n'.join(jni_functions)}
 
+
+def documentation(functions, jni=False):
+    toc, constant_docs, function_docs = [], [], []
+
+    def parse_doc_comment(docs):
+        if docs is None:
+            return {}
+        lines = re.sub(r'(\n+)  +',
+                       lambda s: ' ' * (1 if (len(s.group(1)) == 1) else 2),
+                       '\n'.join([re.sub(r'^[\/\s]+\*([\/\s]|$)', '', l)
+                                  for l in docs.splitlines()]),
+                       flags=re.DOTALL)
+        return dict(l.replace('  ', '\n\n').split(': ', 1)
+                    for l in lines.splitlines() if l.strip())
+
+    def section(parse):
+        if parse:
+            return [k for k in parse.keys() if not 'returns' in k.lower()][0]
+        else:
+            return 'None'
+
+    last_sect = 'None'
+    retpref = 'JNI Returns' if jni else 'API Returns'
+    for ret_type, func_name, args, docs, argstr in functions:
+        try:
+            if jni:
+                func_name = java_name(func_name)
+                ret_type = java_ret_type(ret_type)
+
+            parse = parse_doc_comment(docs)
+            text = wraplines(parse.get(section(parse), '')).strip()
+            if not text:
+                continue
+
+            sect = section(parse).strip()
+            if sect != last_sect:
+                doc = ['### %s' % sect]
+            else:
+                doc = []
+
+            doc += [
+                '',
+                '<a %76s' % (' name="%s"></a>' % disemvowel(func_name)),
+                '',
+                '#### `%s %s(...)`' % (ret_type.strip(), func_name),
+                '',
+                text,
+                '']
+
+            if args:
+                adocs = []
+                comments = argstr.strip().splitlines()
+                for i in range(0, len(args)):
+                    adoc = comment(comments[i])
+                    argn = args[i]
+                    if jni:
+                        if argn.startswith('pagekite_mgr'):
+                            continue
+                        argn = java_arg(argn)
+                    adocs.append('   * `%s`: %s' % (argn, adoc))
+                doc += ['**Arguments**:', '', '\n'.join(adocs), '']
+
+            doc.append(
+                '**Returns**: %s' % parse.get(retpref,
+                                              parse.get('Returns', ret_type)))
+
+            function_docs.append('\n'.join(doc))
+
+            if sect != last_sect:
+                toc.append('   * %s' % sect)
+                last_sect = sect
+            toc.append('      * [`%-44s`](#%s)'
+                       % (func_name, disemvowel(func_name)))
+        except ValueError:
+            traceback.print_exc()
+            pass
+    return """# PageKite API reference manual
+
+%(toc)s
+
+## Functions
+
+%(functions)s
+
+## Constants
+
+%(constants)s
+""" % {  'toc': '\n'.join(toc),
+         'constants': '\n'.join(constant_docs),
+         'functions': '\n\n'.join(function_docs)}
+
+
 def get_constants(pagekite_h):
     constants = []
     for line in uncomment(pagekite_h).splitlines():
         try:
             if line.startswith('#define '):
                 define, varname, value = line.split(' ', 2)
-                if varname[:6] in ('PK_WIT', 'PK_AS_', 'PK_LOG'):
+                if varname[:6] in ('PK_WIT', 'PK_AS_', 'PK_STA', 'PK_LOG'):
                     constants.append((varname, value.strip()))
         except ValueError:
             pass
@@ -222,7 +335,7 @@ def get_functions(pagekite_h):
             docs, ret_type, func_name, argstr = (
                 m.group(1), m.group(2), m.group(3), m.group(4))
             args = [a.strip() for a in uncomment(argstr).split(',')]
-            if '_relay_' not in func_name and '_lua_' not in func_name:
+            if '_relay_' not in func_name:
                 functions.append([ret_type, func_name, args, docs, argstr])
     return functions
 
@@ -238,5 +351,8 @@ if __name__ == '__main__':
             open(outfile, 'w').write(java_class(constants, functions))
         elif outfile.endswith('.c'):
             open(outfile, 'w').write(jni_code(functions))
+        elif outfile.endswith('.md'):
+            open(outfile, 'w').write(documentation(
+                functions, jni='jni' in outfile.lower()))
         else:
             raise ValueError('What is this? %s' % outfile)

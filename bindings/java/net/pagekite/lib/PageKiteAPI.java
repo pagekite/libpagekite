@@ -23,6 +23,13 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
+    public static final int PK_STATUS_STARTUP = 10;
+    public static final int PK_STATUS_CONNECTING = 20;
+    public static final int PK_STATUS_UPDATING_DNS = 30;
+    public static final int PK_STATUS_FLYING = 40;
+    public static final int PK_STATUS_PROBLEMS = 50;
+    public static final int PK_STATUS_REJECTED = 60;
+    public static final int PK_STATUS_NO_NETWORK = 90;
     public static final int PK_WITH_DEFAULTS = 0x0000;
     public static final int PK_WITHOUT_DEFAULTS = 0x1000;
     public static final int PK_WITH_SSL = 0x0001;
@@ -60,25 +67,27 @@ public class PageKiteAPI extends Object
     public static native int addWhitelabelFrontends(int flags, String whitelabel_tld);
     public static native int lookupAndAddFrontend(String domain, int port, int update_from_dns);
     public static native int addFrontend(String domain, int port);
-    /* FIXME: int pagekite_add_listener(const char* domain, int port, pagekite_callback_t* callback_func, void *callback_data) */
     public static native int setLogMask(int mask);
     public static native int setHousekeepingMinInterval(int interval);
     public static native int setHousekeepingMaxInterval(int interval);
-    public static native int enableWatchdog(int enable);
     public static native int enableHttpForwardingHeaders(int enable);
     public static native int enableFakePing(int enable);
-    public static native int setBailOnErrors(int errors);
+    public static native int enableWatchdog(int enable);
+    public static native int enableTickTimer(int enable);
     public static native int setConnEvictionIdleS(int seconds);
     public static native int wantSpareFrontends(int spares);
-    public static native int tick();
-    public static native int poll(int timeout);
     public static native int threadStart();
     public static native int threadWait();
     public static native int threadStop();
+    public static native int free();
     public static native int getStatus();
     public static native String getLog();
-    public static native int free();
+    public static native int poll(int timeout);
+    public static native int tick();
+    public static native int setBailOnErrors(int errors);
     /* FIXME: void pagekite_perror(const char*) */
+    /* FIXME: int pagekite_add_listener(const char* domain, int port, pagekite_callback_t* callback_func, void* callback_data) */
+    /* FIXME: int pagekite_enable_lua_plugins(int enable_defaults, char** settings) */
 
     static {
         System.loadLibrary("pagekite");

@@ -319,7 +319,12 @@ int pagekite_enable_watchdog(pagekite_mgr pkm, int enable)
 
 int pagekite_enable_http_forwarding_headers(pagekite_mgr pkm, int enable)
 {
-  pk_hooks[PK_HOOK_CHUNK_INCOMING] = &pk_http_forwarding_headers_hook;
+  if (enable) {
+    pk_hooks[PK_HOOK_CHUNK_INCOMING] = &pk_http_forwarding_headers_hook;
+  }
+  else {
+    pk_hooks[PK_HOOK_CHUNK_INCOMING] = NULL;
+  }
   return 0;
 }
 
@@ -405,6 +410,12 @@ int pagekite_add_listener(pagekite_mgr pkm,
                           callback_func, callback_data);
 }
 
+int pagekite_enable_tick_timer(pagekite_mgr pkm, int enabled)
+{
+  if (pkm == NULL) return -1;
+  pkm_set_timer_enabled(PK_MANAGER(pkm), enabled);
+  return 0;
+}
 
 int pagekite_tick(pagekite_mgr pkm)
 {

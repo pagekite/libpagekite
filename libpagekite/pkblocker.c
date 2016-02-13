@@ -491,7 +491,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
     if ((kite->protocol[0] != '\0') &&
         (0 != strcasecmp(lastup, kite->public_domain))) {
-      PKS_STATE(pkm->status = PK_STATUS_DYNDNS);
+      PKS_STATE(pkm->status = PK_STATUS_UPDATING_DNS);
       sprintf(payload, "%s:%s", kite->public_domain, address_list);
       pk_sign(NULL, kite->auth_secret, payload, 100, signature);
 

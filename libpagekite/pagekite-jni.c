@@ -204,8 +204,6 @@ jint Java_net_pagekite_lib_PageKiteAPI_addFrontend(
   return rv;
 }
 
-/* FIXME: int pagekite_add_listener(pagekite_mgr, const char* domain, int port, pagekite_callback_t* callback_func, void *callback_data) */
-
 jint Java_net_pagekite_lib_PageKiteAPI_setLogMask(
   JNIEnv* env, jclass unused_class
 , jint jmask
@@ -245,19 +243,6 @@ jint Java_net_pagekite_lib_PageKiteAPI_setHousekeepingMaxInterval(
   return rv;
 }
 
-jint Java_net_pagekite_lib_PageKiteAPI_enableWatchdog(
-  JNIEnv* env, jclass unused_class
-, jint jenable
-){
-  if (pagekite_manager_global == NULL) return -1;
-
-  int enable = jenable;
-
-  jint rv = pagekite_enable_watchdog(pagekite_manager_global, enable);
-
-  return rv;
-}
-
 jint Java_net_pagekite_lib_PageKiteAPI_enableHttpForwardingHeaders(
   JNIEnv* env, jclass unused_class
 , jint jenable
@@ -284,15 +269,28 @@ jint Java_net_pagekite_lib_PageKiteAPI_enableFakePing(
   return rv;
 }
 
-jint Java_net_pagekite_lib_PageKiteAPI_setBailOnErrors(
+jint Java_net_pagekite_lib_PageKiteAPI_enableWatchdog(
   JNIEnv* env, jclass unused_class
-, jint jerrors
+, jint jenable
 ){
   if (pagekite_manager_global == NULL) return -1;
 
-  int errors = jerrors;
+  int enable = jenable;
 
-  jint rv = pagekite_set_bail_on_errors(pagekite_manager_global, errors);
+  jint rv = pagekite_enable_watchdog(pagekite_manager_global, enable);
+
+  return rv;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_enableTickTimer(
+  JNIEnv* env, jclass unused_class
+, jint jenable
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  int enable = jenable;
+
+  jint rv = pagekite_enable_tick_timer(pagekite_manager_global, enable);
 
   return rv;
 }
@@ -319,30 +317,6 @@ jint Java_net_pagekite_lib_PageKiteAPI_wantSpareFrontends(
   int spares = jspares;
 
   jint rv = pagekite_want_spare_frontends(pagekite_manager_global, spares);
-
-  return rv;
-}
-
-jint Java_net_pagekite_lib_PageKiteAPI_tick(
-  JNIEnv* env, jclass unused_class
-){
-  if (pagekite_manager_global == NULL) return -1;
-
-
-  jint rv = pagekite_tick(pagekite_manager_global);
-
-  return rv;
-}
-
-jint Java_net_pagekite_lib_PageKiteAPI_poll(
-  JNIEnv* env, jclass unused_class
-, jint jtimeout
-){
-  if (pagekite_manager_global == NULL) return -1;
-
-  int timeout = jtimeout;
-
-  jint rv = pagekite_poll(pagekite_manager_global, timeout);
 
   return rv;
 }
@@ -380,6 +354,17 @@ jint Java_net_pagekite_lib_PageKiteAPI_threadStop(
   return rv;
 }
 
+jint Java_net_pagekite_lib_PageKiteAPI_free(
+  JNIEnv* env, jclass unused_class
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+
+  jint rv = pagekite_free(pagekite_manager_global);
+
+  return rv;
+}
+
 jint Java_net_pagekite_lib_PageKiteAPI_getStatus(
   JNIEnv* env, jclass unused_class
 ){
@@ -402,18 +387,48 @@ jstring Java_net_pagekite_lib_PageKiteAPI_getLog(
   return rv;
 }
 
-jint Java_net_pagekite_lib_PageKiteAPI_free(
+jint Java_net_pagekite_lib_PageKiteAPI_poll(
+  JNIEnv* env, jclass unused_class
+, jint jtimeout
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  int timeout = jtimeout;
+
+  jint rv = pagekite_poll(pagekite_manager_global, timeout);
+
+  return rv;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_tick(
   JNIEnv* env, jclass unused_class
 ){
   if (pagekite_manager_global == NULL) return -1;
 
 
-  jint rv = pagekite_free(pagekite_manager_global);
+  jint rv = pagekite_tick(pagekite_manager_global);
+
+  return rv;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_setBailOnErrors(
+  JNIEnv* env, jclass unused_class
+, jint jerrors
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  int errors = jerrors;
+
+  jint rv = pagekite_set_bail_on_errors(pagekite_manager_global, errors);
 
   return rv;
 }
 
 /* FIXME: void pagekite_perror(pagekite_mgr, const char*) */
+
+/* FIXME: int pagekite_add_listener(pagekite_mgr, const char* domain, int port, pagekite_callback_t* callback_func, void* callback_data) */
+
+/* FIXME: int pagekite_enable_lua_plugins(pagekite_mgr, int enable_defaults, char** settings) */
 #else
 #  warning Java not found, not building JNI.
 #endif

@@ -48,7 +48,8 @@ publicapi:
 	@mkdir -p bindings/java/net/pagekite/lib
 	python2 bindings/make-bindings.py include/pagekite.h \
                 bindings/java/net/pagekite/lib/PageKiteAPI.java \
-                libpagekite/pagekite-jni.c
+                libpagekite/pagekite-jni.c \
+                API.md API_JNI.md
 
 buildclean:
 	@cd contrib && make -f Makefile.pk clean

@@ -749,7 +749,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
 
     if (reconnect) {
       tried++;
-      PKS_STATE(pkm->status = PK_STATUS_CONNECT);
+      PKS_STATE(pkm->status = PK_STATUS_CONNECTING);
       if (0 <= fe->conn.sockfd) {
         ev_io_stop(pkm->loop, &(fe->conn.watch_r));
         ev_io_stop(pkm->loop, &(fe->conn.watch_w));
@@ -992,11 +992,13 @@ static void pkm_reset_timer(struct pk_manager* pkm) {
   pkm->next_tick = 1 + pkm->housekeeping_interval_min;
 }
 void pkm_set_timer_enabled(struct pk_manager* pkm, int enabled) {
+  pkm_block(pkm);
   pkm->enable_timer = (enabled > 0);
   if (pkm->enable_timer) {
     pkm_reset_timer(pkm);
   }
   else ev_timer_stop(pkm->loop, &(pkm->timer));
+  pkm_unblock(pkm);
 }
 
 static void pkm_reset_manager(struct pk_manager* pkm) {

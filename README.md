@@ -11,7 +11,7 @@ TCP byte streams. It is particularly well suited for making a HTTP server
 on a device without a public IP address visible to the wider Internet, but
 can also be used for a variety of other things, including SSH access.
 
-For more information about PageKite, see http://pagekite.org/
+For more information about PageKite, see <http://pagekite.org/>
 
 
 ## What is in the box? ##
@@ -40,17 +40,20 @@ To build for development on Linux, use:
     $ ./configure --prefix=$(pwd)
     $ make install
 
-This will build the library, placing binaries in the bin/ and lib/
+This will build the library, placing binaries in the `bin/` and `lib/`
 subdirectories. You can then run the test connector like so:
 
     $ export LD_LIBRARY_PATH=$(pwd)/lib
     $ ./bin/pagekitec 80 http yourkite.pageite.me 443 kitesecret
 
-Or to run the Java test (it will fail):
+Or to run the Java test:
 
     $ export LD_LIBRARY_PATH=$(pwd)/lib
     $ cd java-classes
     $ java PageKiteTest
+
+(Note: The Java test is expected to fail because of hard-coded invalid
+credentials. You'll need to edit the source for it to actually work.)
 
 See `./configure --help` for some options. The public API is defined in
 `include/pagekite.h` and `bindings/java/net.pagekite.lib/PageKiteAPI.java`.
@@ -58,7 +61,7 @@ See `./configure --help` for some options. The public API is defined in
 
 ## License and Copyright ##
 
-libpagekite is Copyright 2011-2015, The Beanstalks Project ehf.
+libpagekite is Copyright 2011-2016, The Beanstalks Project ehf.
 
 This code is released under the Apache License 2.0, but may also be used
 according to the terms of the GNU Affero General Public License.  Please
