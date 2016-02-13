@@ -306,6 +306,7 @@ SHELL = @SHELL@
 STRIP = @STRIP@
 VERSION = @VERSION@
 _ACJNI_JAVAC = @_ACJNI_JAVAC@
+_CHECK_JAVAC = @_CHECK_JAVAC@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
