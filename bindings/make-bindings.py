@@ -259,7 +259,7 @@ def documentation(functions, jni=False):
 
             doc += [
                 '',
-                '<a %76s' % (' name="%s"></a>' % disemvowel(func_name)),
+                '<a %76s' % (' name="%s"><hr></a>' % disemvowel(func_name)),
                 '',
                 '#### `%s %s(...)`' % (ret_type.strip(), func_name),
                 '',

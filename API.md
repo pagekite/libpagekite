@@ -37,7 +37,7 @@
 
 ### Initialization
 
-<a                                                           name="pgktnt"></a>
+<a                                                       name="pgktnt"><hr></a>
 
 #### `pagekite_mgr pagekite_init(...)`
 
@@ -75,7 +75,7 @@ This method can only be called before starting the master thread.
 **Returns**: A reference to the PageKite manager object.
 
 
-<a                                                     name="pgktntpgktnt"></a>
+<a                                                 name="pgktntpgktnt"><hr></a>
 
 #### `pagekite_mgr pagekite_init_pagekitenet(...)`
 
@@ -97,7 +97,7 @@ This method can only be called before starting the master thread.
 **Returns**: A reference to the PageKite manager object.
 
 
-<a                                                     name="pgktntwhtlbl"></a>
+<a                                                 name="pgktntwhtlbl"><hr></a>
 
 #### `pagekite_mgr pagekite_init_whitelabel(...)`
 
@@ -120,7 +120,7 @@ This method can only be called before starting the master thread.
 **Returns**: A reference to the PageKite manager object.
 
 
-<a                                                         name="pgktddkt"></a>
+<a                                                     name="pgktddkt"><hr></a>
 
 #### `int pagekite_add_kite(...)`
 
@@ -145,7 +145,7 @@ This method can only be called before starting the master thread.
 **Returns**: 0 on success, -1 on failure.
 
 
-<a                                                name="pgktddsrvcfrntnds"></a>
+<a                                            name="pgktddsrvcfrntnds"><hr></a>
 
 #### `int pagekite_add_service_frontends(...)`
 
@@ -162,7 +162,7 @@ This method can only be called before starting the master thread.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                              name="pgktddwhtlblfrntnds"></a>
+<a                                          name="pgktddwhtlblfrntnds"><hr></a>
 
 #### `int pagekite_add_whitelabel_frontends(...)`
 
@@ -180,7 +180,7 @@ This method can only be called before starting the master thread.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                                name="pgktlkpndddfrntnd"></a>
+<a                                            name="pgktlkpndddfrntnd"><hr></a>
 
 #### `int pagekite_lookup_and_add_frontend(...)`
 
@@ -207,7 +207,7 @@ This method can only be called before starting the master thread.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                                     name="pgktddfrntnd"></a>
+<a                                                 name="pgktddfrntnd"><hr></a>
 
 #### `int pagekite_add_frontend(...)`
 
@@ -232,7 +232,7 @@ This method can only be called before starting the master thread.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                                      name="pgktstlgmsk"></a>
+<a                                                  name="pgktstlgmsk"><hr></a>
 
 #### `int pagekite_set_log_mask(...)`
 
@@ -250,7 +250,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                              name="pgktsthskpngmnntrvl"></a>
+<a                                          name="pgktsthskpngmnntrvl"><hr></a>
 
 #### `int pagekite_set_housekeeping_min_interval(...)`
 
@@ -281,7 +281,7 @@ This function can be called at any time.
 **Returns**: The new minimum housekeeping interval.
 
 
-<a                                              name="pgktsthskpngmxntrvl"></a>
+<a                                          name="pgktsthskpngmxntrvl"><hr></a>
 
 #### `int pagekite_set_housekeeping_max_interval(...)`
 
@@ -300,7 +300,7 @@ This function can be called at any time.
 **Returns**: The new maximum housekeeping interval.
 
 
-<a                                           name="pgktnblhttpfrwrdnghdrs"></a>
+<a                                       name="pgktnblhttpfrwrdnghdrs"><hr></a>
 
 #### `int pagekite_enable_http_forwarding_headers(...)`
 
@@ -331,7 +331,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                                     name="pgktnblfkpng"></a>
+<a                                                 name="pgktnblfkpng"><hr></a>
 
 #### `int pagekite_enable_fake_ping(...)`
 
@@ -350,7 +350,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                                    name="pgktnblwtchdg"></a>
+<a                                                name="pgktnblwtchdg"><hr></a>
 
 #### `int pagekite_enable_watchdog(...)`
 
@@ -371,7 +371,7 @@ This method can only be called before starting the master thread.
 **Returns**: Always returns 0.
 
 
-<a                                                    name="pgktnbltcktmr"></a>
+<a                                                name="pgktnbltcktmr"><hr></a>
 
 #### `int pagekite_enable_tick_timer(...)`
 
@@ -395,7 +395,7 @@ for the main event-loop lock.
 **Returns**: Always returns 0.
 
 
-<a                                                 name="pgktstcnnvctndls"></a>
+<a                                             name="pgktstcnnvctndls"><hr></a>
 
 #### `int pagekite_set_conn_eviction_idle_s(...)`
 
@@ -419,7 +419,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                                name="pgktwntsprfrntnds"></a>
+<a                                            name="pgktwntsprfrntnds"><hr></a>
 
 #### `int pagekite_want_spare_frontends(...)`
 
@@ -441,7 +441,7 @@ This function can be called at any time.
 
 ### Lifecycle
 
-<a                                                     name="pgktthrdstrt"></a>
+<a                                                 name="pgktthrdstrt"><hr></a>
 
 #### `int pagekite_thread_start(...)`
 
@@ -456,7 +456,7 @@ This function should only be called once (per session).
 **Returns**: The return value of `pthread_create()`
 
 
-<a                                                       name="pgktthrdwt"></a>
+<a                                                   name="pgktthrdwt"><hr></a>
 
 #### `int pagekite_thread_wait(...)`
 
@@ -471,7 +471,7 @@ This function should only be called once (per session).
 **Returns**: The return value of `pthread_join()`
 
 
-<a                                                      name="pgktthrdstp"></a>
+<a                                                  name="pgktthrdstp"><hr></a>
 
 #### `int pagekite_thread_stop(...)`
 
@@ -486,7 +486,7 @@ This function should only be called once (per session).
 **Returns**: The return value of `pthread_join()`
 
 
-<a                                                           name="pgktfr"></a>
+<a                                                       name="pgktfr"><hr></a>
 
 #### `int pagekite_free(...)`
 
@@ -501,7 +501,7 @@ Call this to free any memory allocated by the init functions.
 **Returns**: 0 on success, -1 on failure.
 
 
-<a                                                       name="pgktgtstts"></a>
+<a                                                   name="pgktgtstts"><hr></a>
 
 #### `int pagekite_get_status(...)`
 
@@ -516,7 +516,7 @@ This function can be called at any time.
 **Returns**: A `PK_STATUS_*` code.
 
 
-<a                                                         name="pgktgtlg"></a>
+<a                                                     name="pgktgtlg"><hr></a>
 
 #### `char* pagekite_get_log(...)`
 
@@ -534,7 +534,7 @@ This function can be called at any time.
 **Returns**: A snapshot of the current log status.
 
 
-<a                                                          name="pgktpll"></a>
+<a                                                      name="pgktpll"><hr></a>
 
 #### `int pagekite_poll(...)`
 
@@ -554,7 +554,7 @@ This method can be called any time the main thread is running.
 **Returns**: 0 on success, -1 if unconfigured.
 
 
-<a                                                          name="pgkttck"></a>
+<a                                                      name="pgkttck"><hr></a>
 
 #### `int pagekite_tick(...)`
 
@@ -574,7 +574,7 @@ This method can be called any time the main thread is running.
 **Returns**: 0 on success, -1 if unconfigured.
 
 
-<a                                                    name="pgktstblnrrrs"></a>
+<a                                                name="pgktstblnrrrs"><hr></a>
 
 #### `int pagekite_set_bail_on_errors(...)`
 
@@ -599,7 +599,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                                         name="pgktprrr"></a>
+<a                                                     name="pgktprrr"><hr></a>
 
 #### `void pagekite_perror(...)`
 
@@ -614,7 +614,7 @@ Log an error and reset the internal error state.
 
 ### Experimental
 
-<a                                                      name="pgktddlstnr"></a>
+<a                                                  name="pgktddlstnr"><hr></a>
 
 #### `int pagekite_add_listener(...)`
 
@@ -639,7 +639,7 @@ future.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                                    name="pgktnbllplgns"></a>
+<a                                                name="pgktnbllplgns"><hr></a>
 
 #### `int pagekite_enable_lua_plugins(...)`
 

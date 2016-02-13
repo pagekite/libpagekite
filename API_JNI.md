@@ -33,7 +33,7 @@
 
 ### Initialization
 
-<a                                                               name="nt"></a>
+<a                                                           name="nt"><hr></a>
 
 #### `boolean init(...)`
 
@@ -71,7 +71,7 @@ This method can only be called before starting the master thread.
 **Returns**: True if successful, False otherwise.
 
 
-<a                                                         name="ntPgktnt"></a>
+<a                                                     name="ntPgktnt"><hr></a>
 
 #### `boolean initPagekitenet(...)`
 
@@ -93,7 +93,7 @@ This method can only be called before starting the master thread.
 **Returns**: True if successful, False otherwise.
 
 
-<a                                                         name="ntWhtlbl"></a>
+<a                                                     name="ntWhtlbl"><hr></a>
 
 #### `boolean initWhitelabel(...)`
 
@@ -116,7 +116,7 @@ This method can only be called before starting the master thread.
 **Returns**: True if successful, False otherwise.
 
 
-<a                                                             name="ddKt"></a>
+<a                                                         name="ddKt"><hr></a>
 
 #### `int addKite(...)`
 
@@ -140,7 +140,7 @@ This method can only be called before starting the master thread.
 **Returns**: 0 on success, -1 on failure.
 
 
-<a                                                    name="ddSrvcFrntnds"></a>
+<a                                                name="ddSrvcFrntnds"><hr></a>
 
 #### `int addServiceFrontends(...)`
 
@@ -156,7 +156,7 @@ This method can only be called before starting the master thread.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                                  name="ddWhtlblFrntnds"></a>
+<a                                              name="ddWhtlblFrntnds"><hr></a>
 
 #### `int addWhitelabelFrontends(...)`
 
@@ -173,7 +173,7 @@ This method can only be called before starting the master thread.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                                  name="lkpAndAddFrntnd"></a>
+<a                                              name="lkpAndAddFrntnd"><hr></a>
 
 #### `int lookupAndAddFrontend(...)`
 
@@ -199,7 +199,7 @@ This method can only be called before starting the master thread.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                                         name="ddFrntnd"></a>
+<a                                                     name="ddFrntnd"><hr></a>
 
 #### `int addFrontend(...)`
 
@@ -223,7 +223,7 @@ This method can only be called before starting the master thread.
 **Returns**: The number of relay IPs configured, or -1 on failure.
 
 
-<a                                                          name="stLgMsk"></a>
+<a                                                      name="stLgMsk"><hr></a>
 
 #### `int setLogMask(...)`
 
@@ -240,7 +240,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                                 name="stHskpngMnIntrvl"></a>
+<a                                             name="stHskpngMnIntrvl"><hr></a>
 
 #### `int setHousekeepingMinInterval(...)`
 
@@ -270,7 +270,7 @@ This function can be called at any time.
 **Returns**: The new minimum housekeeping interval.
 
 
-<a                                                 name="stHskpngMxIntrvl"></a>
+<a                                             name="stHskpngMxIntrvl"><hr></a>
 
 #### `int setHousekeepingMaxInterval(...)`
 
@@ -288,7 +288,7 @@ This function can be called at any time.
 **Returns**: The new maximum housekeeping interval.
 
 
-<a                                               name="nblHttpFrwrdngHdrs"></a>
+<a                                           name="nblHttpFrwrdngHdrs"><hr></a>
 
 #### `int enableHttpForwardingHeaders(...)`
 
@@ -318,7 +318,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                                         name="nblFkPng"></a>
+<a                                                     name="nblFkPng"><hr></a>
 
 #### `int enableFakePing(...)`
 
@@ -336,7 +336,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                                        name="nblWtchdg"></a>
+<a                                                    name="nblWtchdg"><hr></a>
 
 #### `int enableWatchdog(...)`
 
@@ -356,7 +356,7 @@ This method can only be called before starting the master thread.
 **Returns**: Always returns 0.
 
 
-<a                                                        name="nblTckTmr"></a>
+<a                                                    name="nblTckTmr"><hr></a>
 
 #### `int enableTickTimer(...)`
 
@@ -379,7 +379,7 @@ for the main event-loop lock.
 **Returns**: Always returns 0.
 
 
-<a                                                   name="stCnnEvctnIdlS"></a>
+<a                                               name="stCnnEvctnIdlS"><hr></a>
 
 #### `int setConnEvictionIdleS(...)`
 
@@ -402,7 +402,7 @@ This function can be called at any time.
 **Returns**: Always returns 0.
 
 
-<a                                                    name="wntSprFrntnds"></a>
+<a                                                name="wntSprFrntnds"><hr></a>
 
 #### `int wantSpareFrontends(...)`
 
@@ -423,7 +423,7 @@ This function can be called at any time.
 
 ### Lifecycle
 
-<a                                                         name="thrdStrt"></a>
+<a                                                     name="thrdStrt"><hr></a>
 
 #### `int threadStart(...)`
 
@@ -438,7 +438,7 @@ This function should only be called once (per session).
 **Returns**: The return value of `pthread_create()`
 
 
-<a                                                           name="thrdWt"></a>
+<a                                                       name="thrdWt"><hr></a>
 
 #### `int threadWait(...)`
 
@@ -453,7 +453,7 @@ This function should only be called once (per session).
 **Returns**: The return value of `pthread_join()`
 
 
-<a                                                          name="thrdStp"></a>
+<a                                                      name="thrdStp"><hr></a>
 
 #### `int threadStop(...)`
 
@@ -468,7 +468,7 @@ This function should only be called once (per session).
 **Returns**: The return value of `pthread_join()`
 
 
-<a                                                               name="fr"></a>
+<a                                                           name="fr"><hr></a>
 
 #### `int free(...)`
 
@@ -483,7 +483,7 @@ Call this to free any memory allocated by the init functions.
 **Returns**: 0 on success, -1 on failure.
 
 
-<a                                                           name="gtStts"></a>
+<a                                                       name="gtStts"><hr></a>
 
 #### `int getStatus(...)`
 
@@ -498,7 +498,7 @@ This function can be called at any time.
 **Returns**: A `PK_STATUS_*` code.
 
 
-<a                                                             name="gtLg"></a>
+<a                                                         name="gtLg"><hr></a>
 
 #### `String getLog(...)`
 
@@ -516,7 +516,7 @@ This function can be called at any time.
 **Returns**: A snapshot of the current log status.
 
 
-<a                                                              name="pll"></a>
+<a                                                          name="pll"><hr></a>
 
 #### `int poll(...)`
 
@@ -535,7 +535,7 @@ This method can be called any time the main thread is running.
 **Returns**: 0 on success, -1 if unconfigured.
 
 
-<a                                                              name="tck"></a>
+<a                                                          name="tck"><hr></a>
 
 #### `int tick(...)`
 
@@ -555,7 +555,7 @@ This method can be called any time the main thread is running.
 **Returns**: 0 on success, -1 if unconfigured.
 
 
-<a                                                      name="stBlOnErrrs"></a>
+<a                                                  name="stBlOnErrrs"><hr></a>
 
 #### `int setBailOnErrors(...)`
 
