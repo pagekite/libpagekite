@@ -64,10 +64,23 @@ LT_INIT
 
 # Check for JNI, Java
 if test "$with_java" = "yes"; then
-    AX_JNI_INCLUDE_DIR
-    for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS; do
-      CPPFLAGS="$CPPFLAGS -I$JNI_INCLUDE_DIR"
-    done
+	if test "x$JAVAC" = x; then
+		JAVAC=javac
+	fi
+	AC_CHECK_PROG(_CHECK_JAVAC, [$JAVAC], yes)
+	if test x"$_CHECK_JAVAC" != xyes; then
+		AC_MSG_ERROR([cannot find javac; try setting \$JAVAC])
+	fi
+
+	# AX_JNI_INCLUDE_DIR fails when cross-compiling.
+	# Skip it if jni.h can already be found in the default include path
+	AC_CHECK_HEADER([jni.h],[],[
+		AX_JNI_INCLUDE_DIR
+		for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS; do
+		  CPPFLAGS="$CPPFLAGS -I$JNI_INCLUDE_DIR"
+		done
+	])
+
     AC_SUBST(JAVAC)
     AC_SUBST(CPPFLAGS)
 fi
