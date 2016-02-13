@@ -59,6 +59,12 @@ See `./configure --help` for some options. The public API is defined in
 `include/pagekite.h` and `bindings/java/net.pagekite.lib/PageKiteAPI.java`.
 
 
+## More documentation
+
+   * [The C API reference](API.md)
+   * [The Java/JNI API reference](API_JNI.md)
+
+
 ## License and Copyright ##
 
 libpagekite is Copyright 2011-2016, The Beanstalks Project ehf.
