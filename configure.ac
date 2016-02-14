@@ -116,7 +116,7 @@ AC_TYPE_UINT8_T
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([clock_gettime dup2 gethostbyname gettimeofday inet_ntoa memmove memset select socket strcasecmp strchr strdup strerror strncasecmp strrchr uname])
+AC_CHECK_FUNCS([clock_gettime dup2 gethostbyname gettimeofday inet_ntoa memmove memset select socket strcasecmp strchr strdup strerror strncasecmp strrchr uname pthread_yield pthread_yield_np])
 
 
 # Checks for libraries.

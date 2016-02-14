@@ -52,7 +52,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define ERR_WSA_STARTUP       -60006
 
 
-int pk_error;
+extern int pk_error;
 
 int    pk_set_error(int);
 void*  pk_err_null(int);
