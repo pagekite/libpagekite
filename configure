@@ -12212,11 +12212,11 @@ done
 		  CPPFLAGS="$CPPFLAGS -I$JNI_INCLUDE_DIR"
 		done
 
+
 fi
 
 
-
-
+    { ac_cv_header_jni_h=; unset ac_cv_header_jni_h;}
 
 fi
  if test "x$with_java" = "xyes"; then

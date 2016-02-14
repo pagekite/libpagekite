@@ -79,10 +79,10 @@ if test "$with_java" = "yes"; then
 		for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS; do
 		  CPPFLAGS="$CPPFLAGS -I$JNI_INCLUDE_DIR"
 		done
+        AC_SUBST(CPPFLAGS)
 	])
-
+    AS_UNSET([ac_cv_header_jni_h])
     AC_SUBST(JAVAC)
-    AC_SUBST(CPPFLAGS)
 fi
 AM_CONDITIONAL(HAVE_JAVA, test "x$with_java" = "xyes")
 
