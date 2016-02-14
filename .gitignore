@@ -23,7 +23,6 @@ libpagekite/pklualua.h
 httpkite
 pagekitec
 tests
-
 *.swp
 configure
 configure_aux
@@ -58,3 +57,5 @@ missing
 m4/*
 *.tar.gz
 libpagekite.pc
+build
+tags
