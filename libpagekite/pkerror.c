@@ -31,6 +31,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 
+int pk_error;
 
 int pk_set_error(int error) {
   return (pk_error = error);
