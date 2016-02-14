@@ -11,7 +11,11 @@ TCP byte streams. It is particularly well suited for making a HTTP server
 on a device without a public IP address visible to the wider Internet, but
 can also be used for a variety of other things, including SSH access.
 
-For more information about PageKite, see <http://pagekite.org/>
+PageKite is usually used with the public relay service provided by
+<https://pagekite.net/>, but you can also run your own relay if you prefer;
+the [Python relay is free software](https://github.com/pagekite/PyPagekite/).
+
+For more information, see <http://pagekite.org/>
 
 
 ## What is in the box? ##
@@ -55,14 +59,33 @@ Or to run the Java test:
 (Note: The Java test is expected to fail because of hard-coded invalid
 credentials. You'll need to edit the source for it to actually work.)
 
-See `./configure --help` for some options. The public API is defined in
-`include/pagekite.h` and `bindings/java/net.pagekite.lib/PageKiteAPI.java`.
+
+## Documentation and examples
+
+See `./configure --help` for some options on how to build the library.
+
+   * [The C API reference        ](API.md)
+   * [The Java/JNI API reference ](API_JNI.md)
+   * [The C backend connector    ](contrib/backends/pagekitec.c)
+   * [The Java example           ](contrib/backends/PageKiteTest.java)
+
+See [the old README](README-OLD.md) for hints on how some things used to
+be done and may still be missing from our current build processes and
+documentation.
 
 
-## More documentation
+## State of the Onion
 
-   * [The C API reference](API.md)
-   * [The Java/JNI API reference](API_JNI.md)
+The library's current limitations are:
+
+   * SSL certificates are not verified when connecting to the relay
+   * The Lua plugin interface is incomplete
+   * The front-end relay code is incomplete
+   * Cross-compiling to Windows with autoconf is untested
+
+The back-end connector code is however considered mature and stable; the
+library does a good job connecting and *reconnecting* as necessary. The
+library is not currently known to crash.
 
 
 ## License and Copyright ##
