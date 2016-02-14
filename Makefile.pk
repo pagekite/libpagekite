@@ -39,9 +39,6 @@ windows:
 	@echo
 
 version: publicapi
-	@git add -f `find . -name \*.in` \
-                configure config.sub config.guess aclocal.m4 \
-                compile install-sh missing libtool depcomp ar-lib ltmain.sh
 
 publicapi:
 	@cd libpagekite && make -f Makefile.pk version

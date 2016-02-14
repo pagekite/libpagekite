@@ -41,6 +41,7 @@ In `contrib/backends/` you'll find:
 
 To build for development on Linux, use:
 
+    $ ./autogen.sh
     $ ./configure --prefix=$(pwd)
     $ make install
 
