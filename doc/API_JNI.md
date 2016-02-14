@@ -46,10 +46,11 @@ kites, front-end relays and in-flight connections you want to
 keep track of at any one time.
 
 The `flags` variable should be used with the constants `PK_WITH_*`
-and `PK_AS_`, bitwise OR'ed together to tune the behaviour of
-libpagekite. To use the recommended defaults, simply specify `PK_WITH_DEFAULTS`
-- this is a forward compatible choice and will continue to use
-recommended settings even as new features are added to the library.
+and `PK_AS_*`, bitwise OR'ed together to tune the behaviour of
+libpagekite. To use the recommended defaults, simply specify `PK_WITH_DEFAULTS`.
+Requesting defaults is a forward compatible choice and will continue
+to use recommended settings even as new features are added to
+the library.
 
 The `verbosity` argument controls the internal logging. A small
 integer (0, 1, 2) can be used to choose from a predefined level,
@@ -80,6 +81,10 @@ public service.
 
 See the basic init docs for further details.
 
+If `flags` do not include `PK_WITHOUT_SERVICE_FRONTENDS`, service
+frontends will be chosen automatically using the given domain
+name.
+
 This method can only be called before starting the master thread.
 
 **Arguments**:
@@ -101,6 +106,10 @@ Initialize the PageKite manager, configured for use with a pagekite.net
 white-label domain.
 
 See the basic init docs for further details.
+
+If `flags` do not include `PK_WITHOUT_SERVICE_FRONTENDS`, white-label
+frontends will be chosen automatically using the given domain
+name.
 
 This method can only be called before starting the master thread.
 

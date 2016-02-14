@@ -23,6 +23,7 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
+    public static final int PK_VERSION = "0.90.160215C";
     public static final int PK_STATUS_STARTUP = 10;
     public static final int PK_STATUS_CONNECTING = 20;
     public static final int PK_STATUS_UPDATING_DNS = 30;

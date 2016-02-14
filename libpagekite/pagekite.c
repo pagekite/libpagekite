@@ -165,14 +165,15 @@ pagekite_mgr pagekite_init_whitelabel(
                                    PAGEKITE_NET_FE_MAX,
                                    max_conns,
                                    dynamic_dns_url,
-                                   flags, verbosity)))
+                                   flags & ~PK_WITH_SERVICE_FRONTENDS,
+                                   verbosity)))
   {
     return NULL;
   }
 
   /* If flags say anything about service frontends, do nothing: either
      it was already done, or we're not supposed to do anything. */
-  if (!(flags & (PK_WITHOUT_SERVICE_FRONTENDS|PK_WITH_SERVICE_FRONTENDS))) {
+  if (!(flags & PK_WITHOUT_SERVICE_FRONTENDS)) {
     if (0 > pagekite_add_whitelabel_frontends(pkm, flags, whitelabel_tld)) {
       pkm_manager_free(PK_MANAGER(pkm));
       return NULL;

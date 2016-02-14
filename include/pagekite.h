@@ -29,13 +29,14 @@ WARNING: This file is processed automatically to generate the JNI and API
 #ifndef _PAGEKITEC_DLL_H
 #define _PAGEKITEC_DLL_H
 
+/* Constants: Libpagekite version */
 #ifdef ANDROID
-#define PK_VERSION "0.90.160214A"
+#define PK_VERSION "0.90.160215A"
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.90.160214W"
+#define PK_VERSION "0.90.160215W"
 #else
-#define PK_VERSION "0.90.160214C"
+#define PK_VERSION "0.90.160215C"
 #endif
 #endif
 
@@ -125,10 +126,10 @@ typedef void* pagekite_mgr;
  *    of at any one time.
  *
  *    The `flags` variable should be used with the constants `PK_WITH_*`
- *    and `PK_AS_`, bitwise OR'ed together to tune the behaviour of
+ *    and `PK_AS_*`, bitwise OR'ed together to tune the behaviour of
  *    libpagekite. To use the recommended defaults, simply specify
- *    `PK_WITH_DEFAULTS` - this is a forward compatible choice and will
- *    continue to use recommended settings even as new features are
+ *    `PK_WITH_DEFAULTS`. Requesting defaults is a forward compatible choice
+ *    and will continue to use recommended settings even as new features are
  *    added to the library.
  *
  *    The `verbosity` argument controls the internal logging. A small
@@ -157,6 +158,9 @@ DECLSPEC_DLL pagekite_mgr pagekite_init(
  *
  *    See the basic init docs for further details.
  *
+ *    If `flags` do not include `PK_WITHOUT_SERVICE_FRONTENDS`, service
+ *    frontends will be chosen automatically using the given domain name.
+ *
  *    This method can only be called before starting the master thread.
  *
  * API Returns: A reference to the PageKite manager object.
@@ -175,6 +179,9 @@ DECLSPEC_DLL pagekite_mgr pagekite_init_pagekitenet(
  *                 use with a pagekite.net white-label domain.
  *
  *    See the basic init docs for further details.
+ *
+ *    If `flags` do not include `PK_WITHOUT_SERVICE_FRONTENDS`, white-label
+ *    frontends will be chosen automatically using the given domain name.
  *
  *    This method can only be called before starting the master thread.
  *

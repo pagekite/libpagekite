@@ -311,12 +311,18 @@ def documentation(functions, jni=False):
 
 def get_constants(pagekite_h):
     constants = []
+    lastvarname = 'None'
     for line in uncomment(pagekite_h).splitlines():
         try:
             if line.startswith('#define '):
                 define, varname, value = line.split(' ', 2)
-                if varname[:6] in ('PK_WIT', 'PK_AS_', 'PK_STA', 'PK_LOG'):
-                    constants.append((varname, value.strip()))
+                if varname[:6] in ('PK_WIT', 'PK_AS_', 'PK_STA',
+                                   'PK_LOG', 'PK_VER'):
+                    if varname == lastvarname:
+                        constants[-1] = (varname, value.strip())
+                    else:
+                        constants.append((varname, value.strip()))
+                        lastvarname = varname
         except ValueError:
             pass
     return constants
