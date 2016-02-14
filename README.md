@@ -30,7 +30,7 @@ The structure is as follows:
     libpagekite/        The source code
     tools/              Helper scripts for building and working
 
-In contrib/backends/ you'll find:
+In `contrib/backends/` you'll find:
 
     httpkite.c         A sample implementation of a very basic HTTP server
     pagekitec.c        Basic standalone pagekite back-end connector/proxy.
@@ -59,24 +59,27 @@ Or to run the Java test:
 (Note: The Java test is expected to fail because of hard-coded invalid
 credentials. You'll need to edit the source for it to actually work.)
 
+See below for further instructions regarding cross-compiling to Windows
+or Android (for use with the NDK).
+
 
 ## Documentation and examples
 
 See `./configure --help` for some options on how to build the library.
 
-   * [The C API reference        ](API.md)
-   * [The Java/JNI API reference ](API_JNI.md)
+   * [The C API reference        ](doc/API.md)
+   * [The Java/JNI API reference ](doc/API_JNI.md)
    * [The C backend connector    ](contrib/backends/pagekitec.c)
    * [The Java example           ](contrib/backends/PageKiteTest.java)
 
-See [the old README](README-OLD.md) for hints on how some things used to
-be done and may still be missing from our current build processes and
+See [the old README](doc/README-OLD.md) for hints on how some things used
+to be done and may still be missing from our current build processes and
 documentation.
 
 
 ## State of the Onion
 
-The library's current limitations are:
+As of February 2016, the library's main limitations are:
 
    * SSL certificates are not verified when connecting to the relay
    * The Lua plugin interface is incomplete
@@ -94,7 +97,8 @@ libpagekite is Copyright 2011-2016, The Beanstalks Project ehf.
 
 This code is released under the Apache License 2.0, but may also be used
 according to the terms of the GNU Affero General Public License.  Please
-see the file COPYING.md for details on which license applies to you.
+see the file [COPYING.md](doc/COPYING.md) for details on which license applies
+to you.
 
 Commercial support for this code, as well as managed front-end relay service,
 are available from <https://pagekite.net/>.

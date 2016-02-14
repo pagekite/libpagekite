@@ -7,7 +7,7 @@ These are Things TO DO for libpagekite.
 
    * pkproto.c: Fix parser to fragment chunks that are too big to fit in the
                 available buffer space.
-
+   * SSL certificates are not verified
 
 
 ## Milestones ##
@@ -31,8 +31,9 @@ These are Things TO DO for libpagekite.
    * Windows compatibility and build rules
    * pkmanager.c: add listeners, for built in web UI and relays
    * pkmanager.c: make update/reconnect schedule tweakable
+   * bindings: auto-generate JNI bindings and API documentation
 
-### Ahead ###
+### Ahead / In progress ###
 
    * pkmanager.c: add callbacks for watching/influencing data flow
    * pkproto.c: add SSL support - finish cert checking code
@@ -44,8 +45,6 @@ These are Things TO DO for libpagekite.
    * pkproto.c: add ZChunk support
    * pkmanager.c: SOCKS and HTTP proxy support for outgoing connections
    * pagekitec.c: truly non-blocking pagekite proxy, suitable for front-end
-   * PageKiteAPI.java: Turn on/off pagekite thread depending on network state.
-   * PageKiteAPI.java: Use imprecise timers for update/reconnect.
    * Python wrapper (libpagekite.py)
 
 ### External ###

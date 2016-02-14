@@ -46,10 +46,10 @@ version: publicapi
 publicapi:
 	@cd libpagekite && make -f Makefile.pk version
 	@mkdir -p bindings/java/net/pagekite/lib
-	python2 bindings/make-bindings.py include/pagekite.h \
+	python2 tools/make-bindings.py include/pagekite.h \
                 bindings/java/net/pagekite/lib/PageKiteAPI.java \
                 libpagekite/pagekite-jni.c \
-                API.md API_JNI.md
+                doc/API.md doc/API_JNI.md
 
 buildclean:
 	@cd contrib && make -f Makefile.pk clean

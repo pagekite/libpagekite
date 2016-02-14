@@ -1,406 +1,665 @@
-# The libpagekite public API
-
-This is the public API of libpagekite. These methods should remain
-stable over the long term, even if the internals of the library get
-shuffled around and changed.
-
-Contents:
-
-1. Overview
-2. Hello-world example
-3. Library Reference
-4. Platform specifics
-
-
-## 1. Overview
-
-Libpagekite provides a simple interface for configuring and running a
-PageKite "back-end connector", which takes care of registering one or
-more kites, selecting front-end relays and keeping the connection
-active.
+# PageKite API reference manual
+
+   * Initialization
+      * [`pagekite_init                               `](#pgktnt)
+      * [`pagekite_init_pagekitenet                   `](#pgktntpgktnt)
+      * [`pagekite_init_whitelabel                    `](#pgktntwhtlbl)
+      * [`pagekite_add_kite                           `](#pgktddkt)
+      * [`pagekite_add_service_frontends              `](#pgktddsrvcfrntnds)
+      * [`pagekite_add_whitelabel_frontends           `](#pgktddwhtlblfrntnds)
+      * [`pagekite_lookup_and_add_frontend            `](#pgktlkpndddfrntnd)
+      * [`pagekite_add_frontend                       `](#pgktddfrntnd)
+      * [`pagekite_set_log_mask                       `](#pgktstlgmsk)
+      * [`pagekite_set_housekeeping_min_interval      `](#pgktsthskpngmnntrvl)
+      * [`pagekite_set_housekeeping_max_interval      `](#pgktsthskpngmxntrvl)
+      * [`pagekite_enable_http_forwarding_headers     `](#pgktnblhttpfrwrdnghdrs)
+      * [`pagekite_enable_fake_ping                   `](#pgktnblfkpng)
+      * [`pagekite_enable_watchdog                    `](#pgktnblwtchdg)
+      * [`pagekite_enable_tick_timer                  `](#pgktnbltcktmr)
+      * [`pagekite_set_conn_eviction_idle_s           `](#pgktstcnnvctndls)
+      * [`pagekite_want_spare_frontends               `](#pgktwntsprfrntnds)
+   * Lifecycle
+      * [`pagekite_thread_start                       `](#pgktthrdstrt)
+      * [`pagekite_thread_wait                        `](#pgktthrdwt)
+      * [`pagekite_thread_stop                        `](#pgktthrdstp)
+      * [`pagekite_free                               `](#pgktfr)
+      * [`pagekite_get_status                         `](#pgktgtstts)
+      * [`pagekite_get_log                            `](#pgktgtlg)
+      * [`pagekite_poll                               `](#pgktpll)
+      * [`pagekite_tick                               `](#pgkttck)
+      * [`pagekite_set_bail_on_errors                 `](#pgktstblnrrrs)
+      * [`pagekite_perror                             `](#pgktprrr)
+   * Experimental
+      * [`pagekite_add_listener                       `](#pgktddlstnr)
+      * [`pagekite_enable_lua_plugins                 `](#pgktnbllplgns)
 
+## Functions
 
-### 1.1. Lifecycle overview
+### Initialization
 
-1. The caller will create a manager object (`pagekite_mgr`) in one of
-   two modes, with PageKite.net service or without:
-   `pagekite_init_pagekitenet` or `pagekite_init`
-2. This manager object is configured with front-end relays and kites:
-   `pagekite_add_frontend` and `pagekite_add_kite`
-3. Optionally, various settings can be adjusted using `pagekite_set*`,
-   `pagekite_enable*`, etc.
-4. A thread is spawned which runs the libpagekite event loop:
-   `pagekite_start`
-5. The event loop spawns a 2nd background thread for housekeeping tasks
-6. The caller can query the status of the libpagekite manager thread:
-   `pagekite_get_status` or `pagekite_get_log`
-7. The caller can shut down the manager thread: `pagekite_stop`
-8. The caller calls `pagekite_free` to release any allocated resources
+<a                                                       name="pgktnt"><hr></a>
 
-All methods, except the initialization functions, take a `pagekite_mgr`
-object as their first argument.
+#### `pagekite_mgr pagekite_init(...)`
 
-All API methods either return an integer or a pointer. In case of error,
-negative values or `NULL` are returned. Error states can be explained
-using `pagekite_perror`.
+Initialize the PageKite manager.
 
+This allocates a static amount of RAM for PageKite (not counting
+buffers managed by OpenSSL). Since libpagekite's resource usage
+is allocated up-front, you need to specify maximum numbers of
+kites, front-end relays and in-flight connections you want to
+keep track of at any one time.
 
-### 1.2. Current known limitations
+The `flags` variable should be used with the constants `PK_WITH_*`
+and `PK_AS_`, bitwise OR'ed together to tune the behaviour of
+libpagekite. To use the recommended defaults, simply specify `PK_WITH_DEFAULTS`
+- this is a forward compatible choice and will continue to use
+recommended settings even as new features are added to the library.
 
-These are some of the limitations of the current implementation.
-Hopeefully over time most (or even all) of these will be fixed:
+The `verbosity` argument controls the internal logging. A small
+integer (0, 1, 2) can be used to choose from a predefined level,
+for more fine-grained control use the `PK_LOG_` constants bitwise
+OR'ed together to enable logging of individual subsystems.
 
-1. The front-ends are currently configured using a DNS lookup, which
-    means initialization may fail if there is no network connectivity.
-2. The manager configuration is almost completely static - in order to add
-   or remove kites or update the list of available frontends, the
-   manager object must be stopped, destroyed and recreated from scratch.
-3. Thread safety: There are some global variables used internally by
-   `libpagekite`, so although instanciating the library multiple times and
-   running multiple workers within the same app should mostly work , they
-   currently will share some settings, in particular to do with error
-   handling and logging.
+This method can only be called before starting the master thread.
 
+**Arguments**:
 
-## 2. Hello-world example
+   * `const char* app_id`: Short ID, reported in instrumentation
+   * `int max_kites`: Max number of kite names allowed
+   * `int max_frontends`: Max number of front-end relays recognized
+   * `int max_conns`: Max number of in-flight connections
+   * `const char* dyndns_url`: Dynamic DNS update URL (format string)
+   * `int flags`: Flags, which features to enable
+   * `int verbosity`: Verbosity or log mask
 
-`contrib/backends/hello.c`:
+**Returns**: A reference to the PageKite manager object.
 
-    #include <assert.h>
-    #include <stdlib.h>
-    #include <stdio.h>
-    #include <pagekite.h>
 
-    int main(int argc, const char** argv) {
-        pagekite_mgr pkm;
+<a                                                 name="pgktntpgktnt"><hr></a>
 
-        if (argc < 3) {
-            fprintf(stderr, "Usage: hello yourkite.pagekite.me password\n");
-            return 1;
-        }
+#### `pagekite_mgr pagekite_init_pagekitenet(...)`
 
-        pkm = pagekite_init_pagekitenet(
-            "Hello World App",   /* What app is this?                       */
-            1,                   /* Max number of kites we plan to fly      */
-            25,                  /* Max number of simultaneous client conns */
-            PK_WITH_DEFAULTS,    /* Use defaults (SSL, IPv4 and IPv6)       */
-            PK_LOG_NORMAL);      /* Log verbosity level or bitmask          */
+Initialize the PageKite manager, configured for use with the pagekite.net
+public service.
 
-        if (pkm == NULL) {
-            pagekite_perror(pkm, argv[0]);
-            return 2;
-        }
+See the basic init docs for further details.
 
-        /* Add a kite for the HTTP server on localhost:80 */
-        if (0 > pagekite_add_kite(pkm,
-                                  "http",          /* Kite protocol         */
-                                  argv[1],         /* Kite name             */
-                                  0,               /* Public port, 0=any    */
-                                  argv[2],         /* Kite secret           */
-                                  "localhost",     /* Origin server host    */
-                                  80))             /* Origin server port    */
-        {
-            pagekite_perror(pkm, argv[0]);
-            return 3;
-        }
+This method can only be called before starting the master thread.
 
-        /* Start the worker thread, wait for it to exit. */
-        assert(-1 < pagekite_start(pkm));
-        assert(-1 < pagekite_wait(pkm));
+**Arguments**:
 
-        /* Not reached: Nothing actually shuts us down in this app. */
-        assert(-1 < pagekite_free(pkm));
+   * `const char* app_id`: Short ID, reported in instrumentation
+   * `int max_kites`: Max number of kite names allowed
+   * `int max_conns`: Max number of in-flight connections
+   * `int flags`: Flags, which features to enable
+   * `int verbosity`: Verbosity or log mask
 
-        return 0;
-    }
+**Returns**: A reference to the PageKite manager object.
 
 
-## 3. Library reference
+<a                                                 name="pgktntwhtlbl"><hr></a>
 
-**This section was last updated on December 8, 2014.**
+#### `pagekite_mgr pagekite_init_whitelabel(...)`
 
+Initialize the PageKite manager, configured for use with a pagekite.net
+white-label domain.
 
-### 3.1. Methods
+See the basic init docs for further details.
 
-### 3.1.1. pagekite_init(...)
+This method can only be called before starting the master thread.
 
-This function is called to create a PageKite manager object. It will
-allocate a fixed pool of memory with enough space for the requested
-number of kites, front-ends and connections.
+**Arguments**:
 
-Definition:
+   * `const char* app_id`: Short ID, reported in instrumentation
+   * `int max_kites`: Max number of kite names allowed
+   * `int max_conns`: Max number of in-flight connections
+   * `int flags`: Flags, which features to enable
+   * `int verbosity`: Verbosity or log mask
+   * `const char* whitelabel_tld`: Top level domain of white-label kites
 
-    pagekite_mgr pagekite_init(
-      const char* app_id,
-      int max_kites,
-      int max_frontends,
-      int max_conns,
-      const char* dyndns_url,
-      int flags,
-      int verbosity);
+**Returns**: A reference to the PageKite manager object.
 
-Arguments:
 
-* app_id: A human-readable string identifying your app.
-* max_kites: The maximum number of kites you plan to fly.
-* max_frontends: The maximum number of frontends you want to consider.
-* max_conns: The maximum number of simultaneous client connections.
-* dyndns_url: NULL or a dymanic-DNS update URL format string.
-* flags: A bitmask of `PK_WITH_*` or `PK_WITHOUT_*` constants.
-* verbosity: An integer (0, 1, 2, ...) or bitmask of `PK_LOG_*` constants.
+<a                                                     name="pgktddkt"><hr></a>
 
-Returns:
+#### `int pagekite_add_kite(...)`
 
-* Success: A pagekite_mgr object (a pointer)
-* Error: NULL
+Configure a "kite", mapping a public domain to a local service.
 
-Side-effects:
+Multiple kites can be configured for the same domain name, by
+calling this function multiple times, as long as the public port
+or protocol differ.
 
-* Mallocs a chunk of RAM
-* Will perform DNS lookups in order to configure front-ends, if the
-  `PK_WITH_SERVICE_FRONTENDS` flag is set.
-* Creates an OpenSSL context
-* Calls WSAStartup (Windows only)
+This method can only be called before starting the master thread.
 
+**Arguments**:
 
-### 3.1.2. pagekite_init_pagekitenet(...)
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `const char* proto`: Protocol
+   * `const char* kitename`: Kite DNS name
+   * `int pport`: Public port, 0 for default/any
+   * `const char* secret`: Kite secret for authentication
+   * `const char* backend`: Hostname of the origin server
+   * `int lport`: Port of the origin server
 
-This function is called to create a PageKite manager object,
-preconfigure for use with the PageKite.net public service.
+**Returns**: 0 on success, -1 on failure.
 
-See also `pagekite_init` for details.
 
-Definition:
+<a                                            name="pgktddsrvcfrntnds"><hr></a>
 
-    pagekite_mgr pagekite_init_pagekitenet(
-      const char* app_id,
-      int max_kites,
-      int max_conns,
-      int flags,
-      int verbosity);
+#### `int pagekite_add_service_frontends(...)`
 
-Arguments:
+Configure libpagekite to use the Pagekite.net pool of public front-end
+relay servers.
 
-* app_id: A human-readable string identifying your app.
-* max_kites: The maximum number of kites you plan to fly.
-* max_conns: The maximum number of simultaneous client connections.
-* flags: A bitmask of `PK_WITH_*` or `PK_WITHOUT_*` constants.
-* verbosity: An integer (0, 1, 2, ...) or bitmask of `PK_LOG_*` constants.
+This method can only be called before starting the master thread.
 
-Returns:
+**Arguments**:
 
-* Success: A pagekite_mgr object (a pointer)
-* Error: NULL
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int flags`: Flags to enable IPv4, IPv6 and/or dynamic frontends
 
-Side-effects:
+**Returns**: The number of relay IPs configured, or -1 on failure.
 
-* See `libpagekite_init`
 
+<a                                          name="pgktddwhtlblfrntnds"><hr></a>
 
-### 3.1.3. pagekite_add_kite(...)
+#### `int pagekite_add_whitelabel_frontends(...)`
 
-This method configures the manager for flying a kite. This method can be
-invoked as many times as the `max_kites` value which was given to the
-`pagekite_init` function.
+Configure libpagekite to use the relays associated with a Pagekite.net
+white-label domain.
 
-Definition:
+This method can only be called before starting the master thread.
 
-    int pagekite_add_kite(
-      pagekite_mgr pkm,
-      const char* proto,
-      const char* kitename,
-      int pport,
-      const char* secret,
-      const char* backend,
-      int lport);
+**Arguments**:
 
-Arguments:
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int flags`: Flags to enable IPv4, IPv6 and/or dynamic frontends
+   * `const char* whitelabel_tld`: Top level domain of white-label kites
 
-* pkm: The pagekite_mgr object.
-* proto: A protocol, usually `"http"`, `"https"` or `"raw"`.
-* kitename: The DNS name of your kite, e.g. `username.pagekite.me`.
-* pport: The public port to listen on, or 0 to accept front-end defaults.
-* secret: The shared secret (password) used to authenticate.
-* backend: The hostname of the origin server, usually `"localhost"`.
-* lport: The port number of the origin server, e.g. 80 for HTTP.
+**Returns**: The number of relay IPs configured, or -1 on failure.
 
-Returns:
 
-* Success: 0
-* Error: -1
+<a                                            name="pgktlkpndddfrntnd"><hr></a>
 
-Side-effects:
+#### `int pagekite_lookup_and_add_frontend(...)`
 
-* None. 
+Configure libpagekite front-end relays.
 
-Notes:
+All available IP addresses referenced by the specified DNS name
+will be configured as potential relays, and the app will choose
+between them based on performance metrics.
 
-* It depends on the front-end relay which protocols and public ports are
-  actually available.
-* Generally it is a good idea to leave the public port number undefined
-* If the front-end relay offers MITM wild-card SSL, you need to request
-  the `"http"` protocol, not `"https"`, in order to make use of it.
-* Requesting `"https"` will activate end-to-end SSL (local SSL
-  termination).
-* In a static (non-dynamic) configuration, you will probably also want
-  to invoke `pagekite_add_frontend` using the kite DNS name and public
-  port as a front-end relay.
+If `update_from_dns` is nonzero, DNS will be rechecked periodically
+for new relay IPs. Enabling such updates is generally preferred
+over a completely static configuration, so long-running instances
+can keep up with changes to the relay infrastructure.
 
+This method can only be called before starting the master thread.
 
-### 3.1.4. pagekite_add_service_frontends(...)
+**Arguments**:
 
-This configures the manager object to use the PageKite.net public
-service front-end relays. This is usually invoked internally as part
-of `pagekite_init` or `pagekite_init_pagekitenet`, but is exposed
-here for apps which want more granular control over the setup process
-(see `contrib/pagekitec.c` for an example).
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `const char* domain`: DNS name of the frontend (or pool of frontends)
+   * `int port`: Port to connect to
+   * `int update_from_dns`: Set nonzero to re-lookup periodically from DNS
 
-Definition:
+**Returns**: The number of relay IPs configured, or -1 on failure.
 
-    int pagekite_add_service_frontends(pagekite_mgr pkm, int flags);
 
-Arguments:
+<a                                                 name="pgktddfrntnd"><hr></a>
 
-* pkm: The pagekite_mgr object.
-* flags: A bitmask of `PK_WITH_*` and `PK_WITHOUT_*` constants.
+#### `int pagekite_add_frontend(...)`
 
-Returns:
+Configure libpagekite front-end relays.
 
-* Success: 0
-* Error: -1
+All available IP addresses referenced by the specified DNS name
+will be configured as potential relays, and the app will choose
+between them based on performance metrics.
 
-Side-effects:
+This method is static - DNS is only checked on startup. This is
+not optimal and this method is only provided for backwards compatibility.
+New apps should enable periodic DNS updates.
 
-* Performs DNS lookups in order to resolve PageKite.net front-end relay
-  names to one or more IP addresses.
+This method can only be called before starting the master thread.
 
-Notes:
+**Arguments**:
 
-* This will fail miserably if you don't have a network connection.
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `const char* domain`: DNS name of the frontend (or pool of frontends)
+   * `int port`: Port to connect to
 
+**Returns**: The number of relay IPs configured, or -1 on failure.
 
-### 3.1.4. pagekite_add_frontend(...)
 
-This configures the manager object to use a given front-end relay.
+<a                                                  name="pgktstlgmsk"><hr></a>
 
-This function can be called at most as often as specified by the
-`max_frontends` argument to `pagekite_init`. In practice, it may run out
-of slots much sooner, if the given DNS name resolves to multiple IP
-addresses.
+#### `int pagekite_set_log_mask(...)`
 
-Definition:
+Configure the log verbosity using a bitmask.
 
-    int pagekite_add_frontend(pagekite_mgr, char* domain, int port);
+See the `PK_LOG_*` constants for options.
 
-Arguments:
+This function can be called at any time.
 
-* pkm: The pagekite_mgr object.
-* domain: The DNS name of the front-end relay(s)
-* port: The port to make tunnel connections to (usually 443).
+**Arguments**:
 
-Returns:
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int mask`: A bitmask
 
-* Success: 0
-* Error: -1
+**Returns**: Always returns 0.
 
-Side-effects:
 
-* Performs DNS lookups in order to resolve the front-end relay names to
-  one or more IP addresses.
+<a                                          name="pgktsthskpngmnntrvl"><hr></a>
 
-Notes:
+#### `int pagekite_set_housekeeping_min_interval(...)`
 
-* This will fail miserably if you don't have a network connection,
-  unless it is given IP addresses instead of DNS names.
+Configure the minimum interval for internal housekeeping.
 
+Internal housekeeping includes attempting to re-establish a connection
+to the required relays, occasionally refreshing information from
+DNS and pinging tunnels to detect whether they have gone silently
+dead (due to NAT timeouts, for example).
 
+Setting this interval too low may reduce battery life or increase
+load on shared infrastructure, as a result there is a hard-coded
+minimum value which this function cannot override. Setting this
+interval too high may prevent libpagekite from detecting network
+outages and recovering in a timely fashion.
 
-### 3.1.5. Other methods:
+The app will by default choose an interval between the minimum
+and maximum as appropriate. Most apps will not need to change
+this setting.
 
-The following methods will be documented better Real Soon Now.
+This function can be called at any time.
 
-    int pagekite_set_log_mask(pagekite_mgr, int);
-    int pagekite_enable_watchdog(pagekite_mgr, int enable);
-    int pagekite_enable_fake_ping(pagekite_mgr pkm, int enable);
-    int pagekite_set_bail_on_errors(pagekite_mgr pkm, int errors);
-    int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int seconds);
-    int pagekite_want_spare_frontends(pagekite_mgr, int spares);
-    int pagekite_tick(pagekite_mgr);
-    int pagekite_poll(pagekite_mgr, int timeout);
-    int pagekite_start(pagekite_mgr);
-    int pagekite_wait(pagekite_mgr);
-    int pagekite_stop(pagekite_mgr);
-    int pagekite_get_status(pagekite_mgr);
-    char* pagekite_get_log(pagekite_mgr);
-    int pagekite_free(pagekite_mgr);
-    void pagekite_perror(pagekite_mgr, const char*);
+**Arguments**:
 
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int interval`: Interval, in seconds
 
-### 3.2. Macros, Constants, Types
+**Returns**: The new minimum housekeeping interval.
 
-The library version:
 
-    PK_VERSION
+<a                                          name="pgktsthskpngmxntrvl"><hr></a>
 
-Flags for `pagekite_init` et al:
+#### `int pagekite_set_housekeeping_max_interval(...)`
 
-    PK_WITH_DEFAULTS             - Use default settings
-    PK_WITHOUT_DEFAULTS          - Disable default settings
-    PK_WITH_SSL                  - Enable SSL encrypted tunnels
-    PK_WITH_IPV4                 - Enable IPv4
-    PK_WITH_IPV6                 - Enable IPv6
-    PK_WITH_SERVICE_FRONTENDS    - Use PageKite.net service frontends
-    PK_WITHOUT_SERVICE_FRONTENDS - Explicitly disable service frontends
+Configure the maximum interval for internal housekeeping.
 
-Logging constants:
+See the documentation for the minimum housekeeping interval for
+details and performance concerns.
 
-    PK_LOG_TUNNEL_DATA           - Debug tunnel data
-    PK_LOG_TUNNEL_HEADERS        - Debug tunnel frame headers
-    PK_LOG_TUNNEL_CONNS          - Debug tunnel connection attempts
-    PK_LOG_BE_DATA               - Debug origin server data
-    PK_LOG_BE_HEADERS            - Currently unused
-    PK_LOG_BE_CONNS              - Debug origin server connections
-    PK_LOG_MANAGER_ERROR         - Log manager errors
-    PK_LOG_MANAGER_INFO          - Log manager information
-    PK_LOG_MANAGER_DEBUG         - Log manager debugging details
+This function can be called at any time.
 
-    PK_LOG_TRACE                 - Trace individual function calls
-    PK_LOG_ERROR                 - Log uncategorized errors
+**Arguments**:
 
-Aggregate logging constants, used with `pagekite_set_log_mask`:
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int interval`: Interval, in seconds
 
-    PK_LOG_ERRORS                - Match all error info
-    PK_LOG_MANAGER               - Match all manager info
-    PK_LOG_CONNS                 - Match all connection info
-    PK_LOG_NORMAL                - Default log level
-    PK_LOG_DEBUG                 - Default debugging log level
-    PK_LOG_ALL                   - Log everything
+**Returns**: The new maximum housekeeping interval.
 
-Pagekite.net service related constants:
 
-    PAGEKITE_NET_DDNS            - Dynamic DNS update URL format
-    PAGEKITE_NET_V4FRONTENDS     - IPv4 front-ends: hostname, port
-    PAGEKITE_NET_V6FRONTENDS     - IPv6 front-ends: hostname, port
-    PAGEKITE_NET_CLIENT_MAX      - Default max number of clients
-    PAGEKITE_NET_LPORT_MAX       - Currently unused
-    PAGEKITE_NET_FE_MAX          - Default max number of front-end relays
+<a                                       name="pgktnblhttpfrwrdnghdrs"><hr></a>
 
-The PageKite manager object:
+#### `int pagekite_enable_http_forwarding_headers(...)`
 
-    typedef pagekite_mgr         - An opaque pointer type
+Enable or disable HTTP forwarding headers.
 
+When enabled, libpagekite will rewrite incoming HTTP headers to
+add information about the remote IP address and remote protocol.
 
-## 4. Platform specifics
+The `X-Forwarded-For` header will contain the IP address of the
+remote HTTP client, as reported by the front-end relay (probably
+in IPv6 notation).
 
-### 4.1. Linux
+The `X-Forwarded-Proto` header will report whether the connection
+to the relay was HTTP or HTTPS. This can be detected and used
+to redirect or reject plain-text connections.
 
-None at the moment.
+**Limitations**: Headers are only added to the first request of
+a persistent HTTP/1.1 session. The data reported comes from the
+front-end relay and a malicious relay could provide false data.
 
-### 4.2. Android
+This function can be called at any time.
 
-TBD.
+**Arguments**:
 
-### 4.3. Windows
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int enable`: 0 disables, any other value enables
 
-TBD.
+**Returns**: Always returns 0.
+
+
+<a                                                 name="pgktnblfkpng"><hr></a>
+
+#### `int pagekite_enable_fake_ping(...)`
+
+Enable or disable fake pings.
+
+This is a debugging/testing option, which effectively randomizes
+which front-end relay is used and increases the frequency of migrations.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int enable`: 0 disables, any other value enables
+
+**Returns**: Always returns 0.
+
+
+<a                                                name="pgktnblwtchdg"><hr></a>
+
+#### `int pagekite_enable_watchdog(...)`
+
+Enable or disable watchdog.
+
+The watchdog is a thread which periodically checks if the main
+pagekite thread has locked up. If it thinks the app has locked
+up, it will cause a segmentation fault, which in turn will create
+a core dump for debugging (assuming ulimits allow).
+
+This method can only be called before starting the master thread.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int enable`: 0 disables, any other value enables
+
+**Returns**: Always returns 0.
+
+
+<a                                                name="pgktnbltcktmr"><hr></a>
+
+#### `int pagekite_enable_tick_timer(...)`
+
+Enable or disable tick event timer.
+
+This method can be used to toggle the tick event timer on or off
+(it is on by default). Apps may want to disable the timer for
+power saving reasons.
+
+If the timer is disabled, the tick method should be called instead
+when possible, to ensure that housekeeping takes place.
+
+This method may be called at any time, but may hang as it waits
+for the main event-loop lock.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int enable`: 0 disables, any other value enables
+
+**Returns**: Always returns 0.
+
+
+<a                                             name="pgktstcnnvctndls"><hr></a>
+
+#### `int pagekite_set_conn_eviction_idle_s(...)`
+
+Configure eviction of idle connections.
+
+As libpagekite works with a fixed pool of RAM, it may be unable
+to allocate buffers for new incoming connections. When this happens,
+the oldest connection which has been idle for more than `seconds`
+seconds may be evicted.
+
+Set `seconds = 0` to disable eviction and instead reject incoming
+connections when overloaded. Eviction is disabled by default.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int seconds`: Minimum idle time to qualify for eviction
+
+**Returns**: Always returns 0.
+
+
+<a                                            name="pgktwntsprfrntnds"><hr></a>
+
+#### `int pagekite_want_spare_frontends(...)`
+
+Connect to multiple front-end relays.
+
+If non-zero, this setting will configure how many spare relays
+to connect to at any given time. This may increase availability
+or performance in some special cases, but increases the load on
+shared relay infrastructure and should be avoided if possible.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int spares`: Number of spare front-ends to connect to
+
+**Returns**: Always returns 0.
+
+### Lifecycle
+
+<a                                                 name="pgktthrdstrt"><hr></a>
+
+#### `int pagekite_thread_start(...)`
+
+Start the main thread: run pagekite!
+
+This function should only be called once (per session).
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+**Returns**: The return value of `pthread_create()`
+
+
+<a                                                   name="pgktthrdwt"><hr></a>
+
+#### `int pagekite_thread_wait(...)`
+
+Wait for the main pagekite thread to finish.
+
+This function should only be called once (per session).
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+**Returns**: The return value of `pthread_join()`
+
+
+<a                                                  name="pgktthrdstp"><hr></a>
+
+#### `int pagekite_thread_stop(...)`
+
+Stop the main pagekite thread.
+
+This function should only be called once (per session).
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+**Returns**: The return value of `pthread_join()`
+
+
+<a                                                       name="pgktfr"><hr></a>
+
+#### `int pagekite_free(...)`
+
+Free the internal libpagekite buffers.
+
+Call this to free any memory allocated by the init functions.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+**Returns**: 0 on success, -1 on failure.
+
+
+<a                                                   name="pgktgtstts"><hr></a>
+
+#### `int pagekite_get_status(...)`
+
+Get the current status of the app.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+**Returns**: A `PK_STATUS_*` code.
+
+
+<a                                                     name="pgktgtlg"><hr></a>
+
+#### `char* pagekite_get_log(...)`
+
+Fetch the in-memory log buffer.
+
+Note that the C-API version returns a pointer to a static buffer.
+Subsequent calls will overwrite with new data.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+**Returns**: A snapshot of the current log status.
+
+
+<a                                                      name="pgktpll"><hr></a>
+
+#### `int pagekite_poll(...)`
+
+Wait for the pagekite event loop to wake up.
+
+This method can be used to pause a thread, waking up again when
+libpagekite status changes, network activity takes place or other
+events take place which might affect the log or state variable.
+
+This method can be called any time the main thread is running.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int timeout`: Max time to wait, in seconds
+
+**Returns**: 0 on success, -1 if unconfigured.
+
+
+<a                                                      name="pgkttck"><hr></a>
+
+#### `int pagekite_tick(...)`
+
+Manually trigger the internal tick event.
+
+The internal tick event may trigger housekeeping if necessary.
+
+This method is only needed if the internal periodic timer has
+been disabled (e.g. on a mobile app, to conserve battery life).
+
+This method can be called any time the main thread is running.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+**Returns**: 0 on success, -1 if unconfigured.
+
+
+<a                                                name="pgktstblnrrrs"><hr></a>
+
+#### `int pagekite_set_bail_on_errors(...)`
+
+Enable or disable bailing out on errors.
+
+If enabled, the app will increase log verbosity and finally call
+`exit(100)` after too many errors have occurred. This can help
+catch and handle error states, but care should be taken as it
+will also bring down the hosting app.
+
+The sensitivity of this function depends on the `errors` variable.
+After `errors * 9` problems would have been logged, verbosity
+is increased. After `errors * 10`, the app will exit.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int errors`: An error threshold
+
+**Returns**: Always returns 0.
+
+
+<a                                                     name="pgktprrr"><hr></a>
+
+#### `void pagekite_perror(...)`
+
+Log an error and reset the internal error state.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `const char*`: Prefix for the logged message
+
+**Returns**: Always returns 0.
+
+### Experimental
+
+<a                                                  name="pgktddlstnr"><hr></a>
+
+#### `int pagekite_add_listener(...)`
+
+Add a listening port to the event loop.
+
+When a connection has been accepted, the requested callback will
+be invoked. The callback should take two arguments: the first
+an int (the file descriptor of the accepted connection), the second
+a `void*` which will contain the `callback_data`.
+
+**Note:** This function is experimental and may change in the
+future.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `const char* domain`: Hostname or IP to listen on, e.g. "0.0.0.0"
+   * `int port`: Port to listen on
+   * `pagekite_callback_t* callback_func`: Callback function
+   * `void* callback_data`: Arbitrary data to pass to callback on connect
+
+**Returns**: The number of relay IPs configured, or -1 on failure.
+
+
+<a                                                name="pgktnbllplgns"><hr></a>
+
+#### `int pagekite_enable_lua_plugins(...)`
+
+Enable and configure Lua plugins.
+
+This will configure and enable Lua plugins, either only those
+specified in the `settings` list, or all default plugins if `enable_defaults`
+is nonzero.
+
+**Note:** This function is experimental and may change in the
+future.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int enable_defaults`: If non-zero, default plugins will be enabled
+   * `char** settings`: NULL-terminated list of settings, e.g. web_ui=8080.
+
+**Returns**: The number of relay IPs configured, or -1 on failure.
+
+## Constants
+
 
