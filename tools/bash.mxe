@@ -5,29 +5,34 @@
 # and openssl, not much else at the moment.
 #
 
-export PATH=/opt/mxe/usr/bin:$PATH
+export PATH="/opt/mxe/usr/bin:$PATH"
 unset `env | \
+    perl -npe 's/\\\\\\n//gs' | \
     grep -vi '^EDITOR=\|^HOME=\|^LANG=\|^MXE\|^PK_\|^PATH=' | \
     grep -vi 'PKG_CONFIG\|PROXY\|^PS1=\|^TERM=' | \
-    cut -d '=' -f1 | tr '\n' ' '`
-export CROSS=i686-pc-mingw32-
-export CROSS_PATH=/opt/mxe/usr/i686-pc-mingw32
-export TARGET_CFLAGS='-I.'
-export TARGET_CLINK='-lz -lws2_32 -lgdi32 -lgpg-error'
-export TARGET_OBJ='evwrap.o'
+    grep = | cut -d '=' -f1 | tr '\n' ' '`
+
+#export TARGET_CFLAGS='-I.'
+#export TARGET_LIBS='-lz -lws2_32 -lgdi32 -lgpg-error'
+
 export HAVE_IPV6=0
-export HAVE_LUA=0
-echo "PS1='\$? \[\033[1;33m\]\\w\[\033[0m\] mxe> '" \
-    > .mxe.bashrc
 
 if [ "$1" = "" ]; then
+    echo "PS1='\$? \[\033[1;33m\]\\w\[\033[0m\] mxe> '" > .mxe.bashrc
     echo
-    echo You probably want: make pagekitec.exe
+    echo "You probably want:"
+    echo
+    echo "   ./configure --host=i686-w64-mingw32.static \\"
+    echo "               --enable-static --disable-shared \\"
+    echo "               --without-java --without-os-libev \\"
+    echo "               --prefix=\$(pwd)"
+    echo
+    echo "   make install"
     echo
     bash --rcfile .mxe.bashrc -i "$@"
     RV=$?
 else
-    bash --rcfile .mxe.bashrc "$@"
+    bash -c "$*"
     RV=$?
 fi
 rm -f .mxe.bashrc

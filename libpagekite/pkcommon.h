@@ -64,8 +64,6 @@
 #  define SHUT_RD 0
 #  define SHUT_WR 1
 #  define SHUT_RDWR 2
-#  define EWOULDBLOCK WSAEWOULDBLOCK
-#  define EINPROGRESS WSAEINPROGRESS
 #elif defined(_MSC_VER)
 #  include <mswsock.h>
 #  include <gettimeofday.h>

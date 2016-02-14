@@ -37,6 +37,12 @@ AC_ARG_WITH(lua,
 		[Do not compile pagekite lua bindings even if Lua is available])],
 		[], [with_lua=yes])
 
+AC_ARG_WITH(os-libev,
+	[AS_HELP_STRING([--without-os-libev],
+		[Use embedded libev, not the OS-provided library])],
+		[use_libev=no], [])
+
+
 AC_ARG_WITH(java,
 	[AS_HELP_STRING([--without-java],
 		[Do not compile pagekite java bindings even if Java is available])],
@@ -56,6 +62,7 @@ AC_ARG_WITH(ds-logfmt,
 # Checks for programs.
 AC_PROG_CC
 m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+AC_LIBTOOL_WIN32_DLL
 AC_PROG_LIBTOOL
 #AC_PROG_INSTALL
 AM_PROG_CC_C_O

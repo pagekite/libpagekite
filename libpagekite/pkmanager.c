@@ -36,6 +36,9 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkwatchdog.h"
 #include "pklua.h"
 
+#ifdef __MINGW32__
+#include <mxe/evwrap.c>
+#endif
 
 /* Forward declarations of all the functions we don't want made public. */
 static void pkm_yield(struct pk_manager *pkm);

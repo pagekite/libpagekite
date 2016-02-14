@@ -7,7 +7,8 @@ libpagekite_la_SOURCES = \
 libpagekite_la_CPPFLAGS = -I$(top_srcdir)/include -std=c99 -fno-strict-aliasing
 libpagekite_la_CFLAGS = $(LIBEV_CFLAGS)
 libpagekite_la_LDFLAGS = -lpthread $(OPENSSL_LIBS) $(LIBEV_LIBS) \
-        -lm -version-info 1:0:0
+        -lm -no-undefined -version-info 1:0:0
+
 
 if HAVE_JAVA
 libpagekite_la_SOURCES += pagekite-jni.c

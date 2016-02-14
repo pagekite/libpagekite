@@ -18,6 +18,5 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
-#include "pkcommon.h"
 #include "evwrap.h"
 #include <libev/ev.c>

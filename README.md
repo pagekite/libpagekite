@@ -60,9 +60,6 @@ Or to run the Java test:
 (Note: The Java test is expected to fail because of hard-coded invalid
 credentials. You'll need to edit the source for it to actually work.)
 
-See below for further instructions regarding cross-compiling to Windows
-or Android (for use with the NDK).
-
 
 ## Documentation and examples
 
@@ -88,8 +85,9 @@ As of February 2016, the library's main limitations are:
    * Cross-compiling to Windows with autoconf is untested
 
 The back-end connector code is however considered mature and stable; the
-library does a good job connecting and *reconnecting* as necessary. The
-library is not currently known to crash.
+library does a good job connecting, relaying traffic and *reconnecting* as
+necessary. The library is not currently known to crash (on Linux) or have
+security vulnerabilities, aside from the SSL limitation above.
 
 
 ## License and Copyright ##
