@@ -67,8 +67,14 @@ static struct pk_pagekite* pkm_find_kite(struct pk_manager*,
                                          const char*, const char*, int);
 static unsigned char pkm_sid_shift(char *);
 
-#ifdef _MSC_VER
-static void pthread_yield(void) {}
+#ifndef HAVE_PTHREAD_YIELD
+#  ifdef HAVE_PTHREAD_YIELD_NP
+#    define pthread_yield pthread_yield_np
+#  elif defined (_MSC_VER)
+#    define pthread_yield()
+#  else
+#    error "Missing pthread_yield() equivalent."
+#  endif
 #endif
 
 static void pkm_yield_start(struct pk_manager *pkm)
