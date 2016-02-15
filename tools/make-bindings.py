@@ -83,6 +83,14 @@ def java_arg(arg):
     return '%s %s' % (java_ret_type(var_type), var_name)
 
 
+def java_const(cpair):
+    name, val = cpair
+    if '"' in val:
+        return 'public static final String %s = %s;' % (name, val)
+    else:
+        return 'public static final int %s = %s;' % (name, val)
+
+
 def java_class(constants, functions):
     methods = []
     for ret_type, func_name, args, docs, argstr in functions:
@@ -113,8 +121,7 @@ public class PageKiteAPI extends Object
 """ % { 'boilerplate': BOILERPLATE % {
             'file': 'PageKiteAPI',
             'year': '%s' % datetime.datetime.now().year},
-        'constants': '\n    '.join(('public static final int %s = %s;'
-                                    % cpair) for cpair in constants),
+        'constants': '\n    '.join(java_const(cpair) for cpair in constants),
         'methods': '\n    '.join(methods)}
 
 
