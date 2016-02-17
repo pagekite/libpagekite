@@ -589,4 +589,3 @@ This function can be called at any time.
 
 ## Constants
 
-

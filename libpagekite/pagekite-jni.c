@@ -19,6 +19,7 @@ If not, see: <http://www.apache.org/licenses/>
 
 Note: For alternate license terms, see the file COPYING.md.
 **************************************************************************** */
+
 #include "pagekite.h"
 #include "pkcommon.h"
 
@@ -26,7 +27,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #include <jni.h>
 
 static pagekite_mgr pagekite_manager_global = NULL;
-
 
 jboolean Java_net_pagekite_lib_PageKiteAPI_init(
   JNIEnv* env, jclass unused_class

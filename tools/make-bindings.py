@@ -105,24 +105,22 @@ def java_class(constants, functions):
            methods.append('/* FIXME: %s%s(%s) */' % (ret_type, func_name,
                                                      ', '.join(args)))
 
-    return """%(boilerplate)s\
-package net.pagekite.lib;
-
-public class PageKiteAPI extends Object
-{
-    %(constants)s
-
-    %(methods)s
-
-    static {
-        System.loadLibrary("pagekite");
-    }
-}
-""" % { 'boilerplate': BOILERPLATE % {
+    return '\n'.join([
+        BOILERPLATE % {
             'file': 'PageKiteAPI',
             'year': '%s' % datetime.datetime.now().year},
-        'constants': '\n    '.join(java_const(cpair) for cpair in constants),
-        'methods': '\n    '.join(methods)}
+        'package net.pagekite.lib;',
+        '',
+        'public class PageKiteAPI extends Object',
+        '{',
+        '    ' + '\n    '.join(java_const(cpair) for cpair in constants),
+        '',
+        '    ' + '\n    '.join(methods),
+        '',
+        '    static {',
+        '        System.loadLibrary("pagekite");',
+        '    }',
+        '}'])
 
 
 def jni_ret_type(ret_type):
@@ -139,8 +137,7 @@ def jni_fail(ret_type):
         'int': '-1',
         'pk_neg_fail': '-1',
         'boolean': 'JNI_FALSE',
-        'String': 'NULL'
-    }[java_ret_type(ret_type)];
+        'String': 'NULL'}[java_ret_type(ret_type)];
 
 
 def jni_func(ret_type, func_name, args):
@@ -153,10 +150,9 @@ def jni_func(ret_type, func_name, args):
     func = [
         '%s Java_net_pagekite_lib_PageKiteAPI_%s(' % (
             jni_ret_type(ret_type), java_name(func_name)),
-        '  JNIEnv* env, jclass unused_class'
-    ] + [', %s' % jni_arg(a) for a in args] + [
-        '){'
-    ]
+        '  JNIEnv* env, jclass unused_class'] + [
+        ', %s' % jni_arg(a) for a in args] + [
+        '){']
     if set_global_manager:
         func += ['  if (pagekite_manager_global != NULL) return JNI_FALSE;']
     else:
@@ -204,40 +200,38 @@ def jni_code(functions):
             jni_functions.append('/* FIXME: %s%s(%s) */'
                                  % (ret_type, func_name, ', '.join(args)))
 
-    return """%(boilerplate)s\
-#include "pagekite.h"
-#include "pkcommon.h"
-
-#ifdef HAVE_JNI_H
-#include <jni.h>
-
-static pagekite_mgr pagekite_manager_global = NULL;
-%(constants)s
-
-%(functions)s
-#else
-#  warning Java not found, not building JNI.
-#endif
-""" % { 'boilerplate': BOILERPLATE % {
+    return '\n'.join([
+        BOILERPLATE % {
             'file': 'pagekite-jni.c',
             'year': '%s' % datetime.datetime.now().year},
-        'constants': '',
-        'functions': '\n\n'.join(jni_functions)}
+        '#include "pagekite.h"',
+        '#include "pkcommon.h"',
+        '',
+        '#ifdef HAVE_JNI_H',
+        '#include <jni.h>',
+        '',
+        'static pagekite_mgr pagekite_manager_global = NULL;',
+        '',
+        '\n\n'.join(jni_functions),
+        '#else',
+        '#  warning Java not found, not building JNI.',
+        '#endif'])
+
+
+def parse_doc_comment(docs):
+    if docs is None:
+        return {}
+    lines = re.sub(r'(\n+)  +',
+                   lambda s: ' ' * (1 if (len(s.group(1)) == 1) else 2),
+                   '\n'.join([re.sub(r'^[\/\s]+\*([\/\s]|$)', '', l)
+                              for l in docs.splitlines()]),
+                   flags=re.DOTALL)
+    return dict(l.replace('  ', '\n\n').split(': ', 1)
+                for l in lines.splitlines() if l.strip())
 
 
 def documentation(functions, jni=False):
     toc, constant_docs, function_docs = [], [], []
-
-    def parse_doc_comment(docs):
-        if docs is None:
-            return {}
-        lines = re.sub(r'(\n+)  +',
-                       lambda s: ' ' * (1 if (len(s.group(1)) == 1) else 2),
-                       '\n'.join([re.sub(r'^[\/\s]+\*([\/\s]|$)', '', l)
-                                  for l in docs.splitlines()]),
-                       flags=re.DOTALL)
-        return dict(l.replace('  ', '\n\n').split(': ', 1)
-                    for l in lines.splitlines() if l.strip())
 
     def section(parse):
         if parse:
@@ -300,20 +294,19 @@ def documentation(functions, jni=False):
         except ValueError:
             traceback.print_exc()
             pass
-    return """# PageKite API reference manual
 
-%(toc)s
-
-## Functions
-
-%(functions)s
-
-## Constants
-
-%(constants)s
-""" % {  'toc': '\n'.join(toc),
-         'constants': '\n'.join(constant_docs),
-         'functions': '\n\n'.join(function_docs)}
+    return '\n'.join([
+        '# PageKite API reference manual',
+        '',
+        '\n'.join(toc),
+        '',
+        '## Functions',
+        '',
+        '\n\n'.join(function_docs),
+        '',
+        '## Constants',
+        '',
+        '\n'.join(constant_docs)])
 
 
 def get_constants(pagekite_h):
