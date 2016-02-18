@@ -1293,7 +1293,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
     if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
       pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
       pkb->tunnel = fe;
-      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
+      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE);
       return pkb;
     }
     if ((pkb->conn.activity <= max_age) &&
@@ -1322,7 +1322,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
       pkm_update_io(pkb->tunnel, pkb);
       pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
       pkb->tunnel = fe;
-      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE-1);
+      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE);
       return pkb;
     }
   }

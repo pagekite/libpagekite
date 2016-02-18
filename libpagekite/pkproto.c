@@ -697,7 +697,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
     }
     else if (session_id && /* 123456789012345678901 = 21 bytes */
              (strncasecmp(p, "X-PageKite-SessionID:", 21) == 0)) {
-      strncpyz(session_id, p+22, PK_HANDSHAKE_SESSIONID_MAX-1);
+      strncpyz(session_id, p+22, PK_HANDSHAKE_SESSIONID_MAX);
       pk_log(PK_LOG_TUNNEL_DATA, "Session ID is: %s", session_id);
     }
     p += bytes;

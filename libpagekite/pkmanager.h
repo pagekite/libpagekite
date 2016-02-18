@@ -51,7 +51,7 @@ struct pk_tunnel {
   struct addrinfo*        ai;
   struct pk_conn          conn;
   int                     error_count;
-  char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX];
+  char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX+1];
   time_t                  last_ping;
   time_t                  last_configured;
   struct pk_manager*      manager;
@@ -70,7 +70,7 @@ struct pk_tunnel {
 #define BE_MAX_SID_SIZE          8
 struct pk_backend_conn {
   PK_MEMORY_CANARY
-  char                 sid[BE_MAX_SID_SIZE];
+  char                 sid[BE_MAX_SID_SIZE+1];
   struct pk_tunnel*    tunnel;
   struct pk_pagekite*  kite;
   struct pk_conn       conn;
