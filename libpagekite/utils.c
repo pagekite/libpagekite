@@ -47,12 +47,22 @@ int zero_first_crlf(int length, char* data)
 char *skip_http_header(int length, const char* data)
 {
   int i, lfs;
+  int chunked = 0;
+  char *r = NULL;
   char *p = "\0";
   for (lfs = i = 0; i < length-1; i++) {
     p = (char*) data + i;
     if (*p == '\n') {
+      /*                       12345678901234567890123456 = 26 bytes */
+      if (!strncasecmp(p + 1, "Transfer-Encoding: chunked", 26)) chunked = 1;
       lfs++;
-      if (lfs == 2) return p + 1;
+      if (lfs == 2) {
+        if (chunked) {
+          r = strchr(p + 1, '\n');
+          if (r != NULL) return r + 1;
+        }
+        return p + 1;
+      }
     }
     else if (*p != '\r') {
       lfs = 0;
