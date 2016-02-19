@@ -41,11 +41,11 @@ def disemvowel(string):
     return re.sub(r'[aeiouy_]', '', string)
 
 
-def wraplines(string):
-    ll = re.compile(r'([^\n]{60}\S+) +', flags=re.DOTALL)
+def wraplines(string, indent='', breaklen=60):
+    ll = re.compile('([^\n]{%d}\S+) +' % breaklen, flags=re.DOTALL)
     while re.search(ll, string):
-        string = re.sub(ll, '\\1\n', string)
-    return string
+        string = re.sub(ll, '\\1\n' + indent, string)
+    return indent + string
 
 
 def uncomment(string):
@@ -230,14 +230,160 @@ def parse_doc_comment(docs):
                 for l in lines.splitlines() if l.strip())
 
 
-def documentation(functions, jni=False):
-    toc, constant_docs, function_docs = [], [], []
+def doc_section(parse):
+    if parse:
+        return [k for k in parse.keys() if not 'returns' in k.lower()][0]
+    else:
+        return 'None'
 
-    def section(parse):
-        if parse:
-            return [k for k in parse.keys() if not 'returns' in k.lower()][0]
-        else:
-            return 'None'
+
+def doc_args(args, argstr, jni=False):
+    adocs = []
+    if args:
+        comments = argstr.strip().splitlines()
+        for i in range(0, len(args)):
+            adoc = comment(comments[i])
+            argn = args[i]
+            if jni:
+                if argn.startswith('pagekite_mgr'):
+                    continue
+                argn = java_arg(argn)
+            adocs.append('   * `%s`: %s' % (argn, adoc))
+    return adocs
+
+
+def python_ret_type(ret_type):
+    ret_type = ret_type.strip()
+    if ret_type in ('pagekite_mgr',):
+        return 'c_void_p'
+    elif ret_type.replace(' ', '') in ('char*', 'constchar*'):
+        return 'c_char_p'
+    elif ret_type in ('int', 'pk_neg_fail'):
+        return 'c_int'
+    else:
+        raise ValueError('Unknown return value type: %s' % ret_type)
+
+
+def python_name(func_name):
+    return func_name[len('pagekite_'):].lower()
+
+
+def python_arg_type(arg):
+    if ' ' in arg:
+        arg = arg.rsplit(' ', 1)[0]
+    return python_ret_type(arg)
+
+
+def python_const(cpair):
+    return '%s = %s' % cpair
+
+
+def python_code(constants, functions):
+    retpref = 'API Returns'
+
+    def recomment(text):
+        commented = '\n'.join('# %s' % l for l in comment(text).splitlines())
+        return re.sub(r'\s+\*{40,}', '#' * 78, commented)
+
+    funcs, func_info = [], {}
+    for ret_type, func_name, args, docs, argstr in functions:
+        try:
+            func_name = python_name(func_name)
+            parse = parse_doc_comment(docs)
+            doc = ['    ' + l for l in
+                   wraplines(parse.get(doc_section(parse), ''),
+                             breaklen=52).strip().splitlines()]
+            if not doc[0]:
+                continue
+
+            is_init = (args and not args[0].strip().startswith('pagekite_mgr'))
+
+            if args:
+                adocs = doc_args(args, argstr)
+                if not is_init:
+                    adocs = adocs[1:]
+                if adocs:
+                    doc += ['']
+                    doc += ['    Args:']
+                    doc += ['    ' + d for d in adocs]
+            doc += ['']
+            doc += ['    Returns:']
+
+            if is_init:
+                returns = 'The PageKite object on success, None otherwise'
+                doc += ['        ' + returns]
+                wrapper = [
+                   'def %s(self, *args):' % func_name,
+                   '    """'] + doc + [
+                   '    """',
+                   '    assert(self.pkm is None)',
+                   '    self.pkm = self.dll.pagekite_%s(*args)' % func_name,
+                   '    return (self if (self.pkm) else None)']
+            else:
+                returns = parse.get(retpref, parse.get('Returns', ret_type))
+                doc += ['        ' + returns]
+                wrapper = [
+                   'def %s(self, *args):' % func_name,
+                   '    """'] + doc + [
+                   '    """',
+                   '    assert(self.pkm is not None)',
+                   '    return self.dll.pagekite_%s(self.pkm, *args)' % func_name]
+
+            func_info[func_name] = {
+                'name': func_name,
+                'ret_type': python_ret_type(ret_type),
+                'args': ', '.join(python_arg_type(a) for a in (args or [])),
+                'wrapper': wrapper
+            }
+            funcs.append(func_name)
+
+        except ValueError:
+            traceback.print_exc()
+            pass
+
+    return '\n'.join([
+        recomment(BOILERPLATE % {
+            'file': 'libpagekite-Python',
+            'year': '%s' % datetime.datetime.now().year}),
+        '', '',
+        '\n'.join(python_const(cpair) for cpair in constants),
+        '', '',
+        'def get_libpagekite_cdll():',
+        '    """Fetch a fully configured ctypes.cdll object for libpagekite."""',
+        '    from ctypes import cdll, c_void_p, c_char_p, c_int',
+        '    dll = cdll.LoadLibrary("libpagekite.so")',
+        '    for restype, func_name, argtypes in (',
+        '            ' + ',\n            '.join(
+             '(%(ret_type)s, "%(name)s", (%(args)s,))'
+             % func_info[f] for f in funcs) + '):',
+        '        method = getattr(dll, "pagekite_%s" % func_name)',
+        '        method.restype = restype',
+        '        method.argtypes = argtypes',
+        '    return dll',
+        '', '',
+        'class PageKite(object):',
+        '    def __init__(self):',
+        '        self.dll = dll = get_libpagekite_cdll()',
+        '        self.pkm = pkm = None',
+        '        def cleanup():',
+        '            try:',
+        '                pkm.thread_stop()',
+        '                pkm.free()',
+        '            except (AssertionError, AttributeError):',
+        '                pass',
+        '        setattr(self, "cleanup", cleanup)',
+        '        setattr(self, "__del__", cleanup)',
+        '',
+        '    def __exit__(self, *args): return self.cleanup()',
+        '    def __enter__(self): return self',
+        '',
+        '\n\n'.join('    ' + '\n    '.join(func_info[f]['wrapper'])
+                    for f in funcs),
+        ''])
+
+
+def documentation(constants, functions, jni=False):
+    toc, constant_docs, function_docs = [], [], []
 
     last_sect = 'None'
     retpref = 'JNI Returns' if jni else 'API Returns'
@@ -248,11 +394,11 @@ def documentation(functions, jni=False):
                 ret_type = java_ret_type(ret_type)
 
             parse = parse_doc_comment(docs)
-            text = wraplines(parse.get(section(parse), '')).strip()
+            text = wraplines(parse.get(doc_section(parse), '')).strip()
             if not text:
                 continue
 
-            sect = section(parse).strip()
+            sect = doc_section(parse).strip()
             if sect != last_sect:
                 doc = ['### %s' % sect]
             else:
@@ -268,16 +414,7 @@ def documentation(functions, jni=False):
                 '']
 
             if args:
-                adocs = []
-                comments = argstr.strip().splitlines()
-                for i in range(0, len(args)):
-                    adoc = comment(comments[i])
-                    argn = args[i]
-                    if jni:
-                        if argn.startswith('pagekite_mgr'):
-                            continue
-                        argn = java_arg(argn)
-                    adocs.append('   * `%s`: %s' % (argn, adoc))
+                adocs = doc_args(args, argstr, jni=jni)
                 doc += ['**Arguments**:', '', '\n'.join(adocs), '']
 
             doc.append(
@@ -291,7 +428,7 @@ def documentation(functions, jni=False):
                 last_sect = sect
             toc.append('      * [`%-44s`](#%s)'
                        % (func_name, disemvowel(func_name)))
-        except ValueError:
+        except (ValueError, KeyError):
             traceback.print_exc()
             pass
 
@@ -357,8 +494,10 @@ if __name__ == '__main__':
             open(outfile, 'w').write(java_class(constants, functions))
         elif outfile.endswith('.c'):
             open(outfile, 'w').write(jni_code(functions))
+        elif outfile.endswith('.py'):
+            open(outfile, 'w').write(python_code(constants, functions))
         elif outfile.endswith('.md'):
             open(outfile, 'w').write(documentation(
-                functions, jni='jni' in outfile.lower()))
+                constants, functions, jni='jni' in outfile.lower()))
         else:
             raise ValueError('What is this? %s' % outfile)

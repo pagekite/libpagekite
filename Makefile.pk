@@ -45,6 +45,7 @@ publicapi:
 	@mkdir -p bindings/java/net/pagekite/lib
 	python2 tools/make-bindings.py include/pagekite.h \
                 bindings/java/net/pagekite/lib/PageKiteAPI.java \
+                bindings/python/libpagekite/__init__.py \
                 libpagekite/pagekite-jni.c \
                 doc/API.md doc/API_JNI.md
 

@@ -133,7 +133,7 @@ typedef void* pagekite_mgr;
  *    added to the library.
  *
  *    The `verbosity` argument controls the internal logging. A small
- *    integer (0, 1, 2) can be used to choose from a predefined level,
+ *    integer (-1, 0, 1, 2) can be used to choose from a predefined level,
  *    for more fine-grained control use the `PK_LOG_` constants bitwise
  *    OR'ed together to enable logging of individual subsystems.
  *

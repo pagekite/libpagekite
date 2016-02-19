@@ -53,9 +53,9 @@ to use recommended settings even as new features are added to
 the library.
 
 The `verbosity` argument controls the internal logging. A small
-integer (0, 1, 2) can be used to choose from a predefined level,
-for more fine-grained control use the `PK_LOG_` constants bitwise
-OR'ed together to enable logging of individual subsystems.
+integer (-1, 0, 1, 2) can be used to choose from a predefined
+level, for more fine-grained control use the `PK_LOG_` constants
+bitwise OR'ed together to enable logging of individual subsystems.
 
 This method can only be called before starting the master thread.
 

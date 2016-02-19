@@ -1,8 +1,7 @@
 #!/usr/bin/python
 #
-## This is a (incomplete) libpagekite wrapper in Python
-#
-#     $ LD_LIBRARY_PATH=. python libpagekite.py
+# This is a (incomplete) libpagekite wrapper in Python. It's here just to
+# demonstrate the technique used by the actual bindings in libpagekite/.
 #
 from ctypes import *
 
@@ -10,7 +9,7 @@ from ctypes import *
 LIBPK = cdll.LoadLibrary('libpagekite.so')
 
 c_M, c_S, c_I = c_void_p, c_char_p, c_int
-LIBPK_METHODS = ( 
+LIBPK_METHODS = (
     (c_M, 'init',             (c_S, c_I, c_I, c_I, c_S, c_I, c_I)),
     (c_M, 'init_pagekitenet', (c_S, c_I, c_I, c_I, c_I)),
     (c_M, 'init_whitelabel',  (c_S, c_I, c_I, c_I, c_I, c_S)),
@@ -24,11 +23,11 @@ for restype, func_name, argtypes in LIBPK_METHODS:
     method = getattr(LIBPK, 'pagekite_%s' % func_name)
     method.restype = restype
     method.argtypes = argtypes
-    
+
 
 class PageKite(object):
     def __init__(self):
-        self.pkm = None 
+        self.pkm = None
 
         def wrapped(restype, func_name):
             method = getattr(LIBPK, 'pagekite_%s' % func_name)
