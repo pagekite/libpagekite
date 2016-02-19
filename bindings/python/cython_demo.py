@@ -19,10 +19,10 @@ with PageKite().init_pagekitenet(
         PK_LOG_NORMAL) as pk:
 
     pk.add_kite(
-        sys.argv[2],      # proto
-        sys.argv[3],      # kitename
-        0,                # protocol
-        sys.argv[4],      # secret
+        sys.argv[2],       # protocol
+        sys.argv[3],       # kitename
+        0,                 # port, 0 = use default
+        sys.argv[4],       # secret
         'localhost',
          int(sys.argv[1])) # local port
 
