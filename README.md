@@ -79,6 +79,7 @@ See `./configure --help` for some options on how to build the library.
    * [The Java/JNI API reference ](doc/API_JNI.md)
    * [The C backend connector    ](contrib/backends/pagekitec.c)
    * [The Java example           ](contrib/backends/PageKiteTest.java)
+   * See `pydoc bindings/python/libpagekite/__init__.py` for Python docs
 
 See [the old README](doc/README-OLD.md) for hints on how some things used
 to be done and may still be missing from our current build processes and
