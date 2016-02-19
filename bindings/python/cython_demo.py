@@ -1,8 +1,11 @@
 #!/usr/bin/python
 #
-# This is a minimal test of the Python libpagekite bindings.
+# This is a minimal test of the Python libpagekite bindings
+# in a script compiled with Cython.
 #
-# Usage: ./libtest.py <local-port> <protocol> <kitename> <secret>
+# Usage: 
+# 1) Build with make
+# 2) ./cython_demo <local-port> <protocol> <kitename> <secret>
 #
 import sys
 import time
