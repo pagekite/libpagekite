@@ -58,8 +58,17 @@ Or to run the Java test:
     $ cd java-classes
     $ java PageKiteTest
 
-(Note: The Java test is expected to fail because of hard-coded invalid
-credentials. You'll need to edit the source for it to actually work.)
+*(Note: The Java test is expected to fail because of hard-coded invalid
+credentials. You'll need to edit the source for it to actually work.)*
+
+Or to run the Python test:
+
+    $ export LD_LIBRARY_PATH=$(pwd)/lib
+    $ cd bindings/python
+    $ export PYTHONPATH="$(pwd);$PYTHONPATH"
+    $ python ./libtest.py 80 http yourkite.pagekite.me secret
+
+Press `CTRL+C` to exit any of the test apps.
 
 
 ## Documentation and examples
