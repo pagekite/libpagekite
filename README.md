@@ -22,7 +22,7 @@ For more information, see <http://pagekite.org/>
 
 The structure is as follows:
 
-    bindings/           Library bindings for other programming languages
+    bindings/           Library bindings for Java, Python
     contrib/            Things that use libpagekite
     doc/                Documentation
     include/pagekite.h  The public interface of libpagekite
