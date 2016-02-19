@@ -309,30 +309,43 @@ def python_code(constants, functions):
             doc += ['']
             doc += ['    Returns:']
 
+            arg_types = [python_arg_type(a) for a in (args or [])]
+            arg_names = [a.split()[-1] for a in (args or [])]
+            def _arg(i):
+                if arg_types[i] == 'c_char_p':
+                    return 'c_char_p(%s.encode("utf-8"))' % arg_names[i]
+                else:
+                    return '%s(%s)' % (arg_types[i], arg_names[i])
+
             if is_init:
                 returns = 'The PageKite object on success, None otherwise'
                 doc += ['        ' + returns]
                 wrapper = [
-                   'def %s(self, *args):' % func_name,
+                   'def %s(self, %s):' % (func_name, ', '.join(arg_names)),
                    '    """'] + doc + [
                    '    """',
                    '    assert(self.pkm is None)',
-                   '    self.pkm = self.dll.pagekite_%s(*args)' % func_name,
+                   '    self.pkm = self.dll.pagekite_%s(%s)' % (
+                       func_name, ', '.join(_arg(i)
+                                            for i in range(0, len(arg_names)))),
                    '    return (self if (self.pkm) else None)']
             else:
                 returns = parse.get(retpref, parse.get('Returns', ret_type))
                 doc += ['        ' + returns]
                 wrapper = [
-                   'def %s(self, *args):' % func_name,
+                   'def %s(self, %s):' % (func_name, ', '.join(arg_names[1:])),
                    '    """'] + doc + [
                    '    """',
                    '    assert(self.pkm is not None)',
-                   '    return self.dll.pagekite_%s(self.pkm, *args)' % func_name]
+                   '    return self.dll.pagekite_%s(self.pkm, %s)' % (
+                       func_name, ', '.join(_arg(i)
+                                            for i in range(1, len(arg_names))))]
 
             func_info[func_name] = {
                 'name': func_name,
                 'ret_type': python_ret_type(ret_type),
-                'args': ', '.join(python_arg_type(a) for a in (args or [])),
+                'arg_types': ', '.join(arg_types),
+                'arg_names': ', '.join(arg_names),
                 'wrapper': wrapper
             }
             funcs.append(func_name)
@@ -345,16 +358,16 @@ def python_code(constants, functions):
         recomment(BOILERPLATE % {
             'file': 'libpagekite-Python',
             'year': '%s' % datetime.datetime.now().year}),
+        'from ctypes import cdll, c_void_p, c_char_p, c_int',
         '', '',
         '\n'.join(python_const(cpair) for cpair in constants),
         '', '',
         'def get_libpagekite_cdll():',
         '    """Fetch a fully configured ctypes.cdll object for libpagekite."""',
-        '    from ctypes import cdll, c_void_p, c_char_p, c_int',
         '    dll = cdll.LoadLibrary("libpagekite.so")',
         '    for restype, func_name, argtypes in (',
         '            ' + ',\n            '.join(
-             '(%(ret_type)s, "%(name)s", (%(args)s,))'
+             '(%(ret_type)s, "%(name)s", (%(arg_types)s,))'
              % func_info[f] for f in funcs) + '):',
         '        method = getattr(dll, "pagekite_%s" % func_name)',
         '        method.restype = restype',

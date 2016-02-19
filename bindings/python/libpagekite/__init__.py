@@ -19,6 +19,7 @@
 # 
 # Note: For alternate license terms, see the file COPYING.md.
 ###############################################################################
+from ctypes import cdll, c_void_p, c_char_p, c_int
 
 
 PK_VERSION = "0.90.160219C"
@@ -61,7 +62,6 @@ PK_LOG_ALL = 0xffff00
 
 def get_libpagekite_cdll():
     """Fetch a fully configured ctypes.cdll object for libpagekite."""
-    from ctypes import cdll, c_void_p, c_char_p, c_int
     dll = cdll.LoadLibrary("libpagekite.so")
     for restype, func_name, argtypes in (
             (c_void_p, "init", (c_char_p, c_int, c_int, c_int, c_char_p, c_int, c_int,)),
@@ -112,7 +112,7 @@ class PageKite(object):
     def __exit__(self, *args): return self.cleanup()
     def __enter__(self): return self
 
-    def init(self, *args):
+    def init(self, app_id, max_kites, max_frontends, max_conns, dyndns_url, flags, verbosity):
         """
         Initialize the PageKite manager.
         
@@ -152,10 +152,10 @@ class PageKite(object):
             The PageKite object on success, None otherwise
         """
         assert(self.pkm is None)
-        self.pkm = self.dll.pagekite_init(*args)
+        self.pkm = self.dll.pagekite_init(c_char_p(app_id.encode("utf-8")), c_int(max_kites), c_int(max_frontends), c_int(max_conns), c_char_p(dyndns_url.encode("utf-8")), c_int(flags), c_int(verbosity))
         return (self if (self.pkm) else None)
 
-    def init_pagekitenet(self, *args):
+    def init_pagekitenet(self, app_id, max_kites, max_conns, flags, verbosity):
         """
         Initialize the PageKite manager, configured for use with
         the pagekite.net public service.
@@ -180,10 +180,10 @@ class PageKite(object):
             The PageKite object on success, None otherwise
         """
         assert(self.pkm is None)
-        self.pkm = self.dll.pagekite_init_pagekitenet(*args)
+        self.pkm = self.dll.pagekite_init_pagekitenet(c_char_p(app_id.encode("utf-8")), c_int(max_kites), c_int(max_conns), c_int(flags), c_int(verbosity))
         return (self if (self.pkm) else None)
 
-    def init_whitelabel(self, *args):
+    def init_whitelabel(self, app_id, max_kites, max_conns, flags, verbosity, whitelabel_tld):
         """
         Initialize the PageKite manager, configured for use with
         a pagekite.net white-label domain.
@@ -209,10 +209,10 @@ class PageKite(object):
             The PageKite object on success, None otherwise
         """
         assert(self.pkm is None)
-        self.pkm = self.dll.pagekite_init_whitelabel(*args)
+        self.pkm = self.dll.pagekite_init_whitelabel(c_char_p(app_id.encode("utf-8")), c_int(max_kites), c_int(max_conns), c_int(flags), c_int(verbosity), c_char_p(whitelabel_tld.encode("utf-8")))
         return (self if (self.pkm) else None)
 
-    def add_kite(self, *args):
+    def add_kite(self, proto, kitename, pport, secret, backend, lport):
         """
         Configure a "kite", mapping a public domain to a local
         service.
@@ -236,9 +236,9 @@ class PageKite(object):
             0 on success, -1 on failure.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_add_kite(self.pkm, *args)
+        return self.dll.pagekite_add_kite(self.pkm, c_char_p(proto.encode("utf-8")), c_char_p(kitename.encode("utf-8")), c_int(pport), c_char_p(secret.encode("utf-8")), c_char_p(backend.encode("utf-8")), c_int(lport))
 
-    def add_service_frontends(self, *args):
+    def add_service_frontends(self, flags):
         """
         Configure libpagekite to use the Pagekite.net pool of
         public front-end relay servers.
@@ -253,9 +253,9 @@ class PageKite(object):
             The number of relay IPs configured, or -1 on failure.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_add_service_frontends(self.pkm, *args)
+        return self.dll.pagekite_add_service_frontends(self.pkm, c_int(flags))
 
-    def add_whitelabel_frontends(self, *args):
+    def add_whitelabel_frontends(self, flags, whitelabel_tld):
         """
         Configure libpagekite to use the relays associated with
         a Pagekite.net white-label domain.
@@ -271,9 +271,9 @@ class PageKite(object):
             The number of relay IPs configured, or -1 on failure.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_add_whitelabel_frontends(self.pkm, *args)
+        return self.dll.pagekite_add_whitelabel_frontends(self.pkm, c_int(flags), c_char_p(whitelabel_tld.encode("utf-8")))
 
-    def lookup_and_add_frontend(self, *args):
+    def lookup_and_add_frontend(self, domain, port, update_from_dns):
         """
         Configure libpagekite front-end relays.
         
@@ -299,9 +299,9 @@ class PageKite(object):
             The number of relay IPs configured, or -1 on failure.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_lookup_and_add_frontend(self.pkm, *args)
+        return self.dll.pagekite_lookup_and_add_frontend(self.pkm, c_char_p(domain.encode("utf-8")), c_int(port), c_int(update_from_dns))
 
-    def add_frontend(self, *args):
+    def add_frontend(self, domain, port):
         """
         Configure libpagekite front-end relays.
         
@@ -325,9 +325,9 @@ class PageKite(object):
             The number of relay IPs configured, or -1 on failure.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_add_frontend(self.pkm, *args)
+        return self.dll.pagekite_add_frontend(self.pkm, c_char_p(domain.encode("utf-8")), c_int(port))
 
-    def set_log_mask(self, *args):
+    def set_log_mask(self, mask):
         """
         Configure the log verbosity using a bitmask.
         
@@ -342,9 +342,9 @@ class PageKite(object):
             Always returns 0.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_set_log_mask(self.pkm, *args)
+        return self.dll.pagekite_set_log_mask(self.pkm, c_int(mask))
 
-    def set_housekeeping_min_interval(self, *args):
+    def set_housekeeping_min_interval(self, interval):
         """
         Configure the minimum interval for internal housekeeping.
         
@@ -374,9 +374,9 @@ class PageKite(object):
             The new minimum housekeeping interval.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_set_housekeeping_min_interval(self.pkm, *args)
+        return self.dll.pagekite_set_housekeeping_min_interval(self.pkm, c_int(interval))
 
-    def set_housekeeping_max_interval(self, *args):
+    def set_housekeeping_max_interval(self, interval):
         """
         Configure the maximum interval for internal housekeeping.
         
@@ -392,9 +392,9 @@ class PageKite(object):
             The new maximum housekeeping interval.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_set_housekeeping_max_interval(self.pkm, *args)
+        return self.dll.pagekite_set_housekeeping_max_interval(self.pkm, c_int(interval))
 
-    def enable_http_forwarding_headers(self, *args):
+    def enable_http_forwarding_headers(self, enable):
         """
         Enable or disable HTTP forwarding headers.
         
@@ -424,9 +424,9 @@ class PageKite(object):
             Always returns 0.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_enable_http_forwarding_headers(self.pkm, *args)
+        return self.dll.pagekite_enable_http_forwarding_headers(self.pkm, c_int(enable))
 
-    def enable_fake_ping(self, *args):
+    def enable_fake_ping(self, enable):
         """
         Enable or disable fake pings.
         
@@ -443,9 +443,9 @@ class PageKite(object):
             Always returns 0.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_enable_fake_ping(self.pkm, *args)
+        return self.dll.pagekite_enable_fake_ping(self.pkm, c_int(enable))
 
-    def enable_watchdog(self, *args):
+    def enable_watchdog(self, enable):
         """
         Enable or disable watchdog.
         
@@ -465,9 +465,9 @@ class PageKite(object):
             Always returns 0.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_enable_watchdog(self.pkm, *args)
+        return self.dll.pagekite_enable_watchdog(self.pkm, c_int(enable))
 
-    def enable_tick_timer(self, *args):
+    def enable_tick_timer(self, enable):
         """
         Enable or disable tick event timer.
         
@@ -489,9 +489,9 @@ class PageKite(object):
             Always returns 0.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_enable_tick_timer(self.pkm, *args)
+        return self.dll.pagekite_enable_tick_timer(self.pkm, c_int(enable))
 
-    def set_conn_eviction_idle_s(self, *args):
+    def set_conn_eviction_idle_s(self, seconds):
         """
         Configure eviction of idle connections.
         
@@ -513,9 +513,9 @@ class PageKite(object):
             Always returns 0.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_set_conn_eviction_idle_s(self.pkm, *args)
+        return self.dll.pagekite_set_conn_eviction_idle_s(self.pkm, c_int(seconds))
 
-    def want_spare_frontends(self, *args):
+    def want_spare_frontends(self, spares):
         """
         Connect to multiple front-end relays.
         
@@ -534,9 +534,9 @@ class PageKite(object):
             Always returns 0.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_want_spare_frontends(self.pkm, *args)
+        return self.dll.pagekite_want_spare_frontends(self.pkm, c_int(spares))
 
-    def thread_start(self, *args):
+    def thread_start(self, ):
         """
         Start the main thread: run pagekite!
         
@@ -546,9 +546,9 @@ class PageKite(object):
             The return value of `pthread_create()`
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_thread_start(self.pkm, *args)
+        return self.dll.pagekite_thread_start(self.pkm, )
 
-    def thread_wait(self, *args):
+    def thread_wait(self, ):
         """
         Wait for the main pagekite thread to finish.
         
@@ -558,9 +558,9 @@ class PageKite(object):
             The return value of `pthread_join()`
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_thread_wait(self.pkm, *args)
+        return self.dll.pagekite_thread_wait(self.pkm, )
 
-    def thread_stop(self, *args):
+    def thread_stop(self, ):
         """
         Stop the main pagekite thread.
         
@@ -570,9 +570,9 @@ class PageKite(object):
             The return value of `pthread_join()`
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_thread_stop(self.pkm, *args)
+        return self.dll.pagekite_thread_stop(self.pkm, )
 
-    def free(self, *args):
+    def free(self, ):
         """
         Free the internal libpagekite buffers.
         
@@ -582,9 +582,9 @@ class PageKite(object):
             0 on success, -1 on failure.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_free(self.pkm, *args)
+        return self.dll.pagekite_free(self.pkm, )
 
-    def get_status(self, *args):
+    def get_status(self, ):
         """
         Get the current status of the app.
         
@@ -594,9 +594,9 @@ class PageKite(object):
             A `PK_STATUS_*` code.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_get_status(self.pkm, *args)
+        return self.dll.pagekite_get_status(self.pkm, )
 
-    def get_log(self, *args):
+    def get_log(self, ):
         """
         Fetch the in-memory log buffer.
         
@@ -609,9 +609,9 @@ class PageKite(object):
             A snapshot of the current log status.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_get_log(self.pkm, *args)
+        return self.dll.pagekite_get_log(self.pkm, )
 
-    def poll(self, *args):
+    def poll(self, timeout):
         """
         Wait for the pagekite event loop to wake up.
         
@@ -630,9 +630,9 @@ class PageKite(object):
             0 on success, -1 if unconfigured.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_poll(self.pkm, *args)
+        return self.dll.pagekite_poll(self.pkm, c_int(timeout))
 
-    def tick(self, *args):
+    def tick(self, ):
         """
         Manually trigger the internal tick event.
         
@@ -649,9 +649,9 @@ class PageKite(object):
             0 on success, -1 if unconfigured.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_tick(self.pkm, *args)
+        return self.dll.pagekite_tick(self.pkm, )
 
-    def set_bail_on_errors(self, *args):
+    def set_bail_on_errors(self, errors):
         """
         Enable or disable bailing out on errors.
         
@@ -675,4 +675,4 @@ class PageKite(object):
             Always returns 0.
         """
         assert(self.pkm is not None)
-        return self.dll.pagekite_set_bail_on_errors(self.pkm, *args)
+        return self.dll.pagekite_set_bail_on_errors(self.pkm, c_int(errors))
