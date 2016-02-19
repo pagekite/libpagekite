@@ -28,6 +28,7 @@
       * [`poll                                        `](#pll)
       * [`tick                                        `](#tck)
       * [`setBailOnErrors                             `](#stBlOnErrrs)
+   * [Constants](#constants)
 
 ## Functions
 
@@ -587,5 +588,43 @@ This function can be called at any time.
 
 **Returns**: Always returns 0.
 
+<a                                                    name="constants"><hr></a>
+
 ## Constants
 
+PageKiteAPI.PK_VERSION = "0.90.160219C"  
+PageKiteAPI.PK_STATUS_STARTUP = 10  
+PageKiteAPI.PK_STATUS_CONNECTING = 20  
+PageKiteAPI.PK_STATUS_UPDATING_DNS = 30  
+PageKiteAPI.PK_STATUS_FLYING = 40  
+PageKiteAPI.PK_STATUS_PROBLEMS = 50  
+PageKiteAPI.PK_STATUS_REJECTED = 60  
+PageKiteAPI.PK_STATUS_NO_NETWORK = 90  
+PageKiteAPI.PK_WITH_DEFAULTS = 0x0000  
+PageKiteAPI.PK_WITHOUT_DEFAULTS = 0x1000  
+PageKiteAPI.PK_WITH_SSL = 0x0001  
+PageKiteAPI.PK_WITH_IPV4 = 0x0002  
+PageKiteAPI.PK_WITH_IPV6 = 0x0004  
+PageKiteAPI.PK_WITH_SERVICE_FRONTENDS = 0x0008  
+PageKiteAPI.PK_WITHOUT_SERVICE_FRONTENDS = 0x0010  
+PageKiteAPI.PK_WITH_DYNAMIC_FE_LIST = 0x0020  
+PageKiteAPI.PK_AS_FRONTEND_RELAY = 0x0100  
+PageKiteAPI.PK_LOG_TUNNEL_DATA = 0x000100  
+PageKiteAPI.PK_LOG_TUNNEL_HEADERS = 0x000200  
+PageKiteAPI.PK_LOG_TUNNEL_CONNS = 0x000400  
+PageKiteAPI.PK_LOG_BE_DATA = 0x001000  
+PageKiteAPI.PK_LOG_BE_HEADERS = 0x002000  
+PageKiteAPI.PK_LOG_BE_CONNS = 0x004000  
+PageKiteAPI.PK_LOG_MANAGER_ERROR = 0x010000  
+PageKiteAPI.PK_LOG_MANAGER_INFO = 0x020000  
+PageKiteAPI.PK_LOG_MANAGER_DEBUG = 0x040000  
+PageKiteAPI.PK_LOG_TRACE = 0x080000  
+PageKiteAPI.PK_LOG_LUA_DEBUG = 0x008000  
+PageKiteAPI.PK_LOG_LUA_INFO = 0x000800  
+PageKiteAPI.PK_LOG_ERROR = 0x100000  
+PageKiteAPI.PK_LOG_ERRORS = (PK_LOG_ERROR|PK_LOG_MANAGER_ERROR)  
+PageKiteAPI.PK_LOG_MANAGER = (PK_LOG_MANAGER_ERROR|PK_LOG_MANAGER_INFO)  
+PageKiteAPI.PK_LOG_CONNS = (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)  
+PageKiteAPI.PK_LOG_NORMAL = (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER|PK_LOG_LUA_INFO)  
+PageKiteAPI.PK_LOG_DEBUG = (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG)  
+PageKiteAPI.PK_LOG_ALL = 0xffff00  

@@ -432,6 +432,12 @@ def documentation(constants, functions, jni=False):
             traceback.print_exc()
             pass
 
+    toc.append('   * [Constants](#constants)')
+    if jni:
+        constant_docs = ['PageKiteAPI.%s = %s  ' % cpair for cpair in constants]
+    else:
+        constant_docs = ['%s = %s  ' % cpair for cpair in constants]
+
     return '\n'.join([
         '# PageKite API reference manual',
         '',
@@ -440,6 +446,8 @@ def documentation(constants, functions, jni=False):
         '## Functions',
         '',
         '\n\n'.join(function_docs),
+        '',
+        '<a %76s' % (' name="constants"><hr></a>'),
         '',
         '## Constants',
         '',
