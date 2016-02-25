@@ -117,8 +117,12 @@ def java_class(constants, functions):
         '',
         '    ' + '\n    '.join(methods),
         '',
+        '    public static boolean libLoaded;',
         '    static {',
-        '        System.loadLibrary("pagekite");',
+        '        try {',
+        '            System.loadLibrary("pagekite");',
+        '            libLoaded = true;',
+        '        } catch (Throwable t) { }',
         '    }',
         '}'])
 
