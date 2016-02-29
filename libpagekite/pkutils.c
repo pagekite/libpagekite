@@ -198,6 +198,35 @@ char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
   return s;
 }
 
+struct addrinfo* copy_addrinfo_data(struct addrinfo* dst, struct addrinfo* src)
+{
+  free_addrinfo_data(dst);
+
+  struct sockaddr* addr_buffer = malloc(src->ai_addrlen);
+  if (addr_buffer != NULL) {
+    memcpy(addr_buffer, src->ai_addr, src->ai_addrlen);
+    dst->ai_flags = src->ai_flags;
+    dst->ai_family = src->ai_family;
+    dst->ai_socktype = src->ai_socktype;
+    dst->ai_protocol = src->ai_protocol;
+    dst->ai_addrlen = src->ai_addrlen;
+    dst->ai_addr = addr_buffer;
+    dst->ai_canonname = (src->ai_canonname) ? strdup(src->ai_canonname) : NULL;
+    dst->ai_next = NULL;
+    return dst;
+  }
+  return NULL;
+}
+
+void free_addrinfo_data(struct addrinfo* dst)
+{
+  if (dst->ai_canonname != NULL) free(dst->ai_canonname);
+  if (dst->ai_addr != NULL) free(dst->ai_addr);
+  dst->ai_addrlen = 0;
+  dst->ai_addr = NULL;
+  dst->ai_canonname = NULL;
+}
+
 int addrcmp(const struct sockaddr *a, const struct sockaddr *b)
 {
   if (a == NULL || b == NULL) return 3;

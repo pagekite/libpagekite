@@ -48,7 +48,7 @@ struct pk_tunnel {
   time_t                  last_ddnsup;
   int                     priority;
   /* These apply to all tunnels (frontend or backend) */
-  struct addrinfo*        ai;
+  struct addrinfo         ai;
   struct pk_conn          conn;
   int                     error_count;
   char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX+1];

@@ -109,8 +109,8 @@ int pk_log_chunk(struct pk_tunnel* fe, struct pk_chunk* chnk) {
   int i;
   int r = 0;
   char fe_ip[1024];
-  if (fe != NULL && fe->ai != NULL) {
-    in_addr_to_str(fe->ai->ai_addr, fe_ip, 1024);
+  if (fe != NULL && fe->ai.ai_addr != NULL) {
+    in_addr_to_str(fe->ai.ai_addr, fe_ip, 1024);
   }
   else {
     strcpy(fe_ip, "(unknown)");
@@ -194,7 +194,7 @@ void pk_dump_conn(char* prefix, struct pk_conn* conn)
 void pk_dump_tunnel(char* prefix, struct pk_tunnel* fe)
 {
   char tmp[1024];
-  if (NULL == fe->ai) return;
+  if (NULL == fe->ai.ai_addr) return;
 
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_hostname: %s", prefix, fe->fe_hostname);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_port: %d", prefix, fe->fe_port);
@@ -202,7 +202,7 @@ void pk_dump_tunnel(char* prefix, struct pk_tunnel* fe)
   if (0 <= fe->conn.sockfd) {
     pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_session: %s", prefix, fe->fe_session);
     pk_log(PK_LOG_MANAGER_DEBUG, "%s/request_count: %d", prefix, fe->request_count);
-    in_addr_to_str(fe->ai->ai_addr, tmp, 1024);
+    in_addr_to_str(fe->ai.ai_addr, tmp, 1024);
     pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_ai: %s", prefix, tmp);
     sprintf(tmp, "%s/conn", prefix);
     pk_dump_conn(tmp, &(fe->conn));

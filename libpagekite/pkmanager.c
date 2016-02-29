@@ -739,7 +739,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
     fe = (pkm->tunnels + i);
     PK_ADD_MEMORY_CANARY(fe);
 
-    if (fe->fe_hostname == NULL || fe->ai == NULL) continue;
+    if (fe->fe_hostname == NULL || fe->ai.ai_addr == NULL) continue;
     if (!(fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS))) continue;
 
     if (fe->requests == NULL || fe->request_count != pkm->kite_max) {
@@ -772,7 +772,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
       /* Unblock the event loop while we attempt to connect. */
       pkm_unblock(pkm);
 
-      if ((0 <= pk_connect_ai(&(fe->conn), fe->ai, 0,
+      if ((0 <= pk_connect_ai(&(fe->conn), &(fe->ai), 0,
                               fe->request_count, fe->requests,
                               (fe->fe_session), fe->manager->ssl_ctx)) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
@@ -864,7 +864,7 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
 
     if (disconnect) {
       pk_log(PK_LOG_MANAGER_INFO, "Disconnecting: %s",
-                                in_addr_to_str(fe->ai->ai_addr, buffer, 1024));
+                                in_addr_to_str(fe->ai.ai_addr, buffer, 1024));
 
       ev_io_stop(pkm->loop, &(fe->conn.watch_r));
       ev_io_stop(pkm->loop, &(fe->conn.watch_w));
@@ -1202,10 +1202,7 @@ int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
         count++;
       }
     }
-    /* Note: We only free the addrinfo buffers if no tunnels were
-     * added, otherwise, the structures are still in use.  Valgrind
-     * will (correctly) flag this as a leak. */
-    if (count == 0) freeaddrinfo(result);
+    freeaddrinfo(result);
   }
 
   if (!count && add_null_record) {
@@ -1239,9 +1236,9 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
       if (adding == NULL) adding = fe;
     }
     else if ((ai != NULL) &&
-             (fe->ai != NULL) &&
+             (fe->ai.ai_addr != NULL) &&
              (ai->ai_addrlen > 0) &&
-             (0 == addrcmp(fe->ai->ai_addr, ai->ai_addr)))
+             (0 == addrcmp(fe->ai.ai_addr, ai->ai_addr)))
     {
       fe->last_configured = time(0);
       return NULL;
@@ -1250,7 +1247,7 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
   if (adding == NULL) return pk_err_null(ERR_NO_MORE_FRONTENDS);
 
   adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
-  adding->ai = ai;
+  copy_addrinfo_data(&(adding->ai), ai);
   adding->fe_port = port;
   adding->fe_hostname = strdup(hostname);
   adding->last_ddnsup = 0;
@@ -1444,7 +1441,9 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->tunnel_max = tunnels;
   pkm->buffer += sizeof(struct pk_tunnel) * tunnels;
   for (i = 0; i < tunnels; i++) {
-    (pkm->tunnels + i)->ai = NULL;
+    (pkm->tunnels + i)->fe_hostname = NULL;
+    (pkm->tunnels + i)->ai.ai_addr = NULL;
+    (pkm->tunnels + i)->ai.ai_canonname = NULL;
     (pkm->tunnels + i)->requests = (struct pk_kite_request*) pkm->buffer;
 #ifdef HAVE_OPENSSL
     (pkm->tunnels + i)->conn.ssl = NULL;
@@ -1564,6 +1563,13 @@ void pkm_manager_free(struct pk_manager* pkm)
 {
   if (pkm->ev_loop_malloced) {
     ev_loop_destroy(pkm->loop);
+  }
+
+  if (pkm->dynamic_dns_url != NULL) free(pkm->dynamic_dns_url);
+  for (int which = 0; which < pkm->tunnel_max; which++) {
+    struct pk_tunnel* fe = pkm->tunnels+which;
+    if (fe->fe_hostname != NULL) free(fe->fe_hostname);
+    free_addrinfo_data(&fe->ai);
   }
   if (pkm->was_malloced) {
     free(pkm);
