@@ -96,7 +96,7 @@ pagekite_mgr pagekite_init(
 
   if (flags & PK_WITH_SERVICE_FRONTENDS) {
     if (0 > pagekite_add_service_frontends((pagekite_mgr) pkm_, flags)) {
-      pkm_manager_free(pkm_);
+      pagekite_free((pagekite_mgr) pkm_);
       return NULL;
     }
   }
@@ -132,7 +132,7 @@ pagekite_mgr pagekite_init_pagekitenet(
      it was already done, or we're not supposed to do anything. */
   if (!(flags & (PK_WITHOUT_SERVICE_FRONTENDS|PK_WITH_SERVICE_FRONTENDS))) {
     if (0 > pagekite_add_service_frontends(pkm, flags)) {
-      pkm_manager_free(PK_MANAGER(pkm));
+      pagekite_free(pkm);
       return NULL;
     }
   }
@@ -175,7 +175,7 @@ pagekite_mgr pagekite_init_whitelabel(
      it was already done, or we're not supposed to do anything. */
   if (!(flags & PK_WITHOUT_SERVICE_FRONTENDS)) {
     if (0 > pagekite_add_whitelabel_frontends(pkm, flags, whitelabel_tld)) {
-      pkm_manager_free(PK_MANAGER(pkm));
+      pagekite_free(pkm);
       return NULL;
     }
   }
@@ -278,6 +278,7 @@ int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
 
 int pagekite_free(pagekite_mgr pkm) {
   if (pkm == NULL) return -1;
+  if (PK_MANAGER(pkm)->ssl_ctx != NULL) SSL_CTX_free(PK_MANAGER(pkm)->ssl_ctx);
   pkm_manager_free(PK_MANAGER(pkm));
 #ifdef _MSC_VER
   Sleep(100); /* Give logger time to get the rest of the log for debugging */
