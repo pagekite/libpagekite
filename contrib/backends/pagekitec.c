@@ -39,6 +39,9 @@ Note: For alternate license terms, see the file COPYING.md.
 #define MAX_PLUGIN_ARGS 128
 
 
+pagekite_mgr m;
+
+
 void usage(int ecode) {
   fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n\n", PK_VERSION);
   fprintf(stderr, "Usage:\tpagekitec [options] LPORT PROTO"
@@ -77,6 +80,10 @@ void raise_log_level(int sig) {
   if (sig) pagekite_set_log_mask(NULL, PK_LOG_ALL);
 }
 
+void shutdown_pagekite(int sig) {
+  if (sig) pagekite_thread_stop(m);
+}
+
 void safe_exit(int code) {
 #ifdef _MSC_VER
   fprintf(stderr, "Exiting with status code %d.\n", code);
@@ -86,7 +93,6 @@ void safe_exit(int code) {
 }
 
 int main(int argc, char **argv) {
-  pagekite_mgr m;
   unsigned int bail_on_errors = 0;
   unsigned int conn_eviction_idle_s = 0;
   char* proto;
@@ -200,6 +206,8 @@ int main(int argc, char **argv) {
 
 #ifndef _MSC_VER
   signal(SIGUSR1, &raise_log_level);
+  signal(SIGQUIT, &shutdown_pagekite);
+  signal(SIGINT, &shutdown_pagekite);
 #endif
 
   if (whitelabel_tld != NULL)
@@ -241,6 +249,7 @@ int main(int argc, char **argv) {
   for (ac = gotargs; ac+5 < argc; ac += 5) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
         (1 != sscanf(argv[ac+4], "%d", &pport))) {
+      pagekite_free(m);
       usage(EXIT_ERR_USAGE);
     }
     proto = argv[ac+2];
@@ -251,6 +260,7 @@ int main(int argc, char **argv) {
         (use_current && (0 > (pagekite_add_frontend(m, kitename, pport)))))
     {
       pagekite_perror(m, argv[0]);
+      pagekite_free(m);
       safe_exit(EXIT_ERR_ADD_KITE);
     }
   }
@@ -262,24 +272,28 @@ int main(int argc, char **argv) {
                                              flags & PK_WITH_DYNAMIC_FE_LIST))
     {
       pagekite_perror(m, argv[0]);
+      pagekite_free(m);
       safe_exit(EXIT_ERR_FRONTENDS);
     }
   }
   else if (whitelabel_tld != NULL) {
     if (0 > pagekite_add_whitelabel_frontends(m, flags, whitelabel_tld)) {
       pagekite_perror(m, argv[0]);
+      pagekite_free(m);
       safe_exit(EXIT_ERR_FRONTENDS);
     }
   }
   else if (ddns_url != NULL) {
     if (0 > pagekite_add_service_frontends(m, flags)) {
       pagekite_perror(m, argv[0]);
+      pagekite_free(m);
       safe_exit(EXIT_ERR_FRONTENDS);
     }
   }
 
   if (0 > pagekite_thread_start(m)) {
     pagekite_perror(m, argv[0]);
+    pagekite_free(m);
     safe_exit(EXIT_ERR_START_THREAD);
   }
 
