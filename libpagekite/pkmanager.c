@@ -1565,12 +1565,16 @@ void pkm_manager_free(struct pk_manager* pkm)
     ev_loop_destroy(pkm->loop);
   }
 
-  if (pkm->dynamic_dns_url != NULL) free(pkm->dynamic_dns_url);
+  if (pkm->dynamic_dns_url != NULL) {
+    free(pkm->dynamic_dns_url);
+  }
+
   for (int which = 0; which < pkm->tunnel_max; which++) {
     struct pk_tunnel* fe = pkm->tunnels+which;
     if (fe->fe_hostname != NULL) free(fe->fe_hostname);
     free_addrinfo_data(&fe->ai);
   }
+
   if (pkm->was_malloced) {
     free(pkm);
   }
