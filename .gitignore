@@ -16,6 +16,7 @@
 .mxe.bashrc
 bin/
 lib/
+contrib/private/
 include/libpagekite/
 contrib/Windows-GUI/bin/
 contrib/Windows-GUI/obj/
