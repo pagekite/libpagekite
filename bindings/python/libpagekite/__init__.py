@@ -22,7 +22,7 @@
 from ctypes import cdll, c_void_p, c_char_p, c_int
 
 
-PK_VERSION = "0.90.160219C"
+PK_VERSION = "0.91.160301C"
 PK_STATUS_STARTUP = 10
 PK_STATUS_CONNECTING = 20
 PK_STATUS_UPDATING_DNS = 30

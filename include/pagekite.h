@@ -31,12 +31,12 @@ WARNING: This file is processed automatically to generate the JNI and API
 
 /* Constants: Libpagekite version */
 #ifdef ANDROID
-#define PK_VERSION "0.90.160219A"
+#define PK_VERSION "0.91.160301A" /* Note: Update frontend DNS on changes! */
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.90.160219W"
+#define PK_VERSION "0.91.160301W"
 #else
-#define PK_VERSION "0.90.160219C"
+#define PK_VERSION "0.91.160301C"
 #endif
 #endif
 
@@ -84,7 +84,7 @@ WARNING: This file is processed automatically to generate the JNI and API
 
 /* Constants: Pagekite.net service related constants */
 #define PAGEKITE_NET_DDNS "http://up.pagekite.net/?hostname=%s&myip=%s&sign=%s"
-#define PAGEKITE_NET_V4FRONTENDS "frontends.b5p.us", 443
+#define PAGEKITE_NET_V4FRONTENDS "fe091c.b5p.us", 443
 #define PAGEKITE_NET_V6FRONTENDS "v6frontends.b5p.us", 443
 #define PAGEKITE_NET_CLIENT_MAX 10000
 #define PAGEKITE_NET_LPORT_MAX 1000
