@@ -220,6 +220,7 @@ char *in_addr_to_str(const struct sockaddr *sa, char *s, size_t maxlen)
 struct addrinfo* copy_addrinfo_data(struct addrinfo* dst, struct addrinfo* src)
 {
   free_addrinfo_data(dst);
+  if (src == NULL) return dst;
 
   struct sockaddr* addr_buffer = malloc(src->ai_addrlen);
   if (addr_buffer != NULL) {

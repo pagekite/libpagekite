@@ -309,7 +309,8 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
 
 int pkb_check_frontend_dns(struct pk_manager* pkm)
 {
-  int i, changes;
+  int i, changes, have_nulls;
+  time_t obsolete;
   struct pk_tunnel* fe;
   char* last_fe_hostname;
 
@@ -319,18 +320,42 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
    * as necessary.
    */
   changes = 0;
+  have_nulls = 0;
   last_fe_hostname = "";
   for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
     if ((fe->fe_hostname != NULL) &&
-        (0 != strcmp(fe->fe_hostname, last_fe_hostname))) {
+        (0 != strcmp(fe->fe_hostname, last_fe_hostname)))
+    {
       pk_log(PK_LOG_MANAGER_DEBUG, "Checking for new IPs: %s", fe->fe_hostname);
       changes += pkm_add_frontend(pkm, fe->fe_hostname, fe->fe_port, 0);
       last_fe_hostname = fe->fe_hostname;
     }
+    if ((fe->fe_hostname != NULL) && (fe->ai.ai_addr == NULL)) {
+      have_nulls += 1;
+    }
   }
   pk_log(PK_LOG_MANAGER_DEBUG, "Found %d new IPs", changes);
 
-  /* FIXME: 2nd pass, walk through list and remove obsolete entries */
+  /* 2nd pass: walk through list and remove obsolete entries
+   * We only do this if we have null records which will let us re-discover
+   * everything again if DNS went away temporarily.
+   */
+  if (have_nulls)
+  {
+    obsolete = time(0) - (pkm->check_world_interval * 4);
+    for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+      if ((fe->fe_hostname != NULL) &&
+          (fe->ai.ai_addr != NULL) &&
+          (fe->last_configured < obsolete) &&
+          (fe->last_ping < obsolete) &&
+          (fe->conn.sockfd <= 0))
+      {
+        free(fe->fe_hostname);
+        free_addrinfo_data(&fe->ai);
+        fe->fe_hostname = NULL;
+      }
+    }
+  }
 
   PK_CHECK_MEMORY_CANARIES;
   return changes;
