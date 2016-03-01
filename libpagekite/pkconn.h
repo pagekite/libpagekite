@@ -95,7 +95,7 @@ void    pkc_reset_conn(struct pk_conn*, unsigned int);
 int     pkc_connect(struct pk_conn*, struct addrinfo*);
 int     pkc_listen(struct pk_conn*, struct addrinfo*, int);
 #ifdef HAVE_OPENSSL
-int     pkc_start_ssl(struct pk_conn*, SSL_CTX*);
+int     pkc_start_ssl(struct pk_conn*, SSL_CTX*, const char* hostname);
 #endif
 int     pkc_wait(struct pk_conn*, int);
 ssize_t pkc_read(struct pk_conn*);

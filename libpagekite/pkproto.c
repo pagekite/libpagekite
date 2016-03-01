@@ -582,7 +582,7 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
 
 int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
                   unsigned int n, struct pk_kite_request* requests,
-                  char *session_id, SSL_CTX *ctx)
+                  char *session_id, SSL_CTX *ctx, const char* hostname)
 {
   unsigned int i, j, bytes;
   char buffer[16*1024], *p;
@@ -600,7 +600,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   memset(&buffer, 0, 16*1024);
   set_blocking(pkc->sockfd);
 #ifdef HAVE_OPENSSL
-  if (ctx != NULL) pkc_start_ssl(pkc, ctx);
+  if (ctx != NULL) pkc_start_ssl(pkc, ctx, hostname);
 #endif
 
   pkc_write(pkc, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT));
@@ -710,7 +710,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
     }
     else {
       pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
-      return pk_connect_ai(pkc, ai, 1, n, requests, session_id, ctx);
+      return pk_connect_ai(pkc, ai, 1, n, requests, session_id, ctx, hostname);
     }
   }
 
@@ -740,7 +740,7 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
   sprintf(ports, "%d", port);
   if (0 == getaddrinfo(frontend, ports, &hints, &result)) {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-      rv = pk_connect_ai(pkc, rp, 0, n, requests, session_id, ctx);
+      rv = pk_connect_ai(pkc, rp, 0, n, requests, session_id, ctx, frontend);
       if ((rv >= 0) ||
           (rv != ERR_CONNECT_CONNECT)) {
         freeaddrinfo(result);

@@ -24,7 +24,7 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
-    public static final String PK_VERSION = "0.90.160219C";
+    public static final String PK_VERSION = "0.90.160301C";
     public static final int PK_STATUS_STARTUP = 10;
     public static final int PK_STATUS_CONNECTING = 20;
     public static final int PK_STATUS_UPDATING_DNS = 30;
@@ -77,6 +77,7 @@ public class PageKiteAPI extends Object
     public static native int enableWatchdog(int enable);
     public static native int enableTickTimer(int enable);
     public static native int setConnEvictionIdleS(int seconds);
+    public static native int setOpensslCiphers(String ciphers);
     public static native int wantSpareFrontends(int spares);
     public static native int threadStart();
     public static native int threadWait();

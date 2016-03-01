@@ -135,16 +135,19 @@ typedef unsigned int              uint32_t;
 #  ifndef SSL_MODE_RELEASE_BUFFERS
 #    define SSL_MODE_RELEASE_BUFFERS 0
 #  endif
+#  define PKS_DEFAULT_CIPHERS "HIGH:!aNULL:!eNULL:!LOW:!MD5:!EXP:!PSK:!SRP:!DSS"
 #  define PKS_SSL_INIT(ctx) {\
               SSL_load_error_strings(); \
               ERR_load_BIO_strings(); \
               OpenSSL_add_all_algorithms(); \
               SSL_library_init(); \
               sk_SSL_COMP_zero(SSL_COMP_get_compression_methods()); \
-              ctx = SSL_CTX_new(TLSv1_method()); \
+              ctx = SSL_CTX_new(SSLv23_method()); \
+              SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION); \
               SSL_CTX_set_mode(ctx, SSL_MODE_RELEASE_BUFFERS); }
 #else
 #  define SSL_CTX                   void
+#  define PKS_DEFAULT_CIPHERS       NULL
 #  define PKS_SSL_INIT(ctx)         { ctx = NULL; }
 #  define SSL_ERROR_NONE            0
 #  undef HAVE_OPENSSL

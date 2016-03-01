@@ -118,8 +118,14 @@ static void pkc_start_handshake(struct pk_conn* pkc, int err)
 
 static void pkc_end_handshake(struct pk_conn *pkc)
 {
-  pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
-         "%d: Finished SSL handshake", pkc->sockfd);
+  char tls_info[256];
+
+  SSL_CIPHER_description(SSL_get_current_cipher(pkc->ssl), tls_info, 256);
+  pk_log(PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS,
+         "%d: %s connection established: %s", pkc->sockfd,
+         SSL_get_version(pkc->ssl),
+         collapse_whitespace(tls_info));
+
   pkc->status &= ~(CONN_STATUS_WANT_WRITE|CONN_STATUS_WANT_READ);
   pkc->state = CONN_SSL_DATA;
 }
@@ -151,26 +157,39 @@ static void pkc_do_handshake(struct pk_conn *pkc)
   }
 }
 
-int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx)
+int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx, const char* hostname)
 {
   long mode;
-  pkc->ssl = SSL_new(ctx);
-  /* FIXME: Error checking? */
 
   mode = SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
   mode |= SSL_MODE_ENABLE_PARTIAL_WRITE;
 #ifdef SSL_MODE_RELEASE_BUFFERS
   mode |= SSL_MODE_RELEASE_BUFFERS;
 #endif
-  SSL_set_mode(pkc->ssl, mode);
-  SSL_set_connect_state(pkc->ssl);
-  SSL_set_app_data(pkc->ssl, pkc);
-  SSL_set_fd(pkc->ssl, PKS(pkc->sockfd));
 
+  if ((NULL == (pkc->ssl = SSL_new(ctx))) ||
+      (mode != SSL_set_mode(pkc->ssl, mode)) ||
+      (1 != SSL_set_app_data(pkc->ssl, pkc)) ||
+      (1 != SSL_set_cipher_list(pkc->ssl, pk_state.ssl_ciphers)) ||
+      (1 != SSL_set_fd(pkc->ssl, PKS(pkc->sockfd))) ||
+      (1 != ((hostname == NULL) ? 1 : SSL_set_tlsext_host_name(pkc->ssl, hostname))))
+  {
+    if (pkc->ssl != NULL) SSL_free(pkc->ssl);
+    pkc->ssl = NULL;
+    pk_log(PK_LOG_BE_CONNS | PK_LOG_TUNNEL_CONNS | PK_LOG_ERROR,
+           "%d[pkc_start_ssl]: Failed to prepare SSL object!", pkc->sockfd);
+    return -1;
+  }
+
+  SSL_set_connect_state(pkc->ssl);
   pkc_start_handshake(pkc, SSL_ERROR_WANT_WRITE);
   pkc_do_handshake(pkc);
 
-  return -1;
+  pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+         "%d[pkc_start_ssl]: Starting TLS connection with %s",
+         pkc->sockfd, hostname);
+
+  return 0;
 }
 #endif
 

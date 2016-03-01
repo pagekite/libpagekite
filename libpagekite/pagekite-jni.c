@@ -308,6 +308,21 @@ jint Java_net_pagekite_lib_PageKiteAPI_setConnEvictionIdleS(
   return rv;
 }
 
+jint Java_net_pagekite_lib_PageKiteAPI_setOpensslCiphers(
+  JNIEnv* env, jclass unused_class
+, jstring jciphers
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  const jbyte* ciphers = NULL;
+  if (jciphers != NULL) ciphers = (*env)->GetStringUTFChars(env, jciphers, NULL);
+
+  jint rv = pagekite_set_openssl_ciphers(pagekite_manager_global, ciphers);
+
+  if (jciphers != NULL) (*env)->ReleaseStringUTFChars(env, jciphers, ciphers);
+  return rv;
+}
+
 jint Java_net_pagekite_lib_PageKiteAPI_wantSpareFrontends(
   JNIEnv* env, jclass unused_class
 , jint jspares

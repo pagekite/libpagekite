@@ -445,6 +445,20 @@ DECLSPEC_DLL int pagekite_set_conn_eviction_idle_s(
 );
 
 
+/* Initialization: Choose which ciphers to use in TLS
+ *
+ *    See the SSL_set_cipher_list(3) and ciphers(1) man pages for details.
+ *
+ *    This function can be called at any time.
+ *
+ * Returns: Always returns 0.
+ */
+DECLSPEC_DLL int pagekite_set_openssl_ciphers(
+  pagekite_mgr,         /* A reference to the PageKite manager object */
+  const char* ciphers   /* The string passed to OpenSSL */
+);
+
+
 /* Initialization: Connect to multiple front-end relays.
  *
  *    If non-zero, this setting will configure how many spare relays to

@@ -774,7 +774,8 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
 
       if ((0 <= pk_connect_ai(&(fe->conn), &(fe->ai), 0,
                               fe->request_count, fe->requests,
-                              (fe->fe_session), fe->manager->ssl_ctx)) &&
+                              (fe->fe_session), fe->manager->ssl_ctx,
+                              fe->fe_hostname)) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
         pk_log(PK_LOG_MANAGER_INFO, "%d: Connected!", fe->conn.sockfd);
         pkm_block(pkm); /* Re-block */

@@ -351,6 +351,13 @@ int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int seconds)
   return 0;
 }
 
+int pagekite_set_openssl_ciphers(pagekite_mgr pkm, const char* ciphers)
+{
+  (void) pkm;
+  pk_state.ssl_ciphers = strdup(ciphers);
+  return 0;
+}
+
 int pagekite_enable_lua_plugins(pagekite_mgr pkm,
   int enable_defaults,
   char** settings)

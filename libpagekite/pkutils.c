@@ -24,6 +24,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "assert.h"
 #include "pkutils.h"
 #include <fcntl.h>
+#include <ctype.h>
 
 #ifndef _MSC_VER
 #include <poll.h>
@@ -69,6 +70,24 @@ char *skip_http_header(int length, const char* data)
     }
   }
   return p;
+}
+
+char* collapse_whitespace(char* data)
+{
+  char* w = data;
+  char* r = data;
+  while (*r) {
+    if (isspace(*r)) {
+      *w = ' ';
+      *r++;
+      if (!isspace(*r)) w++;
+    }
+    else {
+      *w++ = *r++;
+    }
+  }
+  *w = '\0';
+  return data;
 }
 
 int dbg_write(int sockfd, char *buffer, int bytes)

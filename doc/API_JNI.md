@@ -17,6 +17,7 @@
       * [`enableWatchdog                              `](#nblWtchdg)
       * [`enableTickTimer                             `](#nblTckTmr)
       * [`setConnEvictionIdleS                        `](#stCnnEvctnIdlS)
+      * [`setOpensslCiphers                           `](#stOpnsslCphrs)
       * [`wantSpareFrontends                          `](#wntSprFrntnds)
    * Lifecycle
       * [`threadStart                                 `](#thrdStrt)
@@ -408,6 +409,23 @@ This function can be called at any time.
 **Arguments**:
 
    * `int seconds`: Minimum idle time to qualify for eviction
+
+**Returns**: Always returns 0.
+
+
+<a                                                name="stOpnsslCphrs"><hr></a>
+
+#### `int setOpensslCiphers(...)`
+
+Choose which ciphers to use in TLS
+
+See the SSL_set_cipher_list(3) and ciphers(1) man pages for details.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `String ciphers`: The string passed to OpenSSL
 
 **Returns**: Always returns 0.
 

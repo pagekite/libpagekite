@@ -21,7 +21,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #define strncpyz(dest, src, len) { strncpy(dest, src, len); dest[len] = '\0'; }
 
 int zero_first_crlf(int, char*);
-char *skip_http_header(int, const char*);
+char* skip_http_header(int, const char*);
+char* collapse_whitespace(char*);
 int dbg_write(int, char *, int);
 int set_non_blocking(int);
 int set_blocking(int);
@@ -29,8 +30,8 @@ int wait_fd(int, int);
 ssize_t timed_read(int, void*, size_t, int);
 struct addrinfo* copy_addrinfo_data(struct addrinfo* dst, struct addrinfo* src);
 void free_addrinfo_data(struct addrinfo* dst);
-char *in_ipaddr_to_str(const struct sockaddr*, char*, size_t);
-char *in_addr_to_str(const struct sockaddr*, char*, size_t);
+char* in_ipaddr_to_str(const struct sockaddr*, char*, size_t);
+char* in_addr_to_str(const struct sockaddr*, char*, size_t);
 int addrcmp(const struct sockaddr *, const struct sockaddr *);
 int http_get(const char*, char*, size_t);
 void digest_to_hex(const unsigned char* digest, char *output);

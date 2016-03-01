@@ -38,6 +38,7 @@ void pks_global_init(unsigned int log_mask) {
   pk_state.conn_eviction_idle_s = 0;
   pk_state.socket_timeout_s = PK_DEFAULT_SOCKET_TIMEOUT;
   pk_state.fake_ping = 0;
+  pk_state.ssl_ciphers = PKS_DEFAULT_CIPHERS;
 
   pk_state.have_ssl = 0;
   pk_state.app_id_long = "libpagekite";

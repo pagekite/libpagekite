@@ -80,6 +80,7 @@ def get_libpagekite_cdll():
             (c_int, "enable_watchdog", (c_void_p, c_int,)),
             (c_int, "enable_tick_timer", (c_void_p, c_int,)),
             (c_int, "set_conn_eviction_idle_s", (c_void_p, c_int,)),
+            (c_int, "set_openssl_ciphers", (c_void_p, c_char_p,)),
             (c_int, "want_spare_frontends", (c_void_p, c_int,)),
             (c_int, "thread_start", (c_void_p,)),
             (c_int, "thread_wait", (c_void_p,)),
@@ -514,6 +515,24 @@ class PageKite(object):
         """
         assert(self.pkm is not None)
         return self.dll.pagekite_set_conn_eviction_idle_s(self.pkm, c_int(seconds))
+
+    def set_openssl_ciphers(self, ciphers):
+        """
+        Choose which ciphers to use in TLS
+        
+        See the SSL_set_cipher_list(3) and ciphers(1) man pages
+        for details.
+        
+        This function can be called at any time.
+    
+        Args:
+           * `const char* ciphers`: The string passed to OpenSSL
+    
+        Returns:
+            Always returns 0.
+        """
+        assert(self.pkm is not None)
+        return self.dll.pagekite_set_openssl_ciphers(self.pkm, c_char_p(ciphers.encode("utf-8")))
 
     def want_spare_frontends(self, spares):
         """

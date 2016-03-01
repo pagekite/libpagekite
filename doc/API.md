@@ -17,6 +17,7 @@
       * [`pagekite_enable_watchdog                    `](#pgktnblwtchdg)
       * [`pagekite_enable_tick_timer                  `](#pgktnbltcktmr)
       * [`pagekite_set_conn_eviction_idle_s           `](#pgktstcnnvctndls)
+      * [`pagekite_set_openssl_ciphers                `](#pgktstpnsslcphrs)
       * [`pagekite_want_spare_frontends               `](#pgktwntsprfrntnds)
    * Lifecycle
       * [`pagekite_thread_start                       `](#pgktthrdstrt)
@@ -425,6 +426,24 @@ This function can be called at any time.
 
    * `pagekite_mgr`: A reference to the PageKite manager object
    * `int seconds`: Minimum idle time to qualify for eviction
+
+**Returns**: Always returns 0.
+
+
+<a                                             name="pgktstpnsslcphrs"><hr></a>
+
+#### `int pagekite_set_openssl_ciphers(...)`
+
+Choose which ciphers to use in TLS
+
+See the SSL_set_cipher_list(3) and ciphers(1) man pages for details.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `const char* ciphers`: The string passed to OpenSSL
 
 **Returns**: Always returns 0.
 

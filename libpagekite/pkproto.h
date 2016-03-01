@@ -166,7 +166,7 @@ int               pk_sign_kite_request(char *, struct pk_kite_request*, int);
 char*             pk_parse_kite_request(struct pk_kite_request*, const char*);
 int               pk_connect_ai(struct pk_conn*, struct addrinfo*, int,
                                 unsigned int, struct pk_kite_request*, char*,
-                                SSL_CTX*);
+                                SSL_CTX*, const char*);
 int               pk_connect(struct pk_conn*, char*, int,
                              unsigned int, struct pk_kite_request*, char*,
                              SSL_CTX*);

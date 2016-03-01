@@ -47,6 +47,7 @@ struct pk_global_state {
   time_t          conn_eviction_idle_s;
   time_t          socket_timeout_s;
   unsigned int    fake_ping:1;
+  char*           ssl_ciphers;
 
   /* Global program state */
   unsigned int    live_streams;
