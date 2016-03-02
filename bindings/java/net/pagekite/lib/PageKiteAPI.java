@@ -92,7 +92,11 @@ public class PageKiteAPI extends Object
     /* FIXME: int pagekite_add_listener(const char* domain, int port, pagekite_callback_t* callback_func, void* callback_data) */
     /* FIXME: int pagekite_enable_lua_plugins(int enable_defaults, char** settings) */
 
+    public static boolean libLoaded;
     static {
-        System.loadLibrary("pagekite");
+        try {
+            System.loadLibrary("pagekite");
+            libLoaded = true;
+        } catch (Throwable t) { }
     }
 }
