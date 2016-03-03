@@ -396,9 +396,15 @@ void* pkb_tunnel_ping(void* void_fe) {
       sleep(2); /* We don't want to return first! */
       return NULL;
     }
+
+    /* Magic number: 116 bytes is the shortest response we expect. It is
+     * still long enough to contain the X-PageKite-Overloaded marker, if
+     * present at all. */
+    bytes = timed_read(sockfd, buffer, 116, 1000);
+    buffer[116] = '\0';
+
     want = strlen(PK_FRONTEND_PONG);
-    bytes = timed_read(sockfd, buffer, want, 1000);
-    if ((bytes != want) ||
+    if ((bytes < want) ||
         (0 != strncmp(buffer, PK_FRONTEND_PONG, want))) {
       if (fe->error_count < 999)
         fe->error_count += 1;
@@ -411,6 +417,11 @@ void* pkb_tunnel_ping(void* void_fe) {
 
     fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
                  + (tv2.tv_usec - tv1.tv_usec) / 1000;
+
+    if (strcasestr(buffer, PK_FRONTEND_OVERLOADED) != NULL) {
+      fe->priority += 1;
+      sleep(2); /* We don't want to return first! */
+    }
   }
 
   if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST))
