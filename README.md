@@ -34,7 +34,7 @@ In `contrib/backends/` you'll find:
 
     httpkite.c         A sample implementation of a very basic HTTP server
     pagekitec.c        Basic standalone pagekite back-end connector/proxy.
-    ssh.c              An example of exposing SSH over pagekite.
+    sshkite.c          An example of exposing SSH over pagekite.
     PageKiteTest.java  Minimal Java test connector
 
 

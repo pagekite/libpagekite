@@ -615,7 +615,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
     if (requests[i].kite->protocol[0] != '\0') {
       requests[i].status = PK_KITE_UNKNOWN;
       bytes = pk_sign_kite_request(buffer, &(requests[i]), rand());
-      pk_log(PK_LOG_TUNNEL_DATA, " * %s", requests[i].kite->public_domain);
+      pk_log(PK_LOG_TUNNEL_DATA, " * %s", buffer);
       pkc_write(pkc, buffer, bytes);
     }
   }

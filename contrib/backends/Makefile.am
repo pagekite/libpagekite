@@ -1,10 +1,14 @@
 AM_CFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/libpagekite
 
-bin_PROGRAMS = httpkite pagekitec
+bin_PROGRAMS = httpkite pagekitec sshkite
 
 httpkite_SOURCES = httpkite.c
 httpkite_LDADD = $(top_srcdir)/libpagekite/libpagekite.la
 httpkite_CFLAGS = $(LIBEV_CFLAGS) -I$(top_srcdir)/include -I$(top_srcdir)/libpagekite
+
+sshkite_SOURCES = sshkite.c
+sshkite_LDADD = $(top_srcdir)/libpagekite/libpagekite.la
+sshkite_CFLAGS = $(LIBEV_CFLAGS) -I$(top_srcdir)/include -I$(top_srcdir)/libpagekite
 
 pagekitec_SOURCES = pagekitec.c
 pagekitec_CFLAGS = $(LIBEV_CFLAGS) $(LUA_INCLUDE) -I$(top_srcdir)/include -I$(top_srcdir)/libpagekite
