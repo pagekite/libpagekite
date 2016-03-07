@@ -71,6 +71,9 @@ void pk_perror(const char* prefix) {
     case ERR_NO_MORE_KITES:
       pk_log(PK_LOG_ERROR, "%s: Out of kite slots", prefix);
       break;
+    case ERR_RAW_NEEDS_PUBPORT:
+      pk_log(PK_LOG_ERROR, "%s: Raw kites must specify a public port", prefix);
+      break;
     case ERR_NO_MORE_FRONTENDS:
       pk_log(PK_LOG_ERROR, "%s: Out of frontend slots", prefix);
       break;

@@ -206,6 +206,8 @@ DECLSPEC_DLL pagekite_mgr pagekite_init_whitelabel(
  *
  *    This method can only be called before starting the master thread.
  *
+ *    Note: When used with the "raw" protocol, the public port cannot be 0.
+ *
  * Returns: 0 on success, -1 on failure.
  */
 DECLSPEC_DLL int pagekite_add_kite(

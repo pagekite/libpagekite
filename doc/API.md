@@ -143,6 +143,9 @@ or protocol differ.
 
 This method can only be called before starting the master thread.
 
+Note: When used with the "raw" protocol, the public port cannot
+be 0.
+
 **Arguments**:
 
    * `pagekite_mgr`: A reference to the PageKite manager object

@@ -1079,6 +1079,9 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
 
   PK_TRACE_FUNCTION;
 
+  if ((strcasecmp(protocol, "raw") == 0) && (public_port < 1))
+    return pk_err_null(ERR_RAW_NEEDS_PUBPORT);
+
   /* FIXME: This is O(N), we'll need a nicer data structure for tunnels */
   for (which = 0; which < pkm->kite_max; which++) {
     kite = pkm->kites+which;

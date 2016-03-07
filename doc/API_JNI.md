@@ -139,6 +139,9 @@ or protocol differ.
 
 This method can only be called before starting the master thread.
 
+Note: When used with the "raw" protocol, the public port cannot
+be 0.
+
 **Arguments**:
 
    * `String proto`: Protocol

@@ -224,6 +224,9 @@ class PageKite(object):
         
         This method can only be called before starting the master
         thread.
+        
+        Note: When used with the "raw" protocol, the public port
+        cannot be 0.
     
         Args:
            * `const char* proto`: Protocol
