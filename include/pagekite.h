@@ -31,12 +31,12 @@ WARNING: This file is processed automatically to generate the JNI and API
 
 /* Constants: Libpagekite version */
 #ifdef ANDROID
-#define PK_VERSION "0.91.160301A" /* Note: Update frontend DNS on changes! */
+#define PK_VERSION "0.91.160307A" /* Note: Update frontend DNS on changes! */
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.91.160301W"
+#define PK_VERSION "0.91.160307W"
 #else
-#define PK_VERSION "0.91.160301C"
+#define PK_VERSION "0.91.160307C"
 #endif
 #endif
 
@@ -84,15 +84,15 @@ WARNING: This file is processed automatically to generate the JNI and API
 
 /* Constants: Pagekite.net service related constants */
 #define PAGEKITE_NET_DDNS "http://up.pagekite.net/?hostname=%s&myip=%s&sign=%s"
-#define PAGEKITE_NET_V4FRONTENDS "fe091c.b5p.us", 443
-#define PAGEKITE_NET_V6FRONTENDS "v6frontends.b5p.us", 443
+#define PAGEKITE_NET_V4FRONTENDS "fe4_091c.b5p.us", 443
+#define PAGEKITE_NET_V6FRONTENDS "fe6_091c.b5p.us", 443
 #define PAGEKITE_NET_CLIENT_MAX 10000
 #define PAGEKITE_NET_LPORT_MAX 1000
 #define PAGEKITE_NET_FE_MAX 25
 
 #define PAGEKITE_NET_WL_DDNS "http://dnsup.%s/?hostname=%%s&myip=%%s&sign=%%s"
-#define PAGEKITE_NET_WL_V4FRONTENDS "fe.%s"
-#define PAGEKITE_NET_WL_V6FRONTENDS "fe6.%s"
+#define PAGEKITE_NET_WL_V4FRONTENDS "fe4_091c.%s"
+#define PAGEKITE_NET_WL_V6FRONTENDS "fe6_091c.%s"
 #define PAGEKITE_NET_WL_FRONTEND_PORT 443
 
 #define PK_DEFAULT_SOCKET_TIMEOUT 15
