@@ -48,6 +48,7 @@ struct pk_global_state {
   time_t          socket_timeout_s;
   unsigned int    fake_ping:1;
   char*           ssl_ciphers;
+  char**          ssl_cert_names;
 
   /* Global program state */
   unsigned int    live_streams;
@@ -82,3 +83,5 @@ void pks_global_init(unsigned int log_level);
 int pks_logcopy(const char*, size_t len);
 void pks_copylog(char*);
 void pks_printlog(FILE *dest);
+void pks_free_ssl_cert_names();
+void pks_add_ssl_cert_names(char**);

@@ -31,6 +31,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 
+#include <ctype.h>
+
 
 void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
 {
@@ -167,6 +169,19 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx, const char* hostname)
   mode |= SSL_MODE_RELEASE_BUFFERS;
 #endif
 
+  /* If we have a global preference for particular certificate names in
+   * pk_state, do not use the hostname directly as it may give something
+   * completely different. */
+  if (pk_state.ssl_cert_names)
+    if (pk_state.ssl_cert_names[0] != NULL &&
+        pk_state.ssl_cert_names[1] == NULL) {
+      /* If we only care for one cert name, ask for it. */
+      hostname = pk_state.ssl_cert_names[0];
+    } else {
+      /* Otherwise, just disable SNI */
+      hostname = NULL;
+    }
+
   if ((NULL == (pkc->ssl = SSL_new(ctx))) ||
       (mode != SSL_set_mode(pkc->ssl, mode)) ||
       (1 != SSL_set_app_data(pkc->ssl, pkc)) ||
@@ -188,7 +203,7 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx, const char* hostname)
 
   pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
          "%d[pkc_start_ssl]: Starting TLS connection with %s",
-         pkc->sockfd, hostname);
+         pkc->sockfd, hostname ? hostname : "default");
 
   return 0;
 }

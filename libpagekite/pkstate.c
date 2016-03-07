@@ -39,6 +39,7 @@ void pks_global_init(unsigned int log_mask) {
   pk_state.socket_timeout_s = PK_DEFAULT_SOCKET_TIMEOUT;
   pk_state.fake_ping = 0;
   pk_state.ssl_ciphers = PKS_DEFAULT_CIPHERS;
+  pk_state.ssl_cert_names = NULL;
 
   pk_state.have_ssl = 0;
   pk_state.app_id_long = "libpagekite";
@@ -126,4 +127,50 @@ void pks_printlog(FILE* dest)
   if (pk_state.log_ring_end < pk_state.log_ring_start)
     fprintf(dest, "%s", pk_state.log_ring_buffer);
   pthread_mutex_unlock(&(pk_state.lock));
+}
+
+void pks_free_ssl_cert_names()
+{
+  char** p = pk_state.ssl_cert_names;
+  if ((p != NULL) && (*p != *PAGEKITE_NET_CERT_NAMES)) {
+    while (*p != NULL) free(*p++);
+    free(pk_state.ssl_cert_names);
+  }
+  pk_state.ssl_cert_names = NULL;
+}
+
+void pks_add_ssl_cert_names(char** names)
+{
+  int len_current = 0;
+  int len_new = 0;
+
+  char** p = pk_state.ssl_cert_names;
+  while (p != NULL && *p++ != NULL) len_current++;
+
+  char** n = (char**) names;
+  while (n != NULL && *n++ != NULL) len_new++;
+
+  if (!(len_current || len_new)) {
+    pks_free_ssl_cert_names();
+    return;
+  }
+
+  /* Allocate space for some character pointers */
+  char** buffer = malloc((len_current + len_new + 1) * sizeof(char*));
+
+  /* Copy the old set of names */
+  n = buffer;
+  p = pk_state.ssl_cert_names;
+  while (p && *p) { *n++ = strdup(*p++); };
+
+  /* Copy the new names */
+  p = (char**) names;
+  while (p && *p) { *n++ = strdup(*p++); };
+
+  /* End of list marker */
+  *n = NULL;
+
+  /* Update pk_state */
+  pks_free_ssl_cert_names();
+  pk_state.ssl_cert_names = buffer;
 }

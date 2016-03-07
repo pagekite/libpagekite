@@ -97,6 +97,8 @@ WARNING: This file is processed automatically to generate the JNI and API
 
 #define PK_DEFAULT_SOCKET_TIMEOUT 15
 
+static char* PAGEKITE_NET_CERT_NAMES[2] = {"frontends.b5p.us"};
+
 typedef int (pagekite_callback_t) (int, void*);
 typedef int (pagekite_callback2_t) (int, int, void*, void*);
 

@@ -264,6 +264,14 @@ int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
     return -1;
   }
 
+  /* Set/add the default SSL certificate names */
+  if (pk_state.ssl_cert_names == NULL) {
+    pk_state.ssl_cert_names = PAGEKITE_NET_CERT_NAMES;
+  }
+  else {
+    pks_add_ssl_cert_names(PAGEKITE_NET_CERT_NAMES);
+  }
+
 #ifdef HAVE_IPV6
   int fes = fes_v4 + fes_v6;
 #else
@@ -280,6 +288,7 @@ int pagekite_free(pagekite_mgr pkm) {
   if (pkm == NULL) return -1;
   if (PK_MANAGER(pkm)->ssl_ctx != NULL) SSL_CTX_free(PK_MANAGER(pkm)->ssl_ctx);
   pkm_manager_free(PK_MANAGER(pkm));
+  pks_free_ssl_cert_names();
 #ifdef _MSC_VER
   Sleep(100); /* Give logger time to get the rest of the log for debugging */
   WSACleanup();
