@@ -50,7 +50,7 @@ This will build the library, placing binaries in the `bin/` and `lib/`
 subdirectories. You can then run the test connector like so:
 
     $ export LD_LIBRARY_PATH=$(pwd)/lib
-    $ ./bin/pagekitec 80 http yourkite.pageite.me 443 kitesecret
+    $ ./bin/pagekitec 80 http yourkite.pagekite.me 0 kitesecret
 
 Or to run the Java test:
 
