@@ -172,6 +172,7 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx, const char* hostname)
       (1 != SSL_set_app_data(pkc->ssl, pkc)) ||
       (1 != SSL_set_cipher_list(pkc->ssl, pk_state.ssl_ciphers)) ||
       (1 != SSL_set_fd(pkc->ssl, PKS(pkc->sockfd))) ||
+      /* FIXME: This should be the certificate name we will validate against */
       (1 != ((hostname == NULL) ? 1 : SSL_set_tlsext_host_name(pkc->ssl, hostname))))
   {
     if (pkc->ssl != NULL) SSL_free(pkc->ssl);
