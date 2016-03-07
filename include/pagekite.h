@@ -58,6 +58,7 @@ WARNING: This file is processed automatically to generate the JNI and API
 #define PK_WITH_SERVICE_FRONTENDS    0x0008
 #define PK_WITHOUT_SERVICE_FRONTENDS 0x0010
 #define PK_WITH_DYNAMIC_FE_LIST      0x0020
+#define PK_WITH_FRONTEND_SNI         0x0040
 #define PK_AS_FRONTEND_RELAY         0x0100
 
 /* Constants: PageKite logging constants */

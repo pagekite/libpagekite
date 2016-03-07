@@ -172,6 +172,24 @@ pagekite_mgr pagekite_init_whitelabel(
     return NULL;
   }
 
+  /* Add to our list of acceptable certificate names */
+  if (whitelabel_tld) {
+    char* cert_names[2];
+    cert_names[0] = cert_name;
+    cert_names[1] = NULL;
+    sprintf(cert_name, "fe.%.250s", whitelabel_tld);
+    pks_add_ssl_cert_names(cert_names);
+    if (!(flags & PK_WITH_FRONTEND_SNI)) {
+      /* Adding multiple names disables SNI, but lets whitelabels
+       * use SSL even if they haven't got a cert on the pagekite.net
+       * relays since the default cert will be acceptable. */
+      pks_add_ssl_cert_names(PAGEKITE_NET_CERT_NAMES);
+    }
+  }
+  else {
+    pks_add_ssl_cert_names(PAGEKITE_NET_CERT_NAMES);
+  }
+
   /* If flags say anything about service frontends, do nothing: either
      it was already done, or we're not supposed to do anything. */
   if (!(flags & PK_WITHOUT_SERVICE_FRONTENDS)) {
