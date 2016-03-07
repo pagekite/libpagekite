@@ -1191,6 +1191,9 @@ int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
 
   PK_TRACE_FUNCTION;
 
+  /* Default port is 443 */
+  if (port < 1) port = 443;
+
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
