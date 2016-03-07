@@ -23,6 +23,7 @@ contrib/Windows-GUI/obj/
 libpagekite/pklualua.h
 httpkite
 pagekitec
+sshkite
 tests
 *.swp
 configure
