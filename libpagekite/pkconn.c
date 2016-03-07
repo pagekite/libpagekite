@@ -149,10 +149,9 @@ static void pkc_do_handshake(struct pk_conn *pkc)
       case SSL_ERROR_WANT_WRITE:
         pkc->status |= CONN_STATUS_WANT_WRITE;
         break;
-      case SSL_ERROR_ZERO_RETURN:
-        pkc->status |= CONN_STATUS_BROKEN;
-        break;
       default:
+        pk_log(PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS,
+               "%d: TLS handshake failed!", pkc->sockfd);
         pkc->status |= CONN_STATUS_BROKEN;
         break;
     }
@@ -197,15 +196,15 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx, const char* hostname)
     return -1;
   }
 
-  SSL_set_connect_state(pkc->ssl);
-  pkc_start_handshake(pkc, SSL_ERROR_WANT_WRITE);
-  pkc_do_handshake(pkc);
-
   pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
          "%d[pkc_start_ssl]: Starting TLS connection with %s",
          pkc->sockfd, hostname ? hostname : "default");
 
-  return 0;
+  SSL_set_connect_state(pkc->ssl);
+  pkc_start_handshake(pkc, SSL_ERROR_WANT_WRITE);
+  pkc_do_handshake(pkc);
+
+  return (pkc->status & CONN_STATUS_BROKEN) ? -1 : 0;
 }
 #endif
 
@@ -237,8 +236,11 @@ ssize_t pkc_read(struct pk_conn* pkc)
       if (bytes < 0) ssl_errno = SSL_get_error(pkc->ssl, bytes);
       break;
     case CONN_SSL_HANDSHAKE:
-      pkc_do_handshake(pkc);
-      return 0;
+      if (!(pkc->status & CONN_STATUS_BROKEN)) {
+        pkc_do_handshake(pkc);
+        return 0;
+      }
+      bytes = 0;
 #endif
     default:
       bytes = PKS_read(pkc->sockfd, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
@@ -332,7 +334,7 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
       break;
 
     case CONN_SSL_HANDSHAKE:
-      pkc_do_handshake(pkc);
+      if (!(pkc->status & CONN_STATUS_BROKEN)) pkc_do_handshake(pkc);
       return 0;
 #endif
 

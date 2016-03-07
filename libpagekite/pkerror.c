@@ -68,6 +68,9 @@ void pk_perror(const char* prefix) {
     case ERR_CONNECT_REQ_END:
       pk_log(PK_LOG_ERROR, "%s: Connection error %d", prefix, pk_error);
       break;
+    case ERR_CONNECT_TLS:  /* FIXME: Why did it fail? */
+      pk_log(PK_LOG_ERROR, "%s: TLS handshake failed", prefix);
+      break;
     case ERR_NO_MORE_KITES:
       pk_log(PK_LOG_ERROR, "%s: Out of kite slots", prefix);
       break;
