@@ -54,7 +54,7 @@ pagekite_mgr pagekite_init(
   SSL_CTX* ssl_ctx;
   struct pk_manager *pkm_;
 
-  if (flags == PK_WITH_DEFAULTS) flags = PK_DEFAULT_FLAGS;
+  if (flags & PK_WITH_DEFAULTS || !flags) flags |= PK_DEFAULT_FLAGS;
 
 #ifdef _MSC_VER
   WSADATA wsa_data;
@@ -116,7 +116,7 @@ pagekite_mgr pagekite_init_pagekitenet(
 {
   pagekite_mgr pkm;
 
-  if (flags == PK_WITH_DEFAULTS) flags = PK_DEFAULT_FLAGS;
+  if (flags & PK_WITH_DEFAULTS || !flags) flags |= PK_DEFAULT_FLAGS;
 
   if (NULL == (pkm = pagekite_init(app_id,
                                    max_kites,
@@ -148,10 +148,11 @@ pagekite_mgr pagekite_init_whitelabel(
   int verbosity,
   const char* whitelabel_tld)
 {
+  char cert_name[256];
   char dynamic_dns_url[256];
   pagekite_mgr pkm;
 
-  if (flags == PK_WITH_DEFAULTS) flags = PK_DEFAULT_FLAGS;
+  if (flags & PK_WITH_DEFAULTS || !flags) flags |= PK_DEFAULT_FLAGS;
 
   if (whitelabel_tld) {
     sprintf(dynamic_dns_url, PAGEKITE_NET_WL_DDNS, whitelabel_tld);
@@ -199,7 +200,7 @@ int pagekite_add_whitelabel_frontends(
   if (!whitelabel_tld)
     return pagekite_add_service_frontends(pkm, flags);
 
-  if (flags == PK_WITH_DEFAULTS) flags = PK_DEFAULT_FLAGS;
+  if (flags & PK_WITH_DEFAULTS || !flags) flags |= PK_DEFAULT_FLAGS;
   add_null_records = (flags & PK_WITH_DYNAMIC_FE_LIST);
 
   sprintf(fdomain_v4, PAGEKITE_NET_WL_V4FRONTENDS, whitelabel_tld);
@@ -235,7 +236,6 @@ int pagekite_add_whitelabel_frontends(
     return -1;
   }
   return fes;
-
 }
 
 int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
@@ -245,7 +245,7 @@ int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
 #endif
   int add_null_records;
 
-  if (flags == PK_WITH_DEFAULTS) flags = PK_DEFAULT_FLAGS;
+  if (flags & PK_WITH_DEFAULTS || !flags) flags |= PK_DEFAULT_FLAGS;
   add_null_records = (flags & PK_WITH_DYNAMIC_FE_LIST);
 
   if (((flags & PK_WITH_IPV4) &&

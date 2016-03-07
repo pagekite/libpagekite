@@ -32,8 +32,8 @@ public class PageKiteAPI extends Object
     public static final int PK_STATUS_PROBLEMS = 50;
     public static final int PK_STATUS_REJECTED = 60;
     public static final int PK_STATUS_NO_NETWORK = 90;
-    public static final int PK_WITH_DEFAULTS = 0x0000;
-    public static final int PK_WITHOUT_DEFAULTS = 0x1000;
+    public static final int PK_WITH_DEFAULTS = 0x8000;
+    public static final int PK_WITHOUT_DEFAULTS = 0x4000;
     public static final int PK_WITH_SSL = 0x0001;
     public static final int PK_WITH_IPV4 = 0x0002;
     public static final int PK_WITH_IPV6 = 0x0004;

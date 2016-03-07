@@ -50,8 +50,8 @@ WARNING: This file is processed automatically to generate the JNI and API
 #define PK_STATUS_NO_NETWORK         90
 
 /* Constants: Flags for pagekite_init and friends. */
-#define PK_WITH_DEFAULTS             0x0000
-#define PK_WITHOUT_DEFAULTS          0x1000
+#define PK_WITH_DEFAULTS             0x8000
+#define PK_WITHOUT_DEFAULTS          0x4000
 #define PK_WITH_SSL                  0x0001
 #define PK_WITH_IPV4                 0x0002
 #define PK_WITH_IPV6                 0x0004
