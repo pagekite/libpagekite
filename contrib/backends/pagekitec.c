@@ -255,7 +255,7 @@ int main(int argc, char **argv) {
     proto = argv[ac+2];
     kitename = argv[ac+3];
     secret = argv[ac+5];
-    if ((0 > pagekite_add_kite(m, proto, kitename, 0, secret,
+    if ((0 > pagekite_add_kite(m, proto, kitename, pport, secret,
                                "localhost", lport)) ||
         (use_current && (0 > (pagekite_add_frontend(m, kitename, pport)))))
     {
