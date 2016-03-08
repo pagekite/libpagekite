@@ -90,7 +90,8 @@ documentation.
 
 As of February 2016, the library's main limitations are:
 
-   * SSL certificates are not verified when connecting to the relay
+   * [SSL certificates are not verified when connecting to the
+      relay](https://github.com/pagekite/libpagekite/issues/6)
    * The Lua plugin interface is incomplete
    * The front-end relay code is incomplete
    * Cross-compiling to Windows with autoconf is untested
