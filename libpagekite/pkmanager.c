@@ -73,6 +73,9 @@ static unsigned char pkm_sid_shift(char *);
 #ifndef HAVE_PTHREAD_YIELD
 #  ifdef HAVE_PTHREAD_YIELD_NP
 #    define pthread_yield pthread_yield_np
+#  elif HAVE_SCHED_YIELD
+#    include <sched.h>
+#    define pthread_yield sched_yield
 #  elif defined (_MSC_VER)
 #    define pthread_yield()
 #  else

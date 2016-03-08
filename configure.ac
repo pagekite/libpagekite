@@ -94,7 +94,7 @@ fi
 AM_CONDITIONAL(HAVE_JAVA, test "x$with_java" = "xyes")
 
 # Checks for header files.
-AC_CHECK_HEADERS([jni.h pthread.h arpa/inet.h fcntl.h float.h inttypes.h limits.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/socket.h sys/statfs.h sys/time.h sys/timeb.h unistd.h])
+AC_CHECK_HEADERS([jni.h pthread.h sched.h arpa/inet.h fcntl.h float.h inttypes.h limits.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/socket.h sys/statfs.h sys/time.h sys/timeb.h unistd.h])
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lpthread':
@@ -120,7 +120,7 @@ AC_TYPE_UINT8_T
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([clock_gettime dup2 gethostbyname gettimeofday inet_ntoa memmove memset select socket strcasecmp strchr strdup strerror strncasecmp strrchr uname pthread_yield pthread_yield_np])
+AC_CHECK_FUNCS([clock_gettime dup2 gethostbyname gettimeofday inet_ntoa memmove memset select socket strcasecmp strchr strdup strerror strncasecmp strrchr uname sched_yield pthread_yield pthread_yield_np])
 
 # OpenSSL requires dlopen on some platforms
 AC_SEARCH_LIBS(dlopen, dl)
