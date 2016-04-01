@@ -613,7 +613,7 @@ This function can be called at any time.
 
 ## Constants
 
-PageKiteAPI.PK_VERSION = "0.91.160307C"  
+PageKiteAPI.PK_VERSION = "0.91.160401C"  
 PageKiteAPI.PK_STATUS_STARTUP = 10  
 PageKiteAPI.PK_STATUS_CONNECTING = 20  
 PageKiteAPI.PK_STATUS_UPDATING_DNS = 30  
