@@ -151,6 +151,8 @@ def jni_func(ret_type, func_name, args):
     else:
         set_global_manager = True
 
+    free_global_manager = (func_name == 'pagekite_free')
+
     func = [
         '%s Java_net_pagekite_lib_PageKiteAPI_%s(' % (
             jni_ret_type(ret_type), java_name(func_name)),
@@ -190,6 +192,9 @@ def jni_func(ret_type, func_name, args):
         func += ['', ('  %s rv = %s(%s);'
                       ) % (jni_ret_type(ret_type), fn, a), '']
         retn = ['  return rv;']
+
+    if free_global_manager:
+        clnp += ['  pagekite_manager_global = NULL;']
 
     func += clnp + retn + ['}']
     return '\n'.join(func)

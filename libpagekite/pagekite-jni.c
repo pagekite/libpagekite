@@ -377,6 +377,7 @@ jint Java_net_pagekite_lib_PageKiteAPI_free(
 
   jint rv = pagekite_free(pagekite_manager_global);
 
+  pagekite_manager_global = NULL;
   return rv;
 }
 

@@ -135,6 +135,9 @@ typedef unsigned int              uint32_t;
 #  ifndef SSL_MODE_RELEASE_BUFFERS
 #    define SSL_MODE_RELEASE_BUFFERS 0
 #  endif
+#  ifndef SSL_OP_NO_COMPRESSION
+#    define SSL_OP_NO_COMPRESSION 0
+#  endif
 #  define PKS_DEFAULT_CIPHERS "HIGH:!aNULL:!eNULL:!LOW:!MD5:!EXP:!PSK:!SRP:!DSS"
 #  define PKS_SSL_INIT(ctx) {\
               SSL_load_error_strings(); \
