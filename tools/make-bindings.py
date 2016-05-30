@@ -189,9 +189,16 @@ def jni_func(ret_type, func_name, args):
     else:
         fn, a = func_name, ', '.join(a.split()[-1] for a
                                      in ['pagekite_manager_global'] + args)
-        func += ['', ('  %s rv = %s(%s);'
-                      ) % (jni_ret_type(ret_type), fn, a), '']
+        rtype = jni_ret_type(ret_type)
+        if rtype == 'jstring':
+            func += [
+                '',
+                '  %s rv = (*env)->NewStringUTF(env, %s(%s));' % (rtype, fn, a),
+                '']
+        else:
+            func += ['', '  %s rv = %s(%s);' % (rtype, fn, a), '']
         retn = ['  return rv;']
+
 
     if free_global_manager:
         clnp += ['  pagekite_manager_global = NULL;']

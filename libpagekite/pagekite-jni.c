@@ -398,7 +398,7 @@ jstring Java_net_pagekite_lib_PageKiteAPI_getLog(
   if (pagekite_manager_global == NULL) return NULL;
 
 
-  jstring rv = pagekite_get_log(pagekite_manager_global);
+  jstring rv = (*env)->NewStringUTF(env, pagekite_get_log(pagekite_manager_global));
 
   return rv;
 }
