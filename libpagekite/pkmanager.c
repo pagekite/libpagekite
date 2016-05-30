@@ -1,7 +1,7 @@
 /******************************************************************************
 pkmanager.c - A manager for multiple pagekite connections.
 
-This file is Copyright 2011-2015, The Beanstalks Project ehf.
+This file is Copyright 2011-2016, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software
@@ -834,10 +834,10 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
   struct pk_backend_conn* pkb;
   char buffer[1025];
   unsigned int status;
-  int i, j, disconnect, disconnected, ping_window;
+  int i, j, disconnect, disconnected, live, ping_window;
 
   PK_TRACE_FUNCTION;
-  disconnected = 0;
+  live = disconnected = 0;
   ping_window = time(0) - 4*pkm->housekeeping_interval_min;
 
   /* Loop through all configured tunnels:
@@ -849,6 +849,8 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
 
     if (fe->fe_hostname == NULL) continue;
     if (fe->conn.sockfd <= 0) continue;
+    live += 1;
+
     if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) continue;
 
     /* If we haven't been sending/seeing pings, then that means there
@@ -882,6 +884,7 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
     }
   }
   PK_CHECK_MEMORY_CANARIES;
+  PKS_STATE(pk_state.live_tunnels = (live - disconnected));
   pkm_unblock(pkm);
   return disconnected;
 }
