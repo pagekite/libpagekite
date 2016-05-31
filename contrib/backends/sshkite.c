@@ -40,6 +40,10 @@ int main(int argc, const char** argv) {
         return 3;
     }
 
+    /* Note: adding a pagekite_add_frontend for the kite name here would
+     *       bring the server online quicker after restarts, by avoiding
+     *       DNS cache issues. See pagekitec.c for an example. */
+
     /* Start the worker thread, wait for it to exit. */
     assert(-1 < pagekite_thread_start(pkm));
     assert(-1 < pagekite_thread_wait(pkm));

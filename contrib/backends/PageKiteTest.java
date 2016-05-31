@@ -1,7 +1,7 @@
 import net.pagekite.lib.PageKiteAPI;
 
 public class PageKiteTest {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         String Whitelabel_TLD = "pagekite.me";
 
         if (!PageKiteAPI.libLoaded) {
@@ -18,7 +18,17 @@ public class PageKiteTest {
             "http", "KITE.pagekite.me", 0, "SECRET",
             "localhost", 80);
 
+        /* Adding a PageKiteAPI.addFrontend for the kite name here would
+         * bring the server online quicker after restarts, by avoiding
+         * DNS cache/TTL issues. See pagekitec.c for an example. */
+
         PageKiteAPI.threadStart();
+
+        /* The log is going to stderr, but we can also access recent
+         * entries programmatically. */
+        Thread.sleep(5000);
+        System.out.println("Log so far: " + PageKiteAPI.getLog());
+
         PageKiteAPI.threadWait();
     }
 }

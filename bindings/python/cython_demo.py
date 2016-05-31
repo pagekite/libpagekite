@@ -26,6 +26,9 @@ with PageKite().init_pagekitenet(
         'localhost',
          int(sys.argv[1])) # local port
 
+    # Note: We should also pk.add_frontend with the kite name, to
+    #       avoid DNS cache/ttl issues on startup/restart.
+
     pk.thread_start()
 
     while True:
