@@ -99,7 +99,6 @@ void pkb_clear_transient_flags(struct pk_manager* pkm)
     fe->conn.status &= ~FE_STATUS_REJECTED;
     fe->conn.status &= ~FE_STATUS_LAME;
     fe->conn.status &= ~FE_STATUS_IS_FAST;
-    fe->conn.status &= ~FE_STATUS_IN_DNS;
   }
 }
 
@@ -239,7 +238,7 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
    */
   for (i = 0, kite = pkm->kites; i < pkm->kite_max; i++, kite++) {
     rv = getaddrinfo(kite->public_domain, NULL, &hints, &result);
-    if (rv == 0) {
+    if ((rv == 0) && (result != NULL)) {
       if (!cleared_flags) {
         /* Clear DNS flag everywhere, once we know DNS is responding. */
         for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
