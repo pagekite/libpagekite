@@ -745,7 +745,10 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
     if (fe->fe_hostname == NULL || fe->ai.ai_addr == NULL) continue;
     if (!(fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS))) continue;
 
-    if (fe->requests == NULL || fe->request_count != pkm->kite_max) {
+    if ((fe->requests == NULL) ||
+        (fe->request_count != pkm->kite_max) ||
+        (fe->conn.sockfd < 0)) {
+      /* Reset the list of kites we will request from this relay. */
       fe->request_count = pkm->kite_max;
       memset(fe->requests, 0, pkm->kite_max * sizeof(struct pk_kite_request));
       for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
@@ -872,7 +875,7 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
 
       if ((2 == pass) && disconnect) {
         pk_log(PK_LOG_MANAGER_INFO, "Disconnecting: %s",
-                                  in_addr_to_str(fe->ai.ai_addr, buffer, 1024));
+                                    in_addr_to_str(fe->ai.ai_addr, buffer, 1024));
 
         ev_io_stop(pkm->loop, &(fe->conn.watch_r));
         ev_io_stop(pkm->loop, &(fe->conn.watch_w));
@@ -883,6 +886,7 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
         status = fe->conn.status;
         pkc_reset_conn(&(fe->conn), 0);
         fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
+        fe->request_count = 0;
 
         disconnect = 0; /* Reset, to prevent cascading. */
       }
