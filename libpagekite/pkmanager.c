@@ -834,54 +834,62 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
   struct pk_backend_conn* pkb;
   char buffer[1025];
   unsigned int status;
-  int i, j, disconnect, disconnected, live, ping_window;
+  int i, j, pass, disconnect, disconnected, live, ping_window;
 
   PK_TRACE_FUNCTION;
-  live = disconnected = 0;
   ping_window = time(0) - 4*pkm->housekeeping_interval_min;
 
   /* Loop through all configured tunnels:
-   *   - if no streams are live, disconnect
+   *   1st pass: just count how many we would like to disconnect
+   *   2nd pass: actually disconnect idle and unwanted tunnels
    */
   pkm_block(pkm);
-  for (i = 0; i < pkm->tunnel_max; i++) {
-    fe = (pkm->tunnels + i);
+  for (pass = 1; pass <= 2; pass++) {
+    live = disconnect = disconnected = 0;
+    for (i = 0; i < pkm->tunnel_max; i++) {
+      fe = (pkm->tunnels + i);
 
-    if (fe->fe_hostname == NULL) continue;
-    if (fe->conn.sockfd <= 0) continue;
-    live += 1;
+      if (fe->fe_hostname == NULL) continue;
+      if (fe->conn.sockfd <= 0) continue;
+      live += 1;
 
-    if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) continue;
+      if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) continue;
 
-    /* If we haven't been sending/seeing pings, then that means there
-     * is recent traffic, so disconnecting would be bad. Note, we cannot
-     * check conn.activity directly because pings reset that! */
-    if (fe->last_ping < ping_window) continue;
+      /* If we haven't been sending/seeing pings, then that means there
+       * is recent traffic, so disconnecting would be bad. Note, we cannot
+       * check conn.activity directly because pings reset that! */
+      if (fe->last_ping < ping_window) continue;
 
-    /* Check if there are any live streams... */
-    disconnect = 1;
-    for (j = 0; j < pkm->be_conn_max; j++) {
-      pkb = (pkm->be_conns + j);
-      if (pkb->conn.sockfd > 0 && pkb->tunnel == fe) {
-        disconnect = 0;
-        break;
+      /* Check if there are any live streams... */
+      disconnect++;
+      for (j = 0; j < pkm->be_conn_max; j++) {
+        pkb = (pkm->be_conns + j);
+        if (pkb->conn.sockfd > 0 && pkb->tunnel == fe) {
+          disconnect--;
+          break;
+        }
+      }
+
+      if ((2 == pass) && disconnect) {
+        pk_log(PK_LOG_MANAGER_INFO, "Disconnecting: %s",
+                                  in_addr_to_str(fe->ai.ai_addr, buffer, 1024));
+
+        ev_io_stop(pkm->loop, &(fe->conn.watch_r));
+        ev_io_stop(pkm->loop, &(fe->conn.watch_w));
+        PKS_close(fe->conn.sockfd);
+        fe->conn.sockfd = -1;
+        disconnected += 1;
+
+        status = fe->conn.status;
+        pkc_reset_conn(&(fe->conn), 0);
+        fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
+
+        disconnect = 0; /* Reset, to prevent cascading. */
       }
     }
 
-    if (disconnect) {
-      pk_log(PK_LOG_MANAGER_INFO, "Disconnecting: %s",
-                                in_addr_to_str(fe->ai.ai_addr, buffer, 1024));
-
-      ev_io_stop(pkm->loop, &(fe->conn.watch_r));
-      ev_io_stop(pkm->loop, &(fe->conn.watch_w));
-      PKS_close(fe->conn.sockfd);
-      fe->conn.sockfd = -1;
-      disconnected += 1;
-
-      status = fe->conn.status;
-      pkc_reset_conn(&(fe->conn), 0);
-      fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
-    }
+    // If we're about to go disconnecting all our live tunnels, abort.
+    if (disconnect >= live) break;
   }
   PK_CHECK_MEMORY_CANARIES;
   PKS_STATE(pk_state.live_tunnels = (live - disconnected));
