@@ -32,6 +32,9 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 #include "pkwatchdog.h"
+#if HAVE_RELAY
+#include "pkrelay.h"
+#endif
 
 struct pk_global_state pk_state;
 
@@ -56,6 +59,9 @@ int main(void) {
   assert(utils_test());     fprintf(stderr, "utils test passed\n");
   assert(pkproto_test());   fprintf(stderr, "pkproto test passed\n");
   assert(pkmanager_test()); fprintf(stderr, "pkmanager test passed\n");
+#if HAVE_RELAY
+  assert(pkrelay_test());   fprintf(stderr, "pkrelay test passed\n");
+#endif
 #else
   fprintf(stderr, "WARNING: Tests were not compiled in!\n");
 #endif
