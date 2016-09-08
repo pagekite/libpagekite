@@ -1693,13 +1693,17 @@ int pkmanager_test(void)
   assert(NULL == pkm_manager_init(N, 1000, buffer, 1000, -1, -1, N, N));
   assert(NULL == pkm_manager_init(N, 1000, buffer, -1, 1000, -1, N, N));
   assert(NULL == pkm_manager_init(N, 1000, buffer, -1, -1, 1000, N, N));
+  fprintf(stderr, "pkm_manager_init tests passed (1/3)\n");
 
   /* Create a real one */
+  reset_memory_canaries();
   m = pkm_manager_init(N, PK_MANAGER_MINSIZE, buffer, -1, -1, -1, N, N);
   if (m == NULL) pk_perror("pkmanager.c");
   assert(NULL != m);
+  fprintf(stderr, "pkm_manager_init tests passed (2/3)\n");
 
   /* Create a real one from heap */
+  reset_memory_canaries();
   m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1, NULL, NULL);
   assert(NULL != m);
 
@@ -1707,6 +1711,7 @@ int pkmanager_test(void)
   assert(m->tunnel_max == MIN_FE_ALLOC);
   assert(m->kite_max == MIN_KITE_ALLOC);
   assert(m->be_conn_max == MIN_CONN_ALLOC);
+  fprintf(stderr, "pkm_manager_init tests passed (3/3)\n");
 
   /* Ensure memory regions don't overlap */
   memset(m->be_conns,  3, sizeof(struct pk_backend_conn) * m->be_conn_max);
@@ -1716,6 +1721,8 @@ int pkmanager_test(void)
   assert(1 == *((char*) m->kites));
   assert(2 == *((char*) m->tunnels));
   assert(3 == *((char*) m->be_conns));
+  fprintf(stderr, "memory regions do not overlap\n");
+  reset_memory_canaries();
 
   /* Recreate, because those memsets broke things. */
   m = pkm_manager_init(NULL, 0, NULL, -1, -1, -1, NULL, NULL);
@@ -1728,6 +1735,7 @@ int pkmanager_test(void)
   assert(0 < pkb_get_job(&(m->blocking_jobs), &j));
   assert(0 == m->blocking_jobs.count);
   assert(j.job == PK_QUIT);
+  fprintf(stderr, "pk_add_job and pk_get_job tests passed\n");
 
   /* Test pk_add_frontend_ai */
   memset(&ai, 0, sizeof(struct addrinfo));
@@ -1735,6 +1743,7 @@ int pkmanager_test(void)
     assert(NULL != pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
   assert(NULL == pkm_add_frontend_ai(m, &ai, "woot", 123, 1));
   assert(ERR_NO_MORE_FRONTENDS == pk_error);
+  fprintf(stderr, "pk_add_frontend_ai tests passed\n");
 
   /* Test pk_add_kite */
   for (i = 0; i < MIN_KITE_ALLOC; i++)
@@ -1743,6 +1752,7 @@ int pkmanager_test(void)
   assert(ERR_NO_MORE_KITES == pk_error);
   assert(NULL != pkm_find_kite(m, "http", "foo", 80));
   assert(NULL == pkm_find_kite(m, "http", "bar", 80));
+  fprintf(stderr, "pk_add_kite tests passed\n");
 
   /* Test pk_*_be_conn */
   assert(NULL == pkm_find_be_conn(m, NULL, "abc"));
@@ -1757,6 +1767,7 @@ int pkmanager_test(void)
   assert(CONN_IO_BUFFER_SIZE == PKC_OUT_FREE(c->conn));
   pkm_free_be_conn(c);
   assert(NULL == pkm_find_be_conn(m, NULL, "abc"));
+  fprintf(stderr, "pk_*_be_conn tests passed\n");
 
   /* Cleanup */
   pkm_manager_free(m);

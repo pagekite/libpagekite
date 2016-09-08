@@ -32,6 +32,21 @@ AC_ARG_WITH(openssl,[  --with-openssl=DIR    Use optional openssl libs and inclu
   esac]
 )
 
+AC_ARG_WITH(tests,
+	[AS_HELP_STRING([--with-tests],
+		[Compile libpagekite unit tests])],
+		[with_tests=yes], [])
+
+AC_ARG_WITH(debug-traces,
+	[AS_HELP_STRING([--with-debug-traces],
+		[Compile libpagekite debug function traces])],
+		[with_debug_traces=yes], [])
+
+AC_ARG_WITH(debug-canaries,
+	[AS_HELP_STRING([--with-debug-canaries],
+		[Compile libpagekite debug memory canaries])],
+		[with_debug_canaries=yes], [])
+
 AC_ARG_WITH(lua,
 	[AS_HELP_STRING([--without-lua],
 		[Do not compile pagekite lua bindings even if Lua is available])],
@@ -41,7 +56,6 @@ AC_ARG_WITH(os-libev,
 	[AS_HELP_STRING([--without-os-libev],
 		[Use embedded libev, not the OS-provided library])],
 		[use_libev=no], [])
-
 
 AC_ARG_WITH(java,
 	[AS_HELP_STRING([--without-java],
@@ -209,8 +223,22 @@ AC_SUBST([LIBEV_CFLAGS])
 AC_SUBST([LIBEV_LIBS])
 
 
-# Lua support
+# Unit tests and debug code
+if test "$with_tests" = "yes"; then
+  AC_DEFINE([PK_TESTS], [1], [Define to 1 if you want to build unit tests.])
+  PK_TESTS=1
+fi
+if test "$with_debug_traces" = "yes"; then
+  AC_DEFINE([PK_TRACE], [1], [Define to 1 if you want to build with function traces.])
+  PK_TRACE=1
+fi
+if test "$with_debug_canaries" = "yes"; then
+  AC_DEFINE([PK_MEMORY_CANARIES], [1], [Define to 1 if you want to build with memory canaries.])
+  PK_MEMORY_CANARIES=1
+fi
 
+
+# Lua support
 AS_IF([test "x$with_lua" != 'xno'],
 	[ AX_PROG_LUA([5.1], [], [lua_interp='yes'], [lua_interp='no'])
 
@@ -229,6 +257,8 @@ AM_CONDITIONAL(HAVE_LUA, test "x$with_lua" = "xyes")
 AC_SUBST([LUA_INCLUDE])
 AC_SUBST([LUA_LIBS])
 
+
+# Relay code
 AS_IF([test "x$with_agpl_relay" = 'xyes'],
 	[with_relay='yes'], [with_relay='no'])
 AM_CONDITIONAL(HAVE_RELAY, test "x$with_relay" = "xyes")
@@ -238,6 +268,7 @@ if test "$with_relay" = "yes"; then
 fi
 
 
+# DigitalSTROM log format
 AS_IF([test "x$with_ds_logfmt" = 'xyes'],
 	[with_ds_logfmt='yes'], [with_ds_logfmt='no'])
 AM_CONDITIONAL(HAVE_DS_LOG_FORMAT, test "x$with_ds_logfmt" = "xyes")
@@ -245,6 +276,7 @@ if test "$with_ds_logfmt" = "yes"; then
   AC_DEFINE([HAVE_DS_LOG_FORMAT], [1], [Define to 1 to use DigitalSTROM log format.])
   HAVE_DS_LOGFMT=1
 fi
+
 
 JAVAROOT="\$(top_builddir)/java-classes/"
 AC_SUBST(JAVAROOT)

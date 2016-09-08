@@ -35,12 +35,12 @@ Note: For alternate license terms, see the file COPYING.md.
 
 struct pk_global_state pk_state;
 
-int sha1_test();
 int utils_test();
 int pkproto_test();
 int pkmanager_test();
 
 int main(void) {
+#if PK_TESTS
 #ifdef _MSC_VER
   pks_global_init(PK_LOG_ALL);
 
@@ -53,10 +53,12 @@ int main(void) {
     return 1;
   }
 #endif
-  assert(sha1_test());
-  assert(utils_test());
-  assert(pkproto_test());
-  assert(pkmanager_test());
+  assert(utils_test());     fprintf(stderr, "utils test passed\n");
+  assert(pkproto_test());   fprintf(stderr, "pkproto test passed\n");
+  assert(pkmanager_test()); fprintf(stderr, "pkmanager test passed\n");
+#else
+  fprintf(stderr, "WARNING: Tests were not compiled in!\n");
+#endif
   return 0;
 }
 
