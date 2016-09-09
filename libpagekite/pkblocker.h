@@ -25,7 +25,7 @@ typedef enum {
   PK_CHECK_WORLD,
   PK_CHECK_FRONTENDS,
   PK_ACCEPT_LUA,
-  PK_ACCEPT_FE,
+  PK_RELAY_INCOMING,
   PK_QUIT,
 } pk_job_t;
 

@@ -22,13 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ******************************************************************************/
 
-/* FIXME! */
-#define HAVE_OPENSSL 1
-#define HAVE_LUA 1
-#define HAVE_IPV6 1
+#include "config.h"
 
 #define WITH_PAGEKITE_RELAY 1
-
 #include <pagekite.h>
 #include "common.h"
 
@@ -48,7 +44,8 @@ void usage(int ecode) {
                   "\t-q\tDecrease verbosity (less log output)\n"
                   "\t-v\tIncrease verbosity (more log output)\n"
                   "\t-p N\tListen on for traffic on port N (default=9443)\n"
-                  "\t-k N\tAllocate buffers for up to N kites (default=25)\n");
+                  "\t-k N\tAllocate buffers for up to N kites\n"
+                  "\t-c N\tAllocate buffers for up to N connections\n");
 #ifdef HAVE_OPENSSL
   fprintf(stderr, "\t-I\tRun insecurely, disable SSL/TLS.\n");
 #endif
@@ -92,7 +89,8 @@ int main(int argc, char **argv) {
   int gotargs = 0;
   int verbosity = 0;
   int use_watchdog = 0;
-  int init_kites = 25;
+  int init_kites = 0;
+  int init_conns = 0;
   int ac;
   int flags = (PK_WITH_SSL | PK_WITH_IPV4 | PK_AS_FRONTEND_RELAY);
 #ifdef HAVE_IPV6
@@ -102,7 +100,7 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46Ik:Lo:p:qvW"))) {
+  while (-1 != (ac = getopt(argc, argv, "46Ic:k:Lo:p:qvW"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -114,6 +112,12 @@ int main(int argc, char **argv) {
 #endif
       case 'I':
         flags &= ~PK_WITH_SSL;
+        break;
+      case 'c':
+        if ((1 != sscanf(optarg, "%d", &init_conns)) || (init_conns < 1)) {
+          usage(EXIT_ERR_USAGE);
+        }
+        gotargs++;
         break;
       case 'k':
         if ((1 != sscanf(optarg, "%d", &init_kites)) || (init_kites < 1)) {
@@ -164,8 +168,9 @@ int main(int argc, char **argv) {
 #endif
 
   init_kites += (argc-1-gotargs)/3;
+  if (!init_conns) init_conns = 50 + 4 * init_kites;
   if (NULL == (m = pagekite_init("pagekiter",
-                                 init_kites, init_kites, 4 * init_kites,
+                                 init_kites, init_kites, init_conns,
                                  NULL,
                                  flags,
                                  verbosity)))
@@ -198,12 +203,12 @@ int main(int argc, char **argv) {
     }
   }
 
-  if (0 > pagekite_start(m)) {
+  if (0 > pagekite_thread_start(m)) {
     pagekite_perror(m, argv[0]);
     safe_exit(EXIT_ERR_START_THREAD);
   }
 
-  pagekite_wait(m);
+  pagekite_thread_wait(m);
   pagekite_free(m);
 
   return 0;

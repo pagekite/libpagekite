@@ -32,6 +32,9 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 #include "pklua.h"
+#if HAVE_RELAY
+#include "pkrelay.h"
+#endif
 
 
 int pkb_add_job(struct pk_job_pile* pkj, pk_job_t job,
@@ -712,9 +715,10 @@ void* pkb_run_blocker(void *void_pkblocker)
         pklua_socket_server_accepted(this->lua, job.int_data, job.ptr_data);
 #endif
         break;
-      case PK_ACCEPT_FE:
-        /* FIXME: Do something more useful here */
-        if (PKS_fail(PKS_close(job.int_data))) { };
+      case PK_RELAY_INCOMING:
+#if HAVE_RELAY
+        pkr_relay_incoming(this->lua, job.int_data, job.ptr_data);
+#endif
         break;
       case PK_QUIT:
         /* Put the job back in the queue, in case there are many workers */

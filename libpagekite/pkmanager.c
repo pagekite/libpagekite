@@ -710,16 +710,18 @@ static void pkm_listener_cb(EV_P_ ev_io* w, int revents)
   int client_fd;
   struct pk_backend_conn* pkl = (struct pk_backend_conn*) w->data;
 
-  if (0 <= (client_fd = PKS_accept(pkl->conn.sockfd,
-                                   (struct sockaddr*) &client_addr,
-                                   &client_len))) {
+  ev_io_stop(EV_A_ w);
+  while (0 <= (client_fd = PKS_accept(pkl->conn.sockfd,
+                                      (struct sockaddr*) &client_addr,
+                                      &client_len))) {
     if (pkl->callback_func != NULL) {
       (pkl->callback_func)(client_fd, pkl->callback_data);
     }
     else {
-      close(client_fd);
+      PKS_close(client_fd);
     }
   }
+  ev_io_start(EV_A_ w);
 
   (void) loop;
   (void) revents;
@@ -1068,7 +1070,8 @@ static struct pk_pagekite* pkm_find_kite(struct pk_manager* pkm,
 
   PK_TRACE_FUNCTION;
 
-  /* FIXME: This is O(N), we'll need a nicer data structure for tunnels */
+  /* NOTE: This is O(N), which we deem OK since backends should rarely
+   *       have a huge number of kites configured. */
   found = NULL;
   for (which = 0; which < pkm->kite_max; which++) {
     kite = pkm->kites+which;
@@ -1158,14 +1161,16 @@ int pkm_add_listener(struct pk_manager* pkm,
   }
   else {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
+      sprintf(sport, "!LSTN:%d", port);
 
-      if (NULL == (pkl = pkm_alloc_be_conn(pkm, NULL, "!LSTN"))) {
+      if (NULL == (pkl = pkm_alloc_be_conn(pkm, NULL, sport))) {
         pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
                "pkm_add_listener: BE alloc failed for %s",
                in_addr_to_str(rp->ai_addr, printip, 128));
         errors++;
       }
-      else if (0 > (lport = pkc_listen(&(pkl->conn), rp, 5 /* FIXME */))) {
+      else if ((0 > (lport = pkc_listen(&(pkl->conn), rp, 50 /* FIXME */)) ||
+               (0 > set_non_blocking(pkl->conn.sockfd)))) {
         pkc_reset_conn(&(pkl->conn), 0);
         pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
                "pkm_add_listener: pkc_listen() failed for %s",
@@ -1180,8 +1185,9 @@ int pkm_add_listener(struct pk_manager* pkm,
         pkl->callback_data = callback_data;
         ev_io_start(pkm->loop, &(pkl->conn.watch_r));
         pk_log(PK_LOG_MANAGER_INFO,
-               "Listening on %s (port %d)",
-               in_addr_to_str(rp->ai_addr, printip, 128), lport);
+               "Listening on %s (port %d, sockfd %d)",
+               in_addr_to_str(rp->ai_addr, printip, 128), lport,
+               pkl->conn.sockfd);
         ok++;
       }
     }
@@ -1306,6 +1312,12 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
   struct pk_backend_conn* pkb_oldest;
 
   PK_TRACE_FUNCTION;
+
+  /* FIXME: This becomes a bottleneck when we start to hit our connection
+   *        limits; it goes suddenly from O(1) to O(n). We might want to
+   *        replace this with a data structure degrades a bit more
+   *        gracefully.
+   */
 
   max_age = time(0);
   pkb_oldest = NULL;

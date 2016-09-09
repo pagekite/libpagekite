@@ -54,14 +54,41 @@ Connections are accepted and identified like so:
 #include "pkrelay.h"
 #include "pklogging.h"
 
-#define PROTO_WANT_MORE_DATA 2
-#define PROTO_MATCHED 1
-#define PROTO_UNDECIDED 0
-#define PROTO_FAILED -1
+#define PARSE_FAILED         -2
+#define PARSE_WANT_MORE_DATA -1
+#define PARSE_UNDECIDED       0
+#define PARSE_MATCH_FAST      1
+#define PARSE_MATCH_SLOW      2
+
+#define PROTO_UNKNOWN         0
+#define PROTO_PAGEKITE        1
+#define PROTO_HTTP            2
+#define PROTO_HTTP_CONNECT    3
+#define PROTO_TLS_WITH_SNI    4
+#define PROTO_LEGACY_SSL      5
 
 #define PEEK_BYTES 512
 #define SSL_CLIENTHELLO 0x80
 #define TLS_CLIENTHELLO 0x16
+
+struct incoming_conn_state {
+  struct sockaddr_in local_addr;
+  struct sockaddr_in remote_addr;
+  struct pk_manager* pkm;
+  struct pk_backend_conn* pkb;
+  struct pk_tunnel* tunnel;
+  unsigned char* hostname;
+  int parsed_as;
+};
+
+
+static int _find_tunnel(struct incoming_conn_state* ics)
+{
+  /* FIXME: This is where scalability is important; we need this to
+   *        be sub-linear in connection count. The faster the better.
+   */
+  return 0;
+}
 
 static char* TLS_PARSE_FAILED = "TLS parse failed";
 static char* _pkr_get_first_tls_sni(unsigned char* peeked, int bytes)
@@ -129,40 +156,57 @@ static char* _pkr_get_first_tls_sni(unsigned char* peeked, int bytes)
   return NULL;
 }
 
-static int _pkr_handle_ssltls(EV_P_ ev_io* w,
-                              struct pk_backend_conn* pkb,
-                              unsigned char* peeked,
-                              int bytes)
+static int _pkr_parse_ssltls(unsigned char* peeked,
+                             int bytes,
+                             struct incoming_conn_state* ics)
 {
   /* Is this TLS? */
   if (peeked[0] == TLS_CLIENTHELLO) {
     char* tls_sni = _pkr_get_first_tls_sni(peeked, bytes);
-    if (tls_sni == TLS_PARSE_FAILED) return PROTO_FAILED;
-
-    /* Is it a connection to a remote tunneled backend?
-     * Is it a connection to one of our own certs?
-     * None of the above: eat the data, return an error
-     */
-    fprintf(stderr, "Is TLS: %s\n", tls_sni);
-    return PROTO_FAILED;
+    if (tls_sni == TLS_PARSE_FAILED) return PARSE_FAILED;
+    ics->hostname = tls_sni;
+    ics->parsed_as = tls_sni ? PROTO_TLS_WITH_SNI : PROTO_LEGACY_SSL;
+    return _find_tunnel(ics) ? PARSE_MATCH_FAST : PARSE_MATCH_SLOW;
   }
   else if (peeked[0] == SSL_CLIENTHELLO) {
-    /* FIXME: Client wants legacy SSL - do we have a certificate? */
-    fprintf(stderr, "Is legacy SSL\n");
-    return PROTO_FAILED;
+    ics->parsed_as = PROTO_LEGACY_SSL;
+    pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: Is legacy SSL. Have cert?");
+    return PARSE_MATCH_SLOW;
   }
 
   /* -Wall dislikes unused arguments */
-  (void) loop;
   (void) bytes;
-  return PROTO_UNDECIDED;
+  return PARSE_UNDECIDED;
 }
 
 
-static int _pkr_handle_http(EV_P_ ev_io* w,
-                            struct pk_backend_conn* pkb,
-                            char* peeked,
-                            int bytes)
+#define IS_PAGEKITE_REQUEST(p) (strncasecmp(p, PK_HANDSHAKE_CONNECT, \
+                                            strlen(PK_HANDSHAKE_CONNECT) \
+                                            ) == 0)
+static int _pkr_parse_pagekite_request(char* peeked,
+                                       int bytes,
+                                       char* first_nl,
+                                       struct incoming_conn_state* ics)
+{
+  /* Since we know pagekite requests are small and peekable, we
+   * can check if it's complete and process if so, otherwise defer.
+   */
+  if ((*(first_nl-1) == '\r') ? (strstr(peeked, "\r\n\r\n") != NULL)
+                              : (strstr(peeked, "\n\n") != NULL)) {
+
+    pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: Complete PageKite request!");
+    ics->parsed_as = PROTO_PAGEKITE;
+    return PARSE_MATCH_SLOW;
+  }
+
+  pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: Partial PageKite request...");
+  return PARSE_WANT_MORE_DATA;
+}
+
+
+static int _pkr_parse_http(char* peeked,
+                           int bytes,
+                           struct incoming_conn_state* ics)
 {
   /* This will assume HTTP if we find all of the following things:
    *   - The string " HTTP/" or " http/" on the first line of data
@@ -173,88 +217,216 @@ static int _pkr_handle_http(EV_P_ ev_io* w,
    * are so many other interesting HTTP verbs out there.
    */
   char* sp = strchr(peeked, ' ');
-  if (sp == NULL) return PROTO_UNDECIDED;
+  if (sp == NULL) return PARSE_UNDECIDED;
 
   char* nl = strchr(peeked, '\n');
-  if ((nl == NULL) || (nl < sp)) return PROTO_UNDECIDED;
+  if ((nl == NULL) || (nl < sp)) return PARSE_UNDECIDED;
 
   char* http = strcasestr(peeked, " HTTP/");
   if (http && (sp < http) && (nl > http) && isalpha(peeked[0])) {
-    /* - Is it a connection to a remote tunneled backend?
-     * - Is it a connection to an internal LUA HTTPd?
-     * - Is it a PageKite tunnel request?
-     * - None of the above: eat the data, return an error
-     */
+
+    /* - Is it a PageKite tunnel request? */
+    if (IS_PAGEKITE_REQUEST(peeked)) {
+      return _pkr_parse_pagekite_request(peeked, bytes, nl, ics);
+    }
+
+    /* - Is it an HTTP Proxy request? */
+    if (strncasecmp(peeked, "CONNECT ", 8) == 0) {
+      /* HTTP PROXY requests are one-liners. If it's valid, we start
+       * tunneling, if it's not, we close. We complete the handshake
+       * on another thread, just in case it blocks. */
+      ics->hostname = peeked + 8;
+      ics->parsed_as = PROTO_HTTP_CONNECT;
+      zero_first_whitespace(bytes - 8, ics->hostname);
+      return _find_tunnel(ics) ? PARSE_MATCH_SLOW : PARSE_FAILED;
+    }
+
+    /* The other HTTP implementations all prefer the Host: header */
     char* host = strcasestr(peeked, "\nHost: ");
     if (host) {
       host += 7;
-      char* eol = strchr(host, '\n');
-      if (eol) *eol-- = '\0';
-      if (eol && (*eol == '\r')) *eol = '\0';
-      eol = strchr(host, ':');
-      if (eol) *eol = '\0';
+      zero_first_whitespace(bytes - (host - peeked), host);
     }
-    fprintf(stderr, "Is HTTP %s\n", host ? host : "(unknown)");
-    return PROTO_FAILED;
+    ics->hostname = host;
+    ics->parsed_as = PROTO_HTTP;
+
+    if (_find_tunnel(ics)) return PARSE_MATCH_FAST;
+
+    /* FIXME: Is it a connection to an internal LUA HTTPd? */
+
+    return PARSE_FAILED;
   }
 
   /* -Wall dislikes unused arguments */
-  (void) loop;
   (void) bytes;
-  return PROTO_UNDECIDED;
+  return PARSE_UNDECIDED;
 }
 
-static void pkr_new_conn_readable_cb(EV_P_ ev_io* w, int revents)
+static void _pkr_close(struct incoming_conn_state* ics,
+                       int log_level,
+                       const char* reason)
 {
-  struct pk_backend_conn* pkb = (struct pk_backend_conn*) w->data;
+  char rbuf[128];
+  char lbuf[128];
+
+  /* FIXME: Log more useful things about the connection. */
+  pk_log(PK_LOG_TUNNEL_CONNS | log_level,
+        "%s; remote=%s; local=%s; hostname=%s; fd=%d",
+        reason,
+        in_addr_to_str((struct sockaddr*) &(ics->remote_addr), rbuf, 128),
+        in_addr_to_str((struct sockaddr*) &(ics->local_addr), lbuf, 128),
+        ics->hostname,
+        ics->pkb->conn.sockfd);
+
+  if (ics->pkb) {
+    pkc_reset_conn(&(ics->pkb->conn), 0);
+    pkm_free_be_conn(ics->pkb);
+  }
+  free(ics);
+}
+
+void pkr_relay_incoming(pk_lua_t* LUA, int result, void* void_data) {
+  struct incoming_conn_state* ics = (struct incoming_conn_state*) void_data;
+
+  pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: pkr_relay_incoming(.., %d, ..)", result);
+
+  /* If we get this far, then the request has been parsed and we have
+   * in ics details about what needs to be done. So we do it! :)
+   */
+
+  _pkr_close(ics, 0, "FIXME");
+}
+
+static int _pkr_process_readable(struct incoming_conn_state* ics)
+{
   char peeked[PEEK_BYTES+1];
   int bytes;
-  
+  int result = PARSE_UNDECIDED;
+
   PK_TRACE_FUNCTION;
 
   /* We have data! Peek at it to find out what it is... */
-  bytes = PKS_peek(pkb->conn.sockfd, peeked, PEEK_BYTES);
-  peeked[bytes] = '\0';
+  bytes = PKS_peek(ics->pkb->conn.sockfd, peeked, PEEK_BYTES);
+  if (bytes == 0) {
+    /* Connection closed already */
+    result = PARSE_FAILED;
+  }
+  else if (bytes < 0) {
+    pk_log(PK_LOG_MANAGER_DEBUG,
+           "_pkr_process_readable(%d): peek failed %d=%s!",
+           ics->pkb->conn.sockfd, errno, strerror(errno));
+    if (errno == EAGAIN || errno == EINTR || errno == EWOULDBLOCK) {
+      result = PARSE_WANT_MORE_DATA;
+    }
+    else {
+      result = PARSE_FAILED;
+    }
+  }
+  else {
+    peeked[bytes] = '\0';
+  }
 
-  int result = (_pkr_handle_ssltls(EV_A_ w,
-                                   pkb, (unsigned char*) peeked, bytes) ||
-                _pkr_handle_http(EV_A_ w, pkb, peeked, bytes) ||
-                PROTO_FAILED);
+  if (!result) result = _pkr_parse_ssltls(peeked, bytes, ics);
+  if (!result) result = _pkr_parse_http(peeked, bytes, ics);
+  /* FIXME: Add lua checker! */
 
-  /* FIXME: Does this belong to a LUA plugin? Handle more protocols? */
+  /* No result yet? Do we have enough data? */
+  if (!result) {
+    if (bytes > 4) {
+      result = PARSE_FAILED;
+    }
+    else {
+      result = PARSE_WANT_MORE_DATA;
+    }
+  }
 
-  if (result != PROTO_WANT_MORE_DATA) {
-    ev_io_stop(EV_A_ w);
-    close(pkb->conn.sockfd);
+  pk_log(PK_LOG_MANAGER_DEBUG,
+         "_pkr_process_readable(%d): result=%d, bytes=%d",
+         ics->pkb->conn.sockfd, result, bytes);
+
+  if (result != PARSE_WANT_MORE_DATA) {
+    if (result == PARSE_MATCH_FAST) {
+      /* Parsers found something. Process now. */
+      pkr_relay_incoming(ics->pkm->lua, result, ics);
+    }
+    else if (result == PARSE_MATCH_SLOW) {
+      /* Parsers found something. Punt to other thread for processing. */
+      pkb_add_job(&(ics->pkm->blocking_jobs), PK_RELAY_INCOMING, result, ics);
+    }
+    else {
+      /* result == PARSE_FAILED */
+      _pkr_close(ics, 0, "No tunnel found");
+    }
   }
 
   PK_CHECK_MEMORY_CANARIES;
+
+  return result;
+}
+
+void pkr_new_conn_readable_cb(EV_P_ ev_io* w, int revents)
+{
+  struct incoming_conn_state* ics = (struct incoming_conn_state*) w->data;
+
+  PK_TRACE_FUNCTION;
+
+  ev_io_stop(EV_A_ w);
+  if (_pkr_process_readable(ics) == PARSE_WANT_MORE_DATA) ev_io_start(EV_A_ w);
 
   /* -Wall dislikes unused arguments */
   (void) loop;
   (void) revents;
 }
 
-static void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
+void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
 {
+  struct incoming_conn_state* ics;
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
   struct pk_backend_conn* pkb;
+  socklen_t slen;
+  char rbuf[128];
+  char lbuf[128];
+
+  PK_TRACE_FUNCTION;
+
+  ics = malloc(sizeof(struct incoming_conn_state));
+  ics->pkm = pkm;
+  ics->pkb = NULL;
+  ics->tunnel = NULL;
+  ics->hostname = NULL;
+  ics->parsed_as = PROTO_UNKNOWN;
+
+  slen = sizeof(ics->local_addr);
+  getsockname(sockfd, (struct sockaddr*) &(ics->local_addr), &slen);
+
+  slen = sizeof(ics->remote_addr);
+  getpeername(sockfd, (struct sockaddr*) &(ics->remote_addr), &slen);
+
+  pk_log(PK_LOG_TUNNEL_DATA,
+         "Accepted; remote=%s; local=%s; fd=%d",
+         in_addr_to_str((struct sockaddr*) &(ics->remote_addr), rbuf, 128),
+         in_addr_to_str((struct sockaddr*) &(ics->local_addr), lbuf, 128),
+         sockfd);
 
   /* Allocate a connection for this request or die... */
-  if (NULL == (pkb = pkm_alloc_be_conn(pkm, NULL, "!NEW"))) {
-    pk_log(PK_LOG_TUNNEL_CONNS|PK_LOG_ERROR,
-           "pkr_conn_accepted_cb: BE alloc failed for %d", sockfd);
-    close(sockfd);
+  sprintf(lbuf, "!NEW:%d", ics->remote_addr.sin_port);
+  if (NULL == (pkb = pkm_alloc_be_conn(pkm, NULL, lbuf))) {
+    _pkr_close(ics, PK_LOG_ERROR, "BE alloc failed");
+    PKS_close(sockfd);
+    return;
   }
 
   pkb->kite = NULL;
   pkb->conn.sockfd = sockfd;
+  ics->pkb = pkb;
+
+  set_non_blocking(sockfd);
 
   ev_io_init(&(pkb->conn.watch_r),
              pkr_new_conn_readable_cb,
              PKS_EV_FD(sockfd),
              EV_READ);
-  pkb->conn.watch_r.data = (void *) pkb;
+  pkb->conn.watch_r.data = (void *) ics;
   ev_io_start(pkm->loop, &(pkb->conn.watch_r));
 }
 
@@ -318,6 +490,15 @@ int pkrelay_test(void)
   /* FIXME: Test more corruption. */
   fprintf(stderr, "TLS SNI parsing tests passed\n");
 
+  /* Cases to test:
+   *   - Incoming authorized tunnel request
+   *   - Incoming unauthorized tunnel request
+   *   - Incoming HTTP requests
+   *   - Incoming HTTP Proxy requests
+   *   - Incoming end-to-end HTTPS requests
+   *   - Incoming locally terminated SSL connections
+   *   - Unrecognized incoming data
+   */
 
   fprintf(stderr, "FIXME: Test more stuff in pkrelay.c\n");
 #endif
