@@ -140,6 +140,14 @@ int set_blocking(int sockfd)
   return -1;
 }
 
+void sleep_ms(int ms)
+{
+  struct timeval tv;
+  tv.tv_sec = (ms / 1000);
+  tv.tv_usec = 1000 * (ms % 1000);
+  select(0, NULL, NULL, NULL, &tv);
+}
+
 int wait_fd(int fd, int timeout_ms)
 {
 #ifdef HAVE_POLL

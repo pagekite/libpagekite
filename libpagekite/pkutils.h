@@ -27,6 +27,7 @@ char* collapse_whitespace(char*);
 int dbg_write(int, char *, int);
 int set_non_blocking(int);
 int set_blocking(int);
+void sleep_ms(int);
 int wait_fd(int, int);
 ssize_t timed_read(int, void*, size_t, int);
 struct addrinfo* copy_addrinfo_data(struct addrinfo* dst, struct addrinfo* src);

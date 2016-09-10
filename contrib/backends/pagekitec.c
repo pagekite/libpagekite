@@ -208,6 +208,7 @@ int main(int argc, char **argv) {
   signal(SIGUSR1, &raise_log_level);
   signal(SIGQUIT, &shutdown_pagekite);
   signal(SIGINT, &shutdown_pagekite);
+  signal(SIGPIPE, SIG_IGN);
 #endif
 
   if (whitelabel_tld != NULL)

@@ -42,6 +42,7 @@ Connections are accepted and identified like so:
 #define _GNU_SOURCE
 #include <ctype.h>
 #include <string.h>
+#include <time.h>
 
 #include "pkcommon.h"
 #include "pkutils.h"
@@ -66,6 +67,13 @@ Connections are accepted and identified like so:
 #define PROTO_HTTP_CONNECT    3
 #define PROTO_TLS_WITH_SNI    4
 #define PROTO_LEGACY_SSL      5
+static const char* known_protos[] = {
+  "(unknown)",
+  "PageKite",
+  "HTTP",
+  "HTTP CONNECT",
+  "TLS+SNI",
+  "SSL/TLS"};
 
 #define PEEK_BYTES 512
 #define SSL_CLIENTHELLO 0x80
@@ -79,6 +87,8 @@ struct incoming_conn_state {
   struct pk_tunnel* tunnel;
   unsigned char* hostname;
   int parsed_as;
+  int parse_state;
+  time_t created;
 };
 
 
@@ -242,13 +252,25 @@ static int _pkr_parse_http(char* peeked,
     }
 
     /* The other HTTP implementations all prefer the Host: header */
+    ics->parsed_as = PROTO_HTTP;
     char* host = strcasestr(peeked, "\nHost: ");
     if (host) {
       host += 7;
-      zero_first_whitespace(bytes - (host - peeked), host);
+      if (zero_first_whitespace(bytes - (host - peeked), host)) {
+        ics->hostname = host;
+      }
+      else {
+        host = NULL;
+      }
     }
-    ics->hostname = host;
-    ics->parsed_as = PROTO_HTTP;
+
+    if ((host == NULL)
+             && ((*(nl-1) == '\r') ? (strstr(peeked, "\r\n\r\n") == NULL)
+                                   : (strstr(peeked, "\n\n") == NULL))
+             && (bytes < PEEK_BYTES)) {
+      /* No Host: header, and request is incomplete... */
+      return PARSE_WANT_MORE_DATA;
+    }
 
     if (_find_tunnel(ics)) return PARSE_MATCH_FAST;
 
@@ -271,30 +293,20 @@ static void _pkr_close(struct incoming_conn_state* ics,
 
   /* FIXME: Log more useful things about the connection. */
   pk_log(PK_LOG_TUNNEL_CONNS | log_level,
-        "%s; remote=%s; local=%s; hostname=%s; fd=%d",
+        "%s; remote=%s; local=%s; hostname=%s; proto=%s; fd=%d",
         reason,
         in_addr_to_str((struct sockaddr*) &(ics->remote_addr), rbuf, 128),
         in_addr_to_str((struct sockaddr*) &(ics->local_addr), lbuf, 128),
         ics->hostname,
+        known_protos[ics->parsed_as],
         ics->pkb->conn.sockfd);
 
   if (ics->pkb) {
     pkc_reset_conn(&(ics->pkb->conn), 0);
     pkm_free_be_conn(ics->pkb);
   }
+  ics->parse_state = PARSE_FAILED; /* A horrible hack */
   free(ics);
-}
-
-void pkr_relay_incoming(pk_lua_t* LUA, int result, void* void_data) {
-  struct incoming_conn_state* ics = (struct incoming_conn_state*) void_data;
-
-  pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: pkr_relay_incoming(.., %d, ..)", result);
-
-  /* If we get this far, then the request has been parsed and we have
-   * in ics details about what needs to be done. So we do it! :)
-   */
-
-  _pkr_close(ics, 0, "FIXME");
 }
 
 static int _pkr_process_readable(struct incoming_conn_state* ics)
@@ -340,28 +352,60 @@ static int _pkr_process_readable(struct incoming_conn_state* ics)
     }
   }
 
+  ics->parse_state = result;
   pk_log(PK_LOG_MANAGER_DEBUG,
          "_pkr_process_readable(%d): result=%d, bytes=%d",
          ics->pkb->conn.sockfd, result, bytes);
 
-  if (result != PARSE_WANT_MORE_DATA) {
-    if (result == PARSE_MATCH_FAST) {
-      /* Parsers found something. Process now. */
-      pkr_relay_incoming(ics->pkm->lua, result, ics);
-    }
-    else if (result == PARSE_MATCH_SLOW) {
-      /* Parsers found something. Punt to other thread for processing. */
-      pkb_add_job(&(ics->pkm->blocking_jobs), PK_RELAY_INCOMING, result, ics);
-    }
-    else {
-      /* result == PARSE_FAILED */
-      _pkr_close(ics, 0, "No tunnel found");
-    }
+  if ((result == PARSE_WANT_MORE_DATA) || (result == PARSE_MATCH_SLOW)) {
+    /* Parsers found something or we still need more data.
+     * Punt to another thread for further processing. */
+    pkb_add_job(&(ics->pkm->blocking_jobs), PK_RELAY_INCOMING, result, ics);
+  }
+  else if (result == PARSE_MATCH_FAST) {
+    /* Parsers found something. Process now. */
+    pkr_relay_incoming(ics->pkm->lua, result, ics);
+  }
+  else {
+    /* result == PARSE_FAILED */
+    _pkr_close(ics, 0, "No tunnel found");
   }
 
   PK_CHECK_MEMORY_CANARIES;
 
   return result;
+}
+
+void pkr_relay_incoming(pk_lua_t* LUA, int result, void* void_data) {
+  struct incoming_conn_state* ics = (struct incoming_conn_state*) void_data;
+
+  PK_TRACE_FUNCTION;
+
+  if (ics->parse_state == PARSE_FAILED) {
+    pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
+           "pkr_relay_incoming() invoked for dead ics");
+    return; /* Should never happen */
+  }
+
+  if (result == PARSE_WANT_MORE_DATA) {
+    if (time(NULL) - ics->created > 5) {
+      /* We don't wait forever for more data; that would make resource
+       * exhaustion DOS attacks against the server trivially easy. */
+      _pkr_close(ics, 0, "Timed out");
+    }
+    else {
+      /* Slow down a tiny bit, unless there are jobs in the queue waiting
+       * for us to finish. */
+      if (ics->pkm->blocking_jobs.count < 1) sleep_ms(100);
+      _pkr_process_readable(ics);
+    }
+  }
+  else {
+    /* If we get this far, then the request has been parsed and we have
+     * in ics details about what needs to be done. So we do it! :)
+     */
+    _pkr_close(ics, 0, "FIXME");
+  }
 }
 
 void pkr_new_conn_readable_cb(EV_P_ ev_io* w, int revents)
@@ -371,7 +415,7 @@ void pkr_new_conn_readable_cb(EV_P_ ev_io* w, int revents)
   PK_TRACE_FUNCTION;
 
   ev_io_stop(EV_A_ w);
-  if (_pkr_process_readable(ics) == PARSE_WANT_MORE_DATA) ev_io_start(EV_A_ w);
+  _pkr_process_readable(ics);
 
   /* -Wall dislikes unused arguments */
   (void) loop;
@@ -395,6 +439,8 @@ void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
   ics->tunnel = NULL;
   ics->hostname = NULL;
   ics->parsed_as = PROTO_UNKNOWN;
+  ics->parse_state = PARSE_UNDECIDED;
+  ics->created = time(NULL);
 
   slen = sizeof(ics->local_addr);
   getsockname(sockfd, (struct sockaddr*) &(ics->local_addr), &slen);

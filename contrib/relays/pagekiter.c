@@ -36,6 +36,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define MAX_PLUGIN_ARGS 128
 #define MAX_LISTEN_PORTS 128
 
+pagekite_mgr m;
+
 
 void usage(int ecode) {
   fprintf(stderr, "This is pagekiter.c from libpagekite %s.\n\n", PK_VERSION);
@@ -66,6 +68,10 @@ void raise_log_level(int sig) {
   if (sig) pagekite_set_log_mask(NULL, PK_LOG_ALL);
 }
 
+void shutdown_pagekite(int sig) {
+  if (sig) pagekite_thread_stop(m);
+}
+
 void safe_exit(int code) {
 #ifdef _MSC_VER
   fprintf(stderr, "Exiting with status code %d.\n", code);
@@ -75,7 +81,6 @@ void safe_exit(int code) {
 }
 
 int main(int argc, char **argv) {
-  pagekite_mgr m;
   unsigned int bail_on_errors = 0;
   unsigned int conn_eviction_idle_s = 0;
   char* proto;
@@ -165,10 +170,13 @@ int main(int argc, char **argv) {
 
 #ifndef _MSC_VER
   signal(SIGUSR1, &raise_log_level);
+  signal(SIGQUIT, &shutdown_pagekite);
+  signal(SIGKILL, &shutdown_pagekite);
+  signal(SIGPIPE, SIG_IGN);
 #endif
 
   init_kites += (argc-1-gotargs)/3;
-  if (!init_conns) init_conns = 50 + 4 * init_kites;
+  if (init_conns < init_kites) init_conns = 50 + 4 * init_kites;
   if (NULL == (m = pagekite_init("pagekiter",
                                  init_kites, init_kites, init_conns,
                                  NULL,
