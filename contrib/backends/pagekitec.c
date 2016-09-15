@@ -59,6 +59,7 @@ void usage(int ecode) {
                   "\t-B N\tBail out (abort) after N logged errors\n"
                   "\t-E N\tAllow eviction of streams idle for >N seconds\n"
                   "\t-F x\tUse x (a DNS name) as frontend pool\n"
+                  "\t-P x\tUse x (a port number) as frontend port\n"
                   "\t-R\tChoose frontends at random, instead of pinging\n"
                   "\t-N\tDisable DNS-based updates of available frontends\n"
                   "\t-4\tDisable IPv4 frontends\n");
@@ -111,6 +112,7 @@ int main(int argc, char **argv) {
   int max_conns = 25;
   int spare_frontends = 0;
   char* fe_hostname = NULL;
+  int fe_port = 443;
   char* ddns_url = PAGEKITE_NET_DDNS;
   int ac;
   int pport;
@@ -123,7 +125,7 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:HIo:LNn:qRSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:P:HIo:LNn:qRSvWw:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -169,6 +171,10 @@ int main(int argc, char **argv) {
         assert(fe_hostname == NULL);
         fe_hostname = strdup(optarg);
         break;
+      case 'P':
+        gotargs++;
+        if (1 == sscanf(optarg, "%d", &fe_port)) break;
+        usage(EXIT_ERR_USAGE);
       case 'B':
         gotargs++;
         if (1 == sscanf(optarg, "%u", &bail_on_errors)) break;
@@ -269,7 +275,7 @@ int main(int argc, char **argv) {
   /* The API could do this stuff on INIT, but since we allow for manually
      specifying a front-end hostname, we do things by hand. */
   if (fe_hostname) {
-    if (0 > pagekite_lookup_and_add_frontend(m, fe_hostname, 443,
+    if (0 > pagekite_lookup_and_add_frontend(m, fe_hostname, fe_port,
                                              flags & PK_WITH_DYNAMIC_FE_LIST))
     {
       pagekite_perror(m, argv[0]);
