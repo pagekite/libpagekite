@@ -59,6 +59,22 @@ int zero_first_whitespace(int length, char* data)
   return 0;
 }
 
+int zero_nth_char(int n, char c, int length, char* data)
+{
+  int i;
+  for (i = 0; i < length; i++)
+  {
+    if (data[i] == c)
+    {
+      if (--n < 1) {
+        data[i] = '\0';
+        return i+1;
+      }
+    }
+  }
+  return 0;
+}
+
 char *skip_http_header(int length, const char* data)
 {
   int i, lfs;

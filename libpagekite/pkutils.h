@@ -19,9 +19,11 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 #define strncpyz(dest, src, len) { strncpy(dest, src, len); dest[len] = '\0'; }
+#define free_outside(ptr, buf, len) { if ((ptr < buf) || (ptr >= buf+len)) free(ptr); }
 
 int zero_first_crlf(int, char*);
 int zero_first_whitespace(int, char*);
+int zero_nth_char(int, char, int, char*);
 char* skip_http_header(int, const char*);
 char* collapse_whitespace(char*);
 int dbg_write(int, char *, int);
