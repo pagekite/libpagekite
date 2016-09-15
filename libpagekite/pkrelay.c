@@ -37,6 +37,10 @@ Connections are accepted and identified like so:
 
 ******************************************************************************/
 
+#ifndef __GNUC__
+#error Sorry, PageKite relay support requires the GNU C __thread extension.
+#endif
+
 #include "pagekite.h"
 
 #define _GNU_SOURCE

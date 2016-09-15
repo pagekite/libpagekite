@@ -54,7 +54,11 @@ Note: For alternate license terms, see the file COPYING.md.
 #define ERR_WSA_STARTUP       -60006
 
 
+#ifdef __GNUC__
+extern __thread int pk_error;
+#else
 extern int pk_error;
+#endif
 
 int    pk_set_error(int);
 void*  pk_err_null(int);

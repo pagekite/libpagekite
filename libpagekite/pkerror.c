@@ -31,7 +31,13 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 
+#ifdef __GNUC__
+__thread int pk_error;
+#else
+#warning Uh, oh: pk_error is not thread safe on this platform!
 int pk_error;
+#endif
+
 
 int pk_set_error(int error) {
   return (pk_error = error);
