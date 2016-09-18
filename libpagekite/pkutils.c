@@ -75,6 +75,49 @@ int zero_nth_char(int n, char c, int length, char* data)
   return 0;
 }
 
+/* Use binary search to figure out where a string is (or should be)
+ * in a list of sorted strings. The returned offset may be larger
+ * than haysize-1, if the string should be added to the end of the
+ * list. */
+int strcaseindex(char** haystack, const char* needle, int haysize)
+{
+  int bottom = 0;
+  int top = haysize;
+  while (bottom < top) {
+    int midp = (bottom + top) / 2;
+    int cmp = strcasecmp(needle, haystack[midp]);
+    if (cmp > 0) {
+      /* Needle should be in upper half */
+      if (bottom < midp) {
+        /* Move bottom up, midpoint will be recalculated */
+        bottom = midp;
+      }
+      else {
+        /* We know the needle should be after midp, but there's no
+         * more space to search. So return the next slot after midp. */
+        return midp + 1;
+      }
+    }
+    else if (cmp < 0) {
+      /* Needle should be in lower half */
+      if (top > midp) {
+        /* Move top down, midpoint will be recalculated */
+        top = midp;
+      }
+      else {
+        /* We know the needle should be before midp, but there's no
+         * more space to search. So return midp itself. */
+        return midp;
+      }
+    }
+    else {
+      /* The string itself was found, return the index where we found it. */
+      return midp;
+    }
+  }
+  return bottom;
+}
+
 char *skip_http_header(int length, const char* data)
 {
   int i, lfs;
@@ -503,6 +546,7 @@ void init_memory_canaries() {
 int utils_test(void)
 {
 #if PK_TESTS
+  char* haystack[] = {"b", "c", "d"};
   char buffer1[60];
   PK_MEMORY_CANARY;
 
@@ -518,6 +562,11 @@ int utils_test(void)
 
   strcpy(buffer1, "abcd\r\nfoo\r\n\r\ndef");
   assert(strcmp(skip_http_header(strlen(buffer1), buffer1), "def") == 0);
+
+  assert(0 == strcaseindex((char**) haystack, "a", 3));
+  assert(1 == strcaseindex((char**) haystack, "BB", 3));
+  assert(2 == strcaseindex((char**) haystack, "cC", 3));
+  assert(3 == strcaseindex((char**) haystack, "E", 3));
 
 #if PK_MEMORY_CANARIES
   add_memory_canary(&canary);
