@@ -57,6 +57,11 @@ AC_ARG_WITH(os-libev,
 		[Use embedded libev, not the OS-provided library])],
 		[use_libev=no], [])
 
+AC_ARG_WITH(ipv6,
+	[AS_HELP_STRING([--without-ipv6],
+		[Disable IPv6 support even if IPv6 is available])],
+		[], [with_ipv6=yes])
+
 AC_ARG_WITH(java,
 	[AS_HELP_STRING([--without-java],
 		[Do not compile pagekite java bindings even if Java is available])],
@@ -222,6 +227,11 @@ fi
 AC_SUBST([LIBEV_CFLAGS])
 AC_SUBST([LIBEV_LIBS])
 
+
+if test "$with_ipv6" = "yes"; then
+  AC_DEFINE([HAVE_IPV6], [1], [Define to 0 to disable IPv6 support.])
+  HAVE_IPV6=1
+fi
 
 # Unit tests and debug code
 if test "$with_tests" = "yes"; then
