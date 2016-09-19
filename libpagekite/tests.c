@@ -44,9 +44,9 @@ int pkmanager_test();
 
 int main(void) {
 #if PK_TESTS
-#ifdef _MSC_VER
   pks_global_init(PK_LOG_ALL);
 
+# ifdef _MSC_VER
   /* Initialize Winsock */
   int r;
   WSADATA wsa_data;
@@ -55,17 +55,18 @@ int main(void) {
     fprintf(stderr, "WSAStartup failed: %d\n", r);
     return 1;
   }
-#endif
+# endif
+
   assert(utils_test());     fprintf(stderr, "utils test passed\n");
   assert(pkproto_test());   fprintf(stderr, "pkproto test passed\n");
   assert(pkmanager_test()); fprintf(stderr, "pkmanager test passed\n");
-#if HAVE_RELAY
+# if HAVE_RELAY
   assert(pkrelay_test());   fprintf(stderr, "pkrelay test passed\n");
-#endif
+# endif
+
 #else
   fprintf(stderr, "WARNING: Tests were not compiled in!\n");
 #endif
   return 0;
 }
-
 
