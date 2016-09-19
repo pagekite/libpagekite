@@ -653,7 +653,8 @@ DECLSPEC_DLL int pagekite_enable_lua_plugins(
 #if WITH_PAGEKITE_RELAY
 DECLSPEC_DLL int pagekite_add_relay_listener(
   pagekite_mgr,         /* A reference to the PageKite manager object */
-  int port
+  int port,             /* The port to listen on */
+  int flags             /* Flags, which features to enable */
 );
 #endif
 

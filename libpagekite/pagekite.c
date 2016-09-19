@@ -32,6 +32,9 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 #include "pkhooks.h"
+#if HAVE_RELAY
+#include "pkrelay.h"
+#endif
 
 #define PK_DEFAULT_FLAGS (PK_WITH_SSL | PK_WITH_IPV4 | PK_WITH_IPV6 | \
                           PK_WITH_DYNAMIC_FE_LIST)

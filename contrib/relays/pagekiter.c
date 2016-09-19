@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
   }
 
   for (ac = 0; ac < listen_portc; ac++) {
-    if (0 > pagekite_add_relay_listener(m, listen_ports[ac])) {
+    if (0 > pagekite_add_relay_listener(m, listen_ports[ac], flags)) {
       pagekite_perror(m, argv[0]);
       safe_exit(EXIT_ERR_LISTEN);
     }
