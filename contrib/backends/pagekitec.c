@@ -46,7 +46,8 @@ void usage(int ecode) {
                   " NAME.pagekite.me PPORT SECRET ...\n"
                   "Options:\n"
                   "\t-q\tDecrease verbosity (less log output)\n"
-                  "\t-v\tIncrease verbosity (more log output)\n");
+                  "\t-v\tIncrease verbosity (more log output)\n"
+                  "\t-V M\tSet log mask value explicitly\n");
 #ifdef HAVE_OPENSSL
   fprintf(stderr, "\t-I\tConnect insecurely, without SSL.\n");
 #endif
@@ -118,7 +119,7 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:HIo:LNn:qRSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:HIo:LNn:qRSvV:Ww:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -140,6 +141,10 @@ int main(int argc, char **argv) {
       case 'q':
         verbosity--;
         break;
+      case 'V':
+        gotargs++;
+        if (1 == sscanf(optarg, "%i", &verbosity)) break;
+        usage(EXIT_ERR_USAGE);
       case 'I':
         flags &= ~PK_WITH_SSL;
         break;
