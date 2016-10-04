@@ -23,8 +23,6 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 /* FIXME! */
-#define HAVE_OPENSSL 1
-#define HAVE_LUA 1
 #define HAVE_IPV6 1
 
 #include <pagekite.h>
@@ -48,7 +46,8 @@ void usage(int ecode) {
                   " NAME.pagekite.me PPORT SECRET ...\n"
                   "Options:\n"
                   "\t-q\tDecrease verbosity (less log output)\n"
-                  "\t-v\tIncrease verbosity (more log output)\n");
+                  "\t-v\tIncrease verbosity (more log output)\n"
+                  "\t-V M\tSet log mask value explicitly\n");
 #ifdef HAVE_OPENSSL
   fprintf(stderr, "\t-I\tConnect insecurely, without SSL.\n");
 #endif
@@ -115,15 +114,12 @@ int main(int argc, char **argv) {
   int ac;
   int pport;
   int lport;
-  int flags = (PK_WITH_SSL | PK_WITH_IPV4 | PK_WITH_DYNAMIC_FE_LIST);
-#ifdef HAVE_IPV6
-  flags |= PK_WITH_IPV6;
-#endif
+  int flags = PK_WITH_DEFAULTS;
 
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:HIo:LNn:qRSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:HIo:LNn:qRSvV:Ww:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -145,6 +141,10 @@ int main(int argc, char **argv) {
       case 'q':
         verbosity--;
         break;
+      case 'V':
+        gotargs++;
+        if (1 == sscanf(optarg, "%i", &verbosity)) break;
+        usage(EXIT_ERR_USAGE);
       case 'I':
         flags &= ~PK_WITH_SSL;
         break;
