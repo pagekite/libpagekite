@@ -115,10 +115,7 @@ int main(int argc, char **argv) {
   int ac;
   int pport;
   int lport;
-  int flags = (PK_WITH_SSL | PK_WITH_IPV4 | PK_WITH_DYNAMIC_FE_LIST);
-#ifdef HAVE_IPV6
-  flags |= PK_WITH_IPV6;
-#endif
+  int flags = PK_WITH_DEFAULTS;
 
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
