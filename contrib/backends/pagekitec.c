@@ -23,8 +23,6 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 /* FIXME! */
-#define HAVE_OPENSSL 1
-#define HAVE_LUA 1
 #define HAVE_IPV6 1
 
 #include <pagekite.h>
