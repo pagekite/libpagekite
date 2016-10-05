@@ -80,8 +80,10 @@ int pk_log(int level, const char* fmt, ...)
                               "libpagekite", "%.4000s\n", output);
         } else
 #endif
+        {
           fprintf(log_file, "%.4000s\n", output);
           fflush(log_file);
+        }
       }
     }
   }
