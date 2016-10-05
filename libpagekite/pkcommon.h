@@ -48,6 +48,10 @@
 #  include <ev.h>
 #endif
 
+#ifdef HAVE_SYSLOG_H
+#  include <syslog.h>
+#endif
+
 #ifdef __MINGW32__
 #  include <mswsock.h>
 #  include <io.h>

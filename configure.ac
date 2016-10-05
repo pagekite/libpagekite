@@ -94,7 +94,7 @@ fi
 AM_CONDITIONAL(HAVE_JAVA, test "x$with_java" = "xyes")
 
 # Checks for header files.
-AC_CHECK_HEADERS([jni.h pthread.h sched.h arpa/inet.h fcntl.h float.h inttypes.h limits.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/socket.h sys/statfs.h sys/time.h sys/timeb.h unistd.h])
+AC_CHECK_HEADERS([jni.h pthread.h sched.h arpa/inet.h fcntl.h float.h inttypes.h limits.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/socket.h sys/statfs.h sys/time.h sys/timeb.h unistd.h syslog.h])
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lpthread':

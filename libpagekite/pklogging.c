@@ -84,6 +84,11 @@ int pk_log(int level, const char* fmt, ...)
           fprintf(log_file, "%.4000s\n", output);
           fflush(log_file);
         }
+#ifdef HAVE_SYSLOG_H
+      } else {
+        int priority = (level & PK_LOG_ERRORS) ? LOG_ERR : LOG_NOTICE;
+        syslog(priority, "%.4000s\n", output);
+#endif
       }
     }
   }
