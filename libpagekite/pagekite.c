@@ -88,6 +88,13 @@ pagekite_mgr pagekite_init(
   /* Note: This will leak memory if used. */
   if (app_id != NULL) pk_state.app_id_long = strdup(app_id);
 
+#ifdef HAVE_SYSLOG_H
+  if (flags & PK_WITH_SYSLOG) {
+    openlog(pk_state.app_id_long, 0, LOG_USER);
+    pk_state.log_file = NULL;
+  }
+#endif
+
   if (NULL == (pkm_ = pkm_manager_init(NULL, 0, NULL,
                                        max_kites,
                                        max_frontends,

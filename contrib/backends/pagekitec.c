@@ -23,8 +23,6 @@ Note: For alternate license terms, see the file COPYING.md.
 ******************************************************************************/
 
 /* FIXME! */
-#define HAVE_OPENSSL 1
-#define HAVE_LUA 1
 #define HAVE_IPV6 1
 
 #include <pagekite.h>
@@ -48,7 +46,9 @@ void usage(int ecode) {
                   " NAME.pagekite.me PPORT SECRET ...\n"
                   "Options:\n"
                   "\t-q\tDecrease verbosity (less log output)\n"
-                  "\t-v\tIncrease verbosity (more log output)\n");
+                  "\t-v\tIncrease verbosity (more log output)\n"
+                  "\t-a x\tSet app name to x for logging\n"
+                  "\t-s\tLog to syslog instead of to stderr\n");                  
 #ifdef HAVE_OPENSSL
   fprintf(stderr, "\t-I\tConnect insecurely, without SSL.\n");
 #endif
@@ -105,6 +105,7 @@ int main(int argc, char **argv) {
   char* secret;
   char* lua_settings[MAX_PLUGIN_ARGS+1];
   char* whitelabel_tld = NULL;
+  char* app_name = "pagekitec";
   int lua_settingc = 0;
   int lua_no_defaults = 0;
   int gotargs = 0;
@@ -129,7 +130,7 @@ int main(int argc, char **argv) {
   /* FIXME: Is this too lame? */
   srand(time(0) ^ getpid());
 
-  while (-1 != (ac = getopt(argc, argv, "46c:B:CE:F:P:HIo:LNn:qRSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIo:LNn:qRSvWw:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -139,6 +140,13 @@ int main(int argc, char **argv) {
         flags &= ~PK_WITH_IPV6;
         break;
 #endif
+      case 'a':
+        gotargs++;
+        app_name = strdup(optarg);
+        break;
+      case 's':
+        flags |= PK_WITH_SYSLOG;
+        break;
       case 'N':
         flags &= ~PK_WITH_DYNAMIC_FE_LIST;
         break;
@@ -225,7 +233,7 @@ int main(int argc, char **argv) {
   if (whitelabel_tld != NULL)
   {
     if (NULL == (m = pagekite_init_whitelabel(
-      "pagekitec",
+      app_name,
       1 + (argc-1-gotargs)/5, /* Kites */
       max_conns,
       flags,
@@ -237,7 +245,7 @@ int main(int argc, char **argv) {
     }
   }
   else if (NULL == (m = pagekite_init(
-    "pagekitec",
+    app_name,
     1 + (argc-1-gotargs)/5, /* Kites */
     PAGEKITE_NET_FE_MAX,
     max_conns,

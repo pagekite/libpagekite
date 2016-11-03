@@ -61,6 +61,8 @@ WARNING: This file is processed automatically to generate the JNI and API
 #define PK_WITH_FRONTEND_SNI         0x0040
 #define PK_AS_FRONTEND_RELAY         0x0100
 
+#define PK_WITH_SYSLOG               0x0200
+
 /* Constants: PageKite logging constants */
 #define PK_LOG_TUNNEL_DATA     0x000100
 #define PK_LOG_TUNNEL_HEADERS  0x000200
