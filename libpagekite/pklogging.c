@@ -214,12 +214,17 @@ void pk_dump_tunnel(char* prefix, struct pk_tunnel* fe)
 void pk_dump_be_conn(char* prefix, struct pk_backend_conn* bec)
 {
   char tmp[1024];
+  if (!bec) return;
 
   #define LL PK_LOG_MANAGER_DEBUG
-  pk_log(LL, "%s/fe: %s", prefix, bec->tunnel->fe_hostname);
-  pk_log(LL, "%s/kite: %d <- %s://%s", prefix, bec->kite->local_port,
-                                               bec->kite->protocol,
-                                               bec->kite->public_domain);
+  if (bec->tunnel)
+    pk_log(LL, "%s/fe: %s", prefix, bec->tunnel->fe_hostname);
+
+  if (bec->kite)
+    pk_log(LL, "%s/kite: %d <- %s://%s", prefix, bec->kite->local_port,
+                                                 bec->kite->protocol,
+                                                 bec->kite->public_domain);
+
   sprintf(tmp, "%s/conn", prefix);
   pk_dump_conn(tmp, &(bec->conn));
 }
