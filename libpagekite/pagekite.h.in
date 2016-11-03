@@ -550,6 +550,17 @@ DECLSPEC_DLL char* pagekite_get_log(
 );
 
 
+/* Lifecycle: Dump summary of internal state to log.
+ *
+ *    This function can be called at any time.
+ *
+ * Returns: Always returns 0.
+ */
+DECLSPEC_DLL int pagekite_dump_state_to_log(
+  pagekite_mgr          /* A reference to the PageKite manager object */
+);
+
+
 /* Lifecycle: Wait for the pagekite event loop to wake up.
  *
  *    This method can be used to pause a thread, waking up again when

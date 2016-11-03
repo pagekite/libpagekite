@@ -403,6 +403,17 @@ jstring Java_net_pagekite_lib_PageKiteAPI_getLog(
   return rv;
 }
 
+jint Java_net_pagekite_lib_PageKiteAPI_dumpStateToLog(
+  JNIEnv* env, jclass unused_class
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+
+  jint rv = pagekite_dump_state_to_log(pagekite_manager_global);
+
+  return rv;
+}
+
 jint Java_net_pagekite_lib_PageKiteAPI_poll(
   JNIEnv* env, jclass unused_class
 , jint jtimeout

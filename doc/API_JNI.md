@@ -26,6 +26,7 @@
       * [`free                                        `](#fr)
       * [`getStatus                                   `](#gtStts)
       * [`getLog                                      `](#gtLg)
+      * [`dumpStateToLog                              `](#dmpSttTLg)
       * [`poll                                        `](#pll)
       * [`tick                                        `](#tck)
       * [`setBailOnErrors                             `](#stBlOnErrrs)
@@ -545,6 +546,21 @@ This function can be called at any time.
 
 
 **Returns**: A snapshot of the current log status.
+
+
+<a                                                    name="dmpSttTLg"><hr></a>
+
+#### `int dumpStateToLog(...)`
+
+Dump summary of internal state to log.
+
+This function can be called at any time.
+
+**Arguments**:
+
+
+
+**Returns**: Always returns 0.
 
 
 <a                                                          name="pll"><hr></a>

@@ -509,3 +509,9 @@ char* pagekite_get_log(pagekite_mgr pkm) {
   buffer[PKS_LOG_DATA_MAX] = '\0';
   return buffer;
 }
+
+int pagekite_dump_state_to_log(pagekite_mgr pkm)
+{
+  pk_dump_state(PK_MANAGER(pkm));
+  return 0;
+}

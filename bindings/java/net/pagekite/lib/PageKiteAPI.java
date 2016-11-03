@@ -86,6 +86,7 @@ public class PageKiteAPI extends Object
     public static native int free();
     public static native int getStatus();
     public static native String getLog();
+    public static native int dumpStateToLog();
     public static native int poll(int timeout);
     public static native int tick();
     public static native int setBailOnErrors(int errors);

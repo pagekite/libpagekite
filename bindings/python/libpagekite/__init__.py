@@ -89,6 +89,7 @@ def get_libpagekite_cdll():
             (c_int, "free", (c_void_p,)),
             (c_int, "get_status", (c_void_p,)),
             (c_char_p, "get_log", (c_void_p,)),
+            (c_int, "dump_state_to_log", (c_void_p,)),
             (c_int, "poll", (c_void_p, c_int,)),
             (c_int, "tick", (c_void_p,)),
             (c_int, "set_bail_on_errors", (c_void_p, c_int,))):
@@ -633,6 +634,18 @@ class PageKite(object):
         """
         assert(self.pkm is not None)
         return self.dll.pagekite_get_log(self.pkm, )
+
+    def dump_state_to_log(self, ):
+        """
+        Dump summary of internal state to log.
+        
+        This function can be called at any time.
+    
+        Returns:
+            Always returns 0.
+        """
+        assert(self.pkm is not None)
+        return self.dll.pagekite_dump_state_to_log(self.pkm, )
 
     def poll(self, timeout):
         """

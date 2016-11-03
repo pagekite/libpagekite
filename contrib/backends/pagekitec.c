@@ -81,6 +81,10 @@ void raise_log_level(int sig) {
   if (sig) pagekite_set_log_mask(NULL, PK_LOG_ALL);
 }
 
+void dump_state_to_log(int sig) {
+  if (sig) pagekite_dump_state_to_log(m);
+}
+
 void shutdown_pagekite(int sig) {
   if (sig) pagekite_thread_stop(m);
 }
@@ -212,6 +216,7 @@ int main(int argc, char **argv) {
 
 #ifndef _MSC_VER
   signal(SIGUSR1, &raise_log_level);
+  signal(SIGUSR2, &dump_state_to_log);
   signal(SIGQUIT, &shutdown_pagekite);
   signal(SIGINT, &shutdown_pagekite);
   signal(SIGPIPE, SIG_IGN);

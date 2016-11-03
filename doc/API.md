@@ -26,6 +26,7 @@
       * [`pagekite_free                               `](#pgktfr)
       * [`pagekite_get_status                         `](#pgktgtstts)
       * [`pagekite_get_log                            `](#pgktgtlg)
+      * [`pagekite_dump_state_to_log                  `](#pgktdmpstttlg)
       * [`pagekite_poll                               `](#pgktpll)
       * [`pagekite_tick                               `](#pgkttck)
       * [`pagekite_set_bail_on_errors                 `](#pgktstblnrrrs)
@@ -564,6 +565,21 @@ This function can be called at any time.
    * `pagekite_mgr`: A reference to the PageKite manager object
 
 **Returns**: A snapshot of the current log status.
+
+
+<a                                                name="pgktdmpstttlg"><hr></a>
+
+#### `int pagekite_dump_state_to_log(...)`
+
+Dump summary of internal state to log.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+**Returns**: Always returns 0.
 
 
 <a                                                      name="pgktpll"><hr></a>
