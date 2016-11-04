@@ -1199,13 +1199,16 @@ int pkm_add_listener(struct pk_manager* pkm,
 }
 
 int pkm_add_frontend(struct pk_manager* pkm,
-                     const char* hostname, int port, int flags)
+                     const char* hostname, int port,
+                     int conn_status_flags)
 {
-  return pkm_lookup_and_add_frontend(pkm, hostname, port, flags, 0);
+  return pkm_lookup_and_add_frontend(pkm, hostname, port,
+                                     conn_status_flags, 0);
 }
 
 int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
-                                const char* hostname, int port, int flags,
+                                const char* hostname, int port,
+                                int conn_status_flags,
                                 int add_null_record)
 {
   struct addrinfo hints;
@@ -1227,7 +1230,12 @@ int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
   count = 0;
   if (rv == 0) {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-      if (NULL != pkm_add_frontend_ai(pkm, rp, hostname, port, flags)) {
+      if (!pk_state.use_ipv4 && (rp->ai_addr->sa_family == AF_INET)) continue;
+#ifdef HAVE_IPV6
+      if (!pk_state.use_ipv6 && (rp->ai_addr->sa_family == AF_INET6)) continue;
+#endif
+      if (NULL != pkm_add_frontend_ai(pkm, rp, hostname, port,
+                                      conn_status_flags)) {
         pk_log(PK_LOG_MANAGER_DEBUG, "Front-end IP: %s",
                in_addr_to_str(rp->ai_addr, printip, 128));
         count++;
@@ -1237,7 +1245,8 @@ int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
   }
 
   if (!count && add_null_record) {
-    if (NULL != pkm_add_frontend_ai(pkm, NULL, hostname, port, flags)) {
+    if (NULL != pkm_add_frontend_ai(pkm, NULL, hostname, port,
+                                    conn_status_flags)) {
       pk_log(PK_LOG_MANAGER_DEBUG, "Front-end placeholder: %s", hostname);
       count++;
     }
@@ -1250,7 +1259,7 @@ int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
 struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
                                       struct addrinfo *ai,
                                       const char* hostname, int port,
-                                      int flags)
+                                      int conn_status_flags)
 {
   int which;
   struct pk_tunnel* fe;
@@ -1277,7 +1286,7 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
   }
   if (adding == NULL) return pk_err_null(ERR_NO_MORE_FRONTENDS);
 
-  adding->conn.status = (flags | CONN_STATUS_ALLOCATED);
+  adding->conn.status = (conn_status_flags | CONN_STATUS_ALLOCATED);
   copy_addrinfo_data(&(adding->ai), ai);
   adding->fe_port = port;
   adding->fe_hostname = strdup(hostname);

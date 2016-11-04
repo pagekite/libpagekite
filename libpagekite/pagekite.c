@@ -78,6 +78,11 @@ pagekite_mgr pagekite_init(
     pk_state.log_mask = verbosity;
   }
 
+  pk_state.use_ipv4 = (0 != (flags & PK_WITH_IPV4));
+#ifdef HAVE_IPV6
+  pk_state.use_ipv6 = (0 != (flags & PK_WITH_IPV6));
+#endif
+
   if (flags & PK_WITH_SSL) {
     PKS_SSL_INIT(ssl_ctx);
   }

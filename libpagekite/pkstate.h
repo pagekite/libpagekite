@@ -49,6 +49,10 @@ struct pk_global_state {
   unsigned int    fake_ping:1;
   char*           ssl_ciphers;
   char**          ssl_cert_names;
+  unsigned int    use_ipv4:1;
+#ifdef HAVE_IPV6
+  unsigned int    use_ipv6:1;
+#endif
 
   /* Global program state */
   unsigned int    live_streams;

@@ -40,6 +40,10 @@ void pks_global_init(unsigned int log_mask) {
   pk_state.fake_ping = 0;
   pk_state.ssl_ciphers = PKS_DEFAULT_CIPHERS;
   pk_state.ssl_cert_names = NULL;
+  pk_state.use_ipv4 = 1;
+#ifdef HAVE_IPV6
+  pk_state.use_ipv6 = 1;
+#endif
 
   pk_state.have_ssl = 0;
   pk_state.app_id_long = "libpagekite";
