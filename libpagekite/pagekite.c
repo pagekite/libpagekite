@@ -176,12 +176,18 @@ pagekite_mgr pagekite_init_whitelabel(
     strcpy(dynamic_dns_url, PAGEKITE_NET_DDNS);
   }
 
+  /* Make sure nothing at all is done about frontends in the default
+   * init routine, we're taking care of that ourselves. */
+  int init_flags = flags;
+  init_flags &= ~PK_WITH_SERVICE_FRONTENDS;
+  init_flags |= PK_WITHOUT_SERVICE_FRONTENDS;
+
   if (NULL == (pkm = pagekite_init(app_id,
                                    max_kites,
                                    PAGEKITE_NET_FE_MAX,
                                    max_conns,
                                    dynamic_dns_url,
-                                   flags & ~PK_WITH_SERVICE_FRONTENDS,
+                                   init_flags,
                                    verbosity)))
   {
     return NULL;
