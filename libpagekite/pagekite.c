@@ -243,33 +243,30 @@ int pagekite_add_whitelabel_frontends(
   add_null_records = (flags & PK_WITH_DYNAMIC_FE_LIST);
 
   sprintf(fdomain_v4, PAGEKITE_NET_WL_V4FRONTENDS, whitelabel_tld);
-#ifdef HAVE_IPV6
-  sprintf(fdomain_v6, PAGEKITE_NET_WL_V6FRONTENDS, whitelabel_tld);
-#endif
-
-  if (((flags & PK_WITH_IPV4) &&
-       (0 > (fes_v4 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
-                                                  fdomain_v4,
-                                                  PAGEKITE_NET_WL_FRONTEND_PORT,
-                                                  FE_STATUS_AUTO,
-                                                  add_null_records))))
-#ifdef HAVE_IPV6
-  ||  ((flags & PK_WITH_IPV6) &&
-       (0 > (fes_v6 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
-                                                  fdomain_v6,
-                                                  PAGEKITE_NET_WL_FRONTEND_PORT,
-                                                  FE_STATUS_AUTO,
-                                                  add_null_records))))
-#endif
-  ) {
-    return -1;
+  if (flags & PK_WITH_IPV4) {
+    fes_v4 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
+                                         fdomain_v4,
+                                         PAGEKITE_NET_WL_FRONTEND_PORT,
+                                         FE_STATUS_AUTO,
+                                         add_null_records);
   }
 
 #ifdef HAVE_IPV6
+  sprintf(fdomain_v6, PAGEKITE_NET_WL_V6FRONTENDS, whitelabel_tld);
+  if (flags & PK_WITH_IPV6) {
+    fes_v6 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
+                                         fdomain_v6,
+                                         PAGEKITE_NET_WL_FRONTEND_PORT,
+                                         FE_STATUS_AUTO,
+                                         add_null_records);
+  }
+  if ((fes_v4 < 0) && (fes_v6 < 0)) return -1;
   int fes = fes_v4 + fes_v6;
 #else
+  if (fes_v4 < 0) return -1;
   int fes = fes_v4;
 #endif
+
   if (0 == fes) {
     pk_set_error(ERR_NO_FRONTENDS);
     return -1;
@@ -287,21 +284,27 @@ int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
   if (flags & PK_WITH_DEFAULTS || !flags) flags |= PK_DEFAULT_FLAGS;
   add_null_records = (flags & PK_WITH_DYNAMIC_FE_LIST);
 
-  if (((flags & PK_WITH_IPV4) &&
-       (0 > (fes_v4 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
-                                                  PAGEKITE_NET_V4FRONTENDS,
-                                                  FE_STATUS_AUTO,
-                                                  add_null_records))))
-#ifdef HAVE_IPV6
-  ||  ((flags & PK_WITH_IPV6) &&
-       (0 > (fes_v6 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
-                                                  PAGEKITE_NET_V6FRONTENDS,
-                                                  FE_STATUS_AUTO,
-                                                  add_null_records))))
-#endif
-  ) {
-    return -1;
+  if (flags & PK_WITH_IPV4) {
+    fes_v4 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
+                                         PAGEKITE_NET_V4FRONTENDS,
+                                         FE_STATUS_AUTO,
+                                         add_null_records);
   }
+
+#ifdef HAVE_IPV6
+  if (flags & PK_WITH_IPV6) {
+    fes_v6 = pkm_lookup_and_add_frontend(PK_MANAGER(pkm),
+                                         PAGEKITE_NET_V6FRONTENDS,
+                                         FE_STATUS_AUTO,
+                                         add_null_records);
+  }
+
+  if ((fes_v6 < 0) && (fes_v4 < 0)) return -1;
+  int fes = fes_v4 + fes_v6;
+#else
+  if (fes_v4 < 0) return -1;
+  int fes = fes_v4;
+#endif
 
   /* Set/add the default SSL certificate names */
   if (pk_state.ssl_cert_names == NULL) {
@@ -311,11 +314,6 @@ int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
     pks_add_ssl_cert_names(PAGEKITE_NET_CERT_NAMES);
   }
 
-#ifdef HAVE_IPV6
-  int fes = fes_v4 + fes_v6;
-#else
-  int fes = fes_v4;
-#endif
   if (0 == fes) {
     pk_set_error(ERR_NO_FRONTENDS);
     return -1;
@@ -426,10 +424,10 @@ int pagekite_want_spare_frontends(pagekite_mgr pkm, int spares)
 int pagekite_add_kite(pagekite_mgr pkm,
   const char* proto,
   const char* kitename,
-  int pport, 
+  int pport,
   const char* secret,
   const char* backend,
-  int lport) 
+  int lport)
 {
   if (pkm == NULL) return -1;
   return (NULL != pkm_add_kite(PK_MANAGER(pkm),
