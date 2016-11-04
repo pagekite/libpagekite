@@ -31,12 +31,12 @@ WARNING: This file is processed automatically to generate the JNI and API
 
 /* Constants: Libpagekite version */
 #ifdef ANDROID
-#define PK_VERSION "0.91.160811A" /* Note: Update frontend DNS on changes! */
+#define PK_VERSION "0.91.161104A" /* Note: Update frontend DNS on changes! */
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.91.160811W"
+#define PK_VERSION "0.91.161104W"
 #else
-#define PK_VERSION "0.91.160811C"
+#define PK_VERSION "0.91.161104C"
 #endif
 #endif
 
@@ -60,7 +60,6 @@ WARNING: This file is processed automatically to generate the JNI and API
 #define PK_WITH_DYNAMIC_FE_LIST      0x0020
 #define PK_WITH_FRONTEND_SNI         0x0040
 #define PK_AS_FRONTEND_RELAY         0x0100
-
 #define PK_WITH_SYSLOG               0x0200
 
 /* Constants: PageKite logging constants */

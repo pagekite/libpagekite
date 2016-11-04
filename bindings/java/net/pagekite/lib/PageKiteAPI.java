@@ -24,7 +24,7 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
-    public static final String PK_VERSION = "0.91.160811C";
+    public static final String PK_VERSION = "0.91.161104C";
     public static final int PK_STATUS_STARTUP = 10;
     public static final int PK_STATUS_CONNECTING = 20;
     public static final int PK_STATUS_UPDATING_DNS = 30;
@@ -42,6 +42,7 @@ public class PageKiteAPI extends Object
     public static final int PK_WITH_DYNAMIC_FE_LIST = 0x0020;
     public static final int PK_WITH_FRONTEND_SNI = 0x0040;
     public static final int PK_AS_FRONTEND_RELAY = 0x0100;
+    public static final int PK_WITH_SYSLOG = 0x0200;
     public static final int PK_LOG_TUNNEL_DATA = 0x000100;
     public static final int PK_LOG_TUNNEL_HEADERS = 0x000200;
     public static final int PK_LOG_TUNNEL_CONNS = 0x000400;
