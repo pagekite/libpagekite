@@ -261,7 +261,14 @@ int pagekite_add_whitelabel_frontends(
                                          add_null_records);
   }
   if ((fes_v4 < 0) && (fes_v6 < 0)) return -1;
+
   int fes = fes_v4 + fes_v6;
+  if (fes_v4 < 0) {
+    fes = fes_v6;
+  }
+  else if (fes_v6 < 0) {
+    fes = fes_v4;
+  }
 #else
   if (fes_v4 < 0) return -1;
   int fes = fes_v4;
@@ -300,7 +307,14 @@ int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
   }
 
   if ((fes_v6 < 0) && (fes_v4 < 0)) return -1;
+
   int fes = fes_v4 + fes_v6;
+  if (fes_v4 < 0) {
+    fes = fes_v6;
+  }
+  else if (fes_v6 < 0) {
+    fes = fes_v4;
+  }
 #else
   if (fes_v4 < 0) return -1;
   int fes = fes_v4;

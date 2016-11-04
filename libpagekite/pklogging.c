@@ -247,7 +247,9 @@ void pk_dump_state(struct pk_manager* pkm)
   pk_log(LL, "pk_global_state/app_id_short: %s", pk_state.app_id_short);
   pk_log(LL, "pk_global_state/app_id_long: %s", pk_state.app_id_long);
   pk_log(LL, "pk_global_state/use_ipv4: %d", pk_state.use_ipv4);
+#ifdef HAVE_IPV6
   pk_log(LL, "pk_global_state/use_ipv6: %d", pk_state.use_ipv6);
+#endif
   pk_log(LL, "pk_global_state/have_ssl: %d", pk_state.have_ssl);
   pk_log(LL, "pk_global_state/live_streams: %d", pk_state.live_streams);
   pk_log(LL, "pk_global_state/live_tunnels: %d", pk_state.live_tunnels);
