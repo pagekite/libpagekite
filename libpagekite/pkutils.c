@@ -428,6 +428,48 @@ void digest_to_hex(const unsigned char* digest, char *output)
     *c = '\0';
 }
 
+int printable_binary(char* dest, size_t dlen, const char* src, size_t slen)
+{
+  char* p = (char *) src;
+  int copied = 0;
+  while (slen > copied) {
+    if (*p == '\0') {
+      /* Ensure we have space for two bytes plus null */
+      if (dlen < 3) {
+        *dest++ = '\0';
+        return copied;
+      }
+      *dest++ = '\\';
+      *dest++ = '0';
+      dlen -= 2;
+    }
+    else if (isgraph(*p) || (*p == ' ')) {
+      /* Ensure we have space for one byte plus null */
+      if (dlen < 2) {
+        *dest++ = '\0';
+        return copied;
+      }
+      *dest++ = *p;
+      dlen--;
+    }
+    else {
+      /* Ensure we have space for four bytes plus null */
+      if (dlen < 5) {
+        *dest++ = '\0';
+        return copied;
+      }
+      int wrote = sprintf(dest, "\\x%2.2x", *p);
+      dest += wrote;
+      dlen -= wrote;
+    }
+    copied++;
+    p++;
+  }
+
+  *dest++ = '\0';
+  return copied;
+}
+
 void pk_rlock_init(pk_rlock_t* rlock)
 {
   rlock->count = 0;
@@ -546,6 +588,7 @@ void init_memory_canaries() {
 int utils_test(void)
 {
 #if PK_TESTS
+  char binary[] = {'b', 'i', 'n', '\r', '\n', 0};
   char* haystack[] = {"b", "c", "d"};
   char buffer1[60];
   PK_MEMORY_CANARY;
@@ -567,6 +610,13 @@ int utils_test(void)
   assert(1 == strcaseindex((char**) haystack, "BB", 3));
   assert(2 == strcaseindex((char**) haystack, "cC", 3));
   assert(3 == strcaseindex((char**) haystack, "E", 3));
+
+  assert(printable_binary(buffer1, 7, binary, 6) == 3);
+  assert(strcasecmp(buffer1, "bin") == 0);
+  assert(printable_binary(buffer1, 8, binary, 6) == 4);
+  assert(strcasecmp(buffer1, "bin\\x0d") == 0);
+  assert(printable_binary(buffer1, 60, binary, 6) == 6);
+  assert(strcasecmp(buffer1, "bin\\x0d\\x0a\\0") == 0);
 
 #if PK_MEMORY_CANARIES
   add_memory_canary(&canary);

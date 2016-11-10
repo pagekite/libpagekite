@@ -607,6 +607,7 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
   int rv;
   struct pk_tunnel* fe = (struct pk_tunnel*) w->data;
   PK_TRACE_FUNCTION;
+
   fe->conn.status &= ~CONN_STATUS_WANT_READ;
   if (0 < pkc_read(&(fe->conn))) {
     if (0 > (rv = pk_parser_parse(fe->parser,
@@ -618,6 +619,11 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
       pk_log(PK_LOG_TUNNEL_HEADERS,
              "pkm_tunnel_readable_cb(): parse error = %d", rv);
       pk_dump_state(fe->manager);
+      if (pk_state.log_mask & PK_LOG_TUNNEL_DATA) {
+        int bytes = fe->conn.in_buffer_pos;
+        if (bytes > 100) bytes = 100;
+        pk_log_raw_data(PK_LOG_TUNNEL_DATA, "data", fe->conn.in_buffer, bytes);
+      }
     }
     fe->conn.in_buffer_pos = 0;
   }

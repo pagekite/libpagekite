@@ -112,6 +112,17 @@ int pk_log(int level, const char* fmt, ...)
   return r;
 }
 
+void pk_log_raw_data(int level, char* prefix, void* data, size_t bytes) {
+  char buffer[160];
+  int printed = 0;
+  char* p = (char *) data;
+
+  while (printed < bytes) {
+    printed += printable_binary(buffer, 160, p + printed, bytes - printed);
+    pk_log(level, "%s: %s", prefix, buffer);
+  }
+}
+
 int pk_log_chunk(struct pk_tunnel* fe, struct pk_chunk* chnk) {
   int i;
   int r = 0;
