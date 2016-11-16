@@ -10,7 +10,7 @@ libpagekite_la_CFLAGS = $(LIBEV_CFLAGS)
 libpagekite_la_LDFLAGS = -lpthread $(OPENSSL_LIBS) $(LIBEV_LIBS) \
         -lm -no-undefined -version-info 1:0:0
 
-tests_LDADD = $(top_srcdir)/libpagekite/libpagekite.la
+tests_LDADD = libpagekite.la
 tests_CFLAGS = $(LIBEV_CFLAGS) -I$(top_srcdir)/include
 
 if HAVE_JAVA
