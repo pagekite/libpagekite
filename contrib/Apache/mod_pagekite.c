@@ -1,4 +1,4 @@
-/* mod_pagekite.c, Copyright 2014-2015, The Beanstalks Project ehf.
+/* mod_pagekite.c, Copyright 2014-2017, The Beanstalks Project ehf.
  *
  * This configures Apache to automatically make chosen VirtualHosts
  * public using the PageKite tunneled reverse proxy.

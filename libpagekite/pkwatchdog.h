@@ -1,7 +1,7 @@
 /******************************************************************************
 pkwatchdog.h - Watchdog thread that just dumps core if ignored.
 
-This file is Copyright 2011-2015, The Beanstalks Project ehf.
+This file is Copyright 2011-2017, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software

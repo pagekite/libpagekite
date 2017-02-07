@@ -3,7 +3,7 @@ pkrelay.h - Logic specific to front-end relays
 
 *******************************************************************************
 
-This file is Copyright 2011-2015, The Beanstalks Project ehf.
+This file is Copyright 2011-2017, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the  GNU Affero General Public License, version 3.0 or above, as
