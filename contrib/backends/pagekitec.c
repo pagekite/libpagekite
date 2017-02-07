@@ -125,13 +125,11 @@ int main(int argc, char **argv) {
   int flags = (PK_WITH_SSL
               |PK_WITH_IPV4
               |PK_WITH_DYNAMIC_FE_LIST
+              |PK_WITH_SRAND_RESEED
               |PK_WITHOUT_SERVICE_FRONTENDS);
 #ifdef HAVE_IPV6
   flags |= PK_WITH_IPV6;
 #endif
-
-  /* FIXME: Is this too lame? */
-  srand(time(0) ^ getpid());
 
   while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIo:LNn:qRSvWw:Z"))) {
     switch (ac) {

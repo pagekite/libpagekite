@@ -1424,6 +1424,10 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   PK_TRACE_FUNCTION;
   PK_INIT_MEMORY_CANARIES;
 
+  /* Make sure we have some good random junk to work with, and re-seed
+   * rand() if allowed. */
+  better_srand(PK_RANDOM_DEFAULT);
+
 #ifdef HAVE_OPENSSL
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_ZERO_RETURN = %d", SSL_ERROR_ZERO_RETURN);
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_WRITE = %d", SSL_ERROR_WANT_WRITE);

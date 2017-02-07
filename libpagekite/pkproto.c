@@ -432,8 +432,7 @@ int pk_make_bsalt(struct pk_kite_request* kite_r) {
   uint8_t buffer[1024];
   char digest[41];
 
-  /* FIXME: This is not very random! */
-  sprintf((char*) buffer, "%x %x %x", rand(), getpid(), (int) time(0));
+  sprintf((char*) buffer, "%s %x %x", random_junk, rand(), (int) time(0));
 
 #ifdef HAVE_OPENSSL
   SHA_CTX context;

@@ -97,13 +97,13 @@ int main(int argc, char **argv) {
   int init_kites = 0;
   int init_conns = 0;
   int ac;
-  int flags = (PK_WITH_SSL | PK_WITH_IPV4 | PK_AS_FRONTEND_RELAY);
+  int flags = (PK_WITH_SSL
+              |PK_WITH_IPV4
+              |PK_WITH_SRAND_RESEED
+              |PK_AS_FRONTEND_RELAY);
 #ifdef HAVE_IPV6
   flags |= PK_WITH_IPV6;
 #endif
-
-  /* FIXME: Is this too lame? */
-  srand(time(0) ^ getpid());
 
   while (-1 != (ac = getopt(argc, argv, "46Ic:k:Lo:p:qvW"))) {
     switch (ac) {

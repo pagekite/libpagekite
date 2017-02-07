@@ -613,6 +613,7 @@ void pkb_check_world(struct pk_manager* pkm)
   }
   pk_log(PK_LOG_MANAGER_DEBUG,
          "Checking state of world... (v%s)", PK_VERSION);
+  better_srand(PK_RANDOM_DEFAULT);
   pkb_clear_transient_flags(pkm);
   pkb_check_tunnel_pingtimes(pkm);
   pkb_check_kites_dns(pkm);

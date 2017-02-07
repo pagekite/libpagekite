@@ -41,6 +41,7 @@ public class PageKiteAPI extends Object
     public static final int PK_WITHOUT_SERVICE_FRONTENDS = 0x0010;
     public static final int PK_WITH_DYNAMIC_FE_LIST = 0x0020;
     public static final int PK_WITH_FRONTEND_SNI = 0x0040;
+    public static final int PK_WITH_SRAND_RESEED = 0x0080;
     public static final int PK_AS_FRONTEND_RELAY = 0x0100;
     public static final int PK_WITH_SYSLOG = 0x0200;
     public static final int PK_LOG_TUNNEL_DATA = 0x000100;
