@@ -54,6 +54,7 @@ void usage(int ecode) {
 #endif
   fprintf(stderr, "\t-S\tStatic setup, disable FE failover and DDNS updates\n"
                   "\t-w D\tWhite-label configuration using domain D.\n"
+                  "\t-l D\tConnect to host D instead of localhost\n"
                   "\t-c N\tSet max connection count to N (default = 25)\n"
                   "\t-n N\tAlways connect to N spare frontends (default = 0)\n"
                   "\t-B N\tBail out (abort) after N logged errors\n"
@@ -106,6 +107,7 @@ int main(int argc, char **argv) {
   char* lua_settings[MAX_PLUGIN_ARGS+1];
   char* whitelabel_tld = NULL;
   char* app_name = "pagekitec";
+  char* localhost = "localhost";
   int lua_settingc = 0;
   int lua_no_defaults = 0;
   int gotargs = 0;
@@ -131,7 +133,7 @@ int main(int argc, char **argv) {
   flags |= PK_WITH_IPV6;
 #endif
 
-  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIo:LNn:qRSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIo:l:LNn:qRSvWw:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -178,6 +180,10 @@ int main(int argc, char **argv) {
       case 'w':
         gotargs++;
         whitelabel_tld = strdup(optarg);
+        break;
+      case 'l':
+        gotargs++;
+        localhost = strdup(optarg);
         break;
       case 'F':
         gotargs++;
@@ -277,7 +283,7 @@ int main(int argc, char **argv) {
     kitename = argv[ac+3];
     secret = argv[ac+5];
     if ((0 > pagekite_add_kite(m, proto, kitename, pport, secret,
-                               "localhost", lport)) ||
+                               localhost, lport)) ||
         (use_current && (0 > (pagekite_add_frontend(m, kitename, pport)))))
     {
       pagekite_perror(m, argv[0]);
