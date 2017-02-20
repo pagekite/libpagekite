@@ -405,6 +405,8 @@ void* pkb_tunnel_ping(void* void_fe) {
     bytes = timed_read(sockfd, buffer, 116, 1000);
     buffer[116] = '\0';
 
+    PKS_close(sockfd);
+
     want = strlen(PK_FRONTEND_PONG);
     if ((bytes < want) ||
         (0 != strncmp(buffer, PK_FRONTEND_PONG, want))) {
@@ -414,7 +416,6 @@ void* pkb_tunnel_ping(void* void_fe) {
       sleep(2); /* We don't want to return first! */
       return NULL;
     }
-    PKS_close(sockfd);
     gettimeofday(&tv2, NULL);
 
     fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
