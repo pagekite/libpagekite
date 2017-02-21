@@ -310,7 +310,8 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
   struct timeval to;
   to.tv_sec = pk_state.socket_timeout_s;
   to.tv_usec = 0;
-  errno = sockfd = 0;
+  errno = 0;
+  sockfd = -1;
   if ((NULL == addr) ||
       (0 > (sockfd = PKS_socket(AF_INET, SOCK_STREAM, 0))) ||
       PKS_fail(PKS_connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))) ||
@@ -322,7 +323,9 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
       /* FIXME:
          EINPROGRESS never happens until we swap connect/set_non_blocking
          above.  Do that later once we've figured out error handling. */
-      PKS_close(sockfd);
+      if (sockfd > -1)
+        PKS_close(sockfd);
+
       pkm_yield_stop(fe->manager);
       pkm_free_be_conn(pkb);
       pk_log(PK_LOG_TUNNEL_CONNS, "pkm_connect_be: Failed to connect %s:%d",
