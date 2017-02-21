@@ -458,7 +458,10 @@ int printable_binary(char* dest, size_t dlen, const char* src, size_t slen)
         *dest++ = '\0';
         return copied;
       }
-      int wrote = sprintf(dest, "\\x%2.2x", *p);
+      /* The cast to unsigned char is required, otherwise 'negative' byte
+       * values will be sign-extended to int and will take more than four
+       * bytes; e.g. 255 is printed as \xffffffff */
+      int wrote = sprintf(dest, "\\x%2.2x", (unsigned char) *p);
       dest += wrote;
       dlen -= wrote;
     }
