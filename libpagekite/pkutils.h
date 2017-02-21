@@ -28,6 +28,7 @@ Note: For alternate license terms, see the file COPYING.md.
 extern char random_junk[];
 
 void better_srand(int);
+int32_t murmur3_32(const uint8_t* key, size_t len);
 int zero_first_crlf(int, char*);
 int zero_first_whitespace(int, char*);
 int zero_nth_char(int, char, int, char*);

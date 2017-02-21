@@ -68,7 +68,7 @@ static void pkm_reset_timer(struct pk_manager*);
 static void pkm_reset_manager(struct pk_manager*);
 static struct pk_pagekite* pkm_find_kite(struct pk_manager*,
                                          const char*, const char*, int);
-static unsigned char pkm_sid_shift(char *);
+static unsigned int pkm_sid_shift(char *);
 
 #ifndef HAVE_PTHREAD_YIELD
 #  ifdef HAVE_PTHREAD_YIELD_NP
@@ -1308,16 +1308,9 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
   return adding;
 }
 
-static unsigned char pkm_sid_shift(char *sid)
+static unsigned int pkm_sid_shift(char *sid)
 {
-  unsigned char shift;
-  char *c;
-
-  for (c = sid, shift = 0; *c != '\0'; c++) {
-    shift = (shift << 3) | (shift >> 5);
-    shift ^= *c;
-  }
-  return shift;
+  return murmur3_32(sid, strlen(sid));
 }
 
 struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
@@ -1325,7 +1318,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
 {
   int i, evicting;
   time_t max_age;
-  unsigned char shift;
+  unsigned int shift;
   struct pk_backend_conn* pkb;
   struct pk_backend_conn* pkb_oldest;
 
@@ -1392,12 +1385,12 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
                                          struct pk_tunnel* fe, char* sid)
 {
   int i;
-  unsigned char shift;
+  unsigned int shift;
   struct pk_backend_conn* pkb;
 
   PK_TRACE_FUNCTION;
 
-  shift = pkm_sid_shift(sid);
+  shift = pkm_sid_shift(sid) % pkm->be_conn_max;
   for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
     if ((pkb->conn.status & CONN_STATUS_ALLOCATED) &&
