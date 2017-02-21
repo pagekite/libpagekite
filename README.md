@@ -88,7 +88,7 @@ documentation.
 
 ## State of the Onion
 
-As of February 2016, the library's main limitations are:
+As of February 2017, the library's main limitations are:
 
    * [SSL certificates are not verified when connecting to the
       relay](https://github.com/pagekite/libpagekite/issues/6)
@@ -98,13 +98,14 @@ As of February 2016, the library's main limitations are:
 
 The back-end connector code is however considered mature and stable; the
 library does a good job connecting, relaying traffic and *reconnecting* as
-necessary. The library is not currently known to crash (on Linux) or have
-security vulnerabilities, aside from the SSL limitation above.
+necessary. Stability has been pretty good, but [check our issues for the
+latest bug reports](https://github.com/pagekite/libpagekite/issues?utf8=%E2%9C%93&q=is%3Aissue)
+and [the commit log for recent fixes](https://github.com/pagekite/libpagekite/commits/master).
 
 
 ## License and Copyright ##
 
-libpagekite is Copyright 2011-2016, The Beanstalks Project ehf.
+libpagekite is Copyright 2011-2017, The Beanstalks Project ehf.
 
 This code is released under the Apache License 2.0, but may also be used
 according to the terms of the GNU Affero General Public License.  Please
