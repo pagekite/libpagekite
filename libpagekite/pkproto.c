@@ -588,22 +588,23 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   struct pk_pagekite tkite;
   struct pk_kite_request tkite_r;
 
+  pkc->status |= CONN_STATUS_CHANGING;
   pk_log(PK_LOG_TUNNEL_CONNS, "Connecting to %s (session=%s)",
                               in_addr_to_str(ai->ai_addr, buffer, 1024),
                               (session_id && session_id[0] != '\0')
                                ? session_id : "new");
-
   if (0 > pkc_connect(pkc, ai))
     return (pk_error = ERR_CONNECT_CONNECT);
 
-  memset(&buffer, 0, 16*1024);
   set_blocking(pkc->sockfd);
+
 #ifdef HAVE_OPENSSL
   if ((ctx != NULL) &&
       (0 != pkc_start_ssl(pkc, ctx, hostname)))
     return (pk_error = ERR_CONNECT_TLS);
 #endif
 
+  memset(&buffer, 0, 16*1024);
   pkc_write(pkc, PK_HANDSHAKE_CONNECT, strlen(PK_HANDSHAKE_CONNECT));
   pkc_write(pkc, PK_HANDSHAKE_FEATURES, strlen(PK_HANDSHAKE_FEATURES));
   if (session_id && *session_id) {
@@ -624,7 +625,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   pk_log(PK_LOG_TUNNEL_DATA, " - End handshake, flushing.");
   pkc_write(pkc, PK_HANDSHAKE_END, strlen(PK_HANDSHAKE_END));
   if (0 > pkc_flush(pkc, NULL, 0, BLOCKING_FLUSH, "pk_connect_ai")) {
-    pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
+    pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
     return (pk_error = ERR_CONNECT_REQUEST);
   }
 
@@ -668,7 +669,7 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
     if ((strncasecmp(p, "X-PageKite-Duplicate:", 21) == 0) ||
         (strncasecmp(p, "X-PageKite-Invalid:", 19) == 0)) {
       pk_log(PK_LOG_TUNNEL_CONNS, "%s", p);
-      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
+      pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
       /* FIXME: Should update the status of each individual request. */
       return (pk_error = (p[12] == 'u') ? ERR_CONNECT_DUPLICATE
                                         : ERR_CONNECT_REJECTED);
@@ -706,11 +707,11 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
 
   if (i) {
     if (reconnecting) {
-      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
+      pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
       return (pk_error = ERR_CONNECT_REJECTED);
     }
     else {
-      pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
+      pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
       return pk_connect_ai(pkc, ai, 1, n, requests, session_id, ctx, hostname);
     }
   }
@@ -732,6 +733,7 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
   char ports[16];
   struct addrinfo hints, *result, *rp;
 
+  pkc->status |= CONN_STATUS_CHANGING;
   pk_log(PK_LOG_TUNNEL_CONNS, "pk_connect(%s:%d, %d, %p)",
                               frontend, port, n, requests);
 

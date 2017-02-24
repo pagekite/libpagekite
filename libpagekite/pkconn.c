@@ -37,6 +37,12 @@ Note: For alternate license terms, see the file COPYING.md.
 void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
 {
   PK_ADD_MEMORY_CANARY(pkc);
+  if ((pkc->status & CONN_STATUS_CHANGING) && !(status & CONN_STATUS_CHANGING)) {
+    /* This will warn about the reset unless the status argument
+     * explicitly says this is part of an ongoing change. */
+    pk_log(PK_LOG_ERROR,
+           "%d: BUG! Attempt to reset conn mid-change!", pkc->sockfd);
+  }
   pkc->status &= ~CONN_STATUS_BITS;
   pkc->status |= status;
   pkc->activity = time(0);
@@ -65,7 +71,7 @@ int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
   int fd;
   to.tv_sec = pk_state.socket_timeout_s;
   to.tv_usec = 0;
-  pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
+  pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
   if ((0 > (fd = PKS_socket(ai->ai_family, ai->ai_socktype,
                             ai->ai_protocol))) ||
       PKS_fail(PKS_setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *) &to, sizeof(to))) ||
@@ -86,7 +92,9 @@ int pkc_listen(struct pk_conn* pkc, struct addrinfo* ai, int backlog)
   struct sockaddr_in sin;
   socklen_t len = sizeof(sin);
 
-  pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED|CONN_STATUS_LISTENING);
+  pkc_reset_conn(pkc, CONN_STATUS_CHANGING |
+                      CONN_STATUS_ALLOCATED |
+                      CONN_STATUS_LISTENING);
   if ((0 > (fd = PKS_socket(ai->ai_family, ai->ai_socktype,
                             ai->ai_protocol))) ||
       PKS_fail(PKS_bind(fd, ai->ai_addr, ai->ai_addrlen)) ||

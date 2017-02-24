@@ -128,6 +128,10 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
       /* Is tunnel really a front-end? */
       if ((fe->fe_hostname == NULL) || (fe->ai.ai_addr == NULL)) continue;
 
+      /* Is tunnel in the middle of connecting still? That's a bad sign,
+       * don't consider it a candidate for "fastest" in this round. */
+      if (fe->conn.status & CONN_STATUS_CHANGING) continue;
+
       prio = fe->priority + (25 * fe->error_count);
       if ((fe->ai.ai_addr) &&
           (fe->fe_hostname) &&
@@ -587,10 +591,11 @@ void pkb_log_fe_status(struct pk_manager* pkm)
           sprintf(ddnsinfo, " (in DNS %us ago)", ddnsup_ago);
         }
         pk_log(PK_LOG_MANAGER_DEBUG,
-               "Relay; status=0x%8.8x; errors=%d; info=%s%s%s%s%s%s%s%s",
+               "Relay; status=0x%8.8x; errors=%d; info=%s%s%s%s%s%s%s%s%s",
                fe->conn.status,
                fe->error_count,
                printip,
+               (fe->conn.status & CONN_STATUS_CHANGING) ? " changing": "",
                (fe->conn.status & FE_STATUS_REJECTED) ? " rejected": "",
                (fe->conn.status & FE_STATUS_WANTED) ? " wanted": "",
                (fe->conn.status & FE_STATUS_LAME) ? " lame": "",

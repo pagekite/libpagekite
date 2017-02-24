@@ -60,6 +60,7 @@ typedef enum {
 #define CONN_STATUS_WANT_READ   0x00000100 /* Want null reads when available  */
 #define CONN_STATUS_WANT_WRITE  0x00000200 /* Want null writes when available */
 #define CONN_STATUS_LISTENING   0x00000400 /* Listening socket */
+#define CONN_STATUS_CHANGING    0x00000800 /* This conn is being changed */
 #define PKC_OUT(c)      ((c).out_buffer + (c).out_buffer_pos)
 #define PKC_OUT_FREE(c) (CONN_IO_BUFFER_SIZE - (c).out_buffer_pos)
 #define PKC_IN(c)       ((c).in_buffer + (c).in_buffer_pos)

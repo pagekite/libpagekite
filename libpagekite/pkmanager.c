@@ -358,6 +358,7 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
   ev_io_start(fe->manager->loop, &(pkb->conn.watch_r));
   ev_io_start(fe->manager->loop, &(pkb->conn.watch_w));
 
+  pkb->conn.status &= ~CONN_STATUS_CHANGING;  /* Change complete */
   PKS_STATE(pk_state.live_streams += 1);
 
   return pkb;
@@ -762,6 +763,15 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
     if (fe->fe_hostname == NULL || fe->ai.ai_addr == NULL) continue;
     if (!(fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS))) continue;
 
+    /* Ignore tunnels that are changing state, but log that we did so since
+     * tunnels stuck in a long-running change may indicate other problems. */
+    if (fe->conn.status & CONN_STATUS_CHANGING) {
+      pk_log(PK_LOG_MANAGER_DEBUG,
+             "%d: pkm_reconnect_all: Ignored, changes still in flight",
+             fe->conn.sockfd);
+      continue;
+    }
+
     if ((fe->requests == NULL) ||
         (fe->request_count != pkm->kite_max) ||
         (fe->conn.sockfd < 0)) {
@@ -790,7 +800,11 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
       }
       status = fe->conn.status;
       pkc_reset_conn(&(fe->conn), 0);
-      fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
+      /* Note: Do not set CONN_STATUS_CHANGING in pkc_reset_conn, that
+       *       could suppress errors. */
+      fe->conn.status = (CONN_STATUS_CHANGING |
+                         CONN_STATUS_ALLOCATED |
+                         (status & FE_STATUS_BITS));
 
       /* Unblock the event loop while we attempt to connect. */
       pkm_unblock(pkm);
@@ -815,6 +829,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
         ev_io_start(pkm->loop, &(fe->conn.watch_r));
 
         PKS_STATE(pk_state.live_tunnels += 1);
+        fe->conn.status &= ~CONN_STATUS_CHANGING;  /* Change complete */
         fe->error_count = 0;
         connected++;
       }
@@ -837,6 +852,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
           status |= FE_STATUS_LAME;
           tried -= 1;
         }
+        fe->conn.status &= ~CONN_STATUS_CHANGING;  /* Change failed */
         pkc_reset_conn(&(fe->conn), 0);
         fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
@@ -870,6 +886,10 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
       fe = (pkm->tunnels + i);
 
       if (fe->fe_hostname == NULL) continue;
+
+      /* Check this before incrementing the live count, as we're not sure
+       * this is actually live. */
+      if (fe->conn.status & CONN_STATUS_CHANGING) continue;
       if (fe->conn.sockfd <= 0) continue;
       live += 1;
 
@@ -879,6 +899,15 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
        * is recent traffic, so disconnecting would be bad. Note, we cannot
        * check conn.activity directly because pings reset that! */
       if (fe->last_ping < ping_window) continue;
+
+      /* Ignore tunnels that are changing state, but log that we did so since
+       * tunnels stuck in a long-running change may indicate other problems. */
+      if (fe->conn.status & CONN_STATUS_CHANGING) {
+        pk_log(PK_LOG_MANAGER_DEBUG,
+               "%d: pkm_disconnect_unused: Ignored, changes still in flight",
+               fe->conn.sockfd);
+        continue;
+      }
 
       /* Check if there are any live streams... */
       disconnect++;
@@ -982,7 +1011,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   /* Loop through all configured tunnels ... */
   pingsize = 0;
   for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
-    if (fe->conn.sockfd >= 0) {
+    if ((fe->conn.sockfd >= 0) && !(fe->conn.status & CONN_STATUS_CHANGING)) {
       /* If dead, shut 'em down. */
       if (fe->conn.activity < fe->last_ping - 4*pkm->housekeeping_interval_min)
       {
@@ -1060,6 +1089,7 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
       ev_io_stop(pkm->loop, &(pkc->watch_w));
+      pkc->status = CONN_STATUS_ALLOCATED;
       pkc_reset_conn(pkc, CONN_STATUS_ALLOCATED);
     }
   }
@@ -1068,6 +1098,7 @@ static void pkm_reset_manager(struct pk_manager* pkm) {
     if (pkc->status != CONN_STATUS_UNKNOWN) {
       ev_io_stop(pkm->loop, &(pkc->watch_r));
       ev_io_stop(pkm->loop, &(pkc->watch_w));
+      pkc->status = 0;  /* Avoid bogus change detection in reset_conn */
       pkc_reset_conn(pkc, 0);
     }
   }
@@ -1186,6 +1217,7 @@ int pkm_add_listener(struct pk_manager* pkm,
       }
       else if ((0 > (lport = pkc_listen(&(pkl->conn), rp, 50 /* FIXME */)) ||
                (0 > set_non_blocking(pkl->conn.sockfd)))) {
+        pkl->conn.status &= ~CONN_STATUS_CHANGING;  /* Change failed */
         pkc_reset_conn(&(pkl->conn), 0);
         pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
                "pkm_add_listener: pkc_listen() failed for %s",
@@ -1203,6 +1235,7 @@ int pkm_add_listener(struct pk_manager* pkm,
                "Listening on %s (port %d, sockfd %d)",
                in_addr_to_str(rp->ai_addr, printip, 128), lport,
                pkl->conn.sockfd);
+        pkl->conn.status &= ~CONN_STATUS_CHANGING;  /* Change complete! */
         ok++;
       }
     }
@@ -1344,11 +1377,15 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
     if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
       pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
       pkb->tunnel = fe;
+      /* Note: Do not merge this into the pkc_reset_conn call, as that
+       *       could suppress errors. We expect whatever allocated this
+       *       conn to reset the changing flag whan it's done working. */
+      pkb->conn.status |= CONN_STATUS_CHANGING;
       strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE);
       return pkb;
     }
     if ((pkb->conn.activity <= max_age) &&
-        !(pkb->conn.status & CONN_STATUS_LISTENING)) {
+        !(pkb->conn.status & (CONN_STATUS_CHANGING|CONN_STATUS_LISTENING))) {
       max_age = pkb->conn.activity;
       pkb_oldest = pkb;
     }
@@ -1519,6 +1556,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 #ifdef HAVE_OPENSSL
     (pkm->be_conns+i)->conn.ssl = NULL;
 #endif
+    (pkm->be_conns+i)->conn.status = 0;
     pkc_reset_conn(&(pkm->be_conns+i)->conn, 0);
   }
   pkm->buffer += sizeof(struct pk_backend_conn) * conns;
