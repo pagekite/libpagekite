@@ -673,8 +673,8 @@ void pkb_check_tunnels(struct pk_manager* pkm)
 
 void* pkb_run_blocker(void *void_pkblocker)
 {
-  time_t last_check_world = 0;
-  time_t last_check_tunnels = 0;
+  static time_t last_check_world = 0;
+  static time_t last_check_tunnels = 0;
   struct pk_job job;
   struct pk_blocker* this = (struct pk_blocker*) void_pkblocker;
   struct pk_manager* pkm = this->manager;
@@ -691,13 +691,17 @@ void* pkb_run_blocker(void *void_pkblocker)
 
   while (1) {
     pkb_get_job(&(pkm->blocking_jobs), &job);
+
+    time_t now = time(0);
     switch (job.job) {
       case PK_NO_JOB:
         break;
       case PK_CHECK_WORLD:
-        if (time(0) >= last_check_world + pkm->housekeeping_interval_min) {
-          pkm_reconfig_start((struct pk_manager*) job.ptr_data);
+        if ((now >= last_check_world + pkm->housekeeping_interval_min) &&
+            (0 == pkm_reconfig_start((struct pk_manager*) job.ptr_data)))
+        {
           if (PK_HOOK(PK_HOOK_CHECK_WORLD, 0, this, pkm)) {
+            last_check_tunnels = now;
             pkb_check_world((struct pk_manager*) job.ptr_data);
             pkb_check_tunnels((struct pk_manager*) job.ptr_data);
             last_check_world = last_check_tunnels = time(0);
@@ -707,9 +711,11 @@ void* pkb_run_blocker(void *void_pkblocker)
         }
         break;
       case PK_CHECK_FRONTENDS:
-        if (time(0) >= last_check_tunnels + pkm->housekeeping_interval_min) {
-          pkm_reconfig_start((struct pk_manager*) job.ptr_data);
+        if ((now >= last_check_tunnels + pkm->housekeeping_interval_min) &&
+            (0 == pkm_reconfig_start((struct pk_manager*) job.ptr_data)))
+        {
           if (PK_HOOK(PK_HOOK_CHECK_TUNNELS, 0, this, pkm)) {
+            last_check_tunnels = now;
             pkb_check_tunnels((struct pk_manager*) job.ptr_data);
             last_check_tunnels = time(0);
             PK_HOOK(PK_HOOK_CHECK_TUNNELS, 1, this, pkm);

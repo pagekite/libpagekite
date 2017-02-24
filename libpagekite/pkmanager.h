@@ -176,7 +176,7 @@ void* pkm_run                       (void *);
 int pkm_run_in_thread               (struct pk_manager*);
 int pkm_wait_thread                 (struct pk_manager*);
 int pkm_stop_thread                 (struct pk_manager*);
-void pkm_reconfig_start             (struct pk_manager*);
+int pkm_reconfig_start              (struct pk_manager*);
 void pkm_reconfig_stop              (struct pk_manager*);
 
 int pkm_reconnect_all               (struct pk_manager*, int);

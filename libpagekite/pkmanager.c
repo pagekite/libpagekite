@@ -137,9 +137,13 @@ static void pkm_unblock(struct pk_manager *pkm)
     pthread_mutex_unlock(&(pkm->loop_lock));
   }
 }
-void pkm_reconfig_start(struct pk_manager *pkm)
+int pkm_reconfig_start(struct pk_manager *pkm)
 {
-  pthread_mutex_lock(&(pkm->config_lock));
+  return pthread_mutex_trylock(&(pkm->config_lock));
+}
+int pkm_reconfig_blocking_start(struct pk_manager *pkm)
+{
+  return pthread_mutex_lock(&(pkm->config_lock));
 }
 void pkm_reconfig_stop(struct pk_manager *pkm)
 {
