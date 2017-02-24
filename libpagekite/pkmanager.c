@@ -319,10 +319,14 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
       PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *) &to, sizeof(to))) ||
       (0 > set_non_blocking(sockfd)))
   {
-    if (errno != EINPROGRESS) {
+    if ((errno != EINPROGRESS) || /* See comment below */
+        (sockfd < 0))             /* (NULL == addr) or PKS_socket() failed */
+    {
       /* FIXME:
-         EINPROGRESS never happens until we swap connect/set_non_blocking
-         above.  Do that later once we've figured out error handling. */
+       *   EINPROGRESS shouldn't happen until we swap connect/set_non_blocking
+       *   above - which would be desirable from a performance point of view.
+       *   Do that later once we've figured out error handling; see below.
+       */
       if (sockfd > -1)
         PKS_close(sockfd);
 
@@ -334,10 +338,12 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
     }
   }
 
-  /* FIXME: This should be non-blocking for use on high volume front-ends,
+  /* FIXME: The above should be non-blocking for high volume front-ends,
    *        but that requires more buffering and fancy logic, so we're
-   *        lazy for now.
+   *        lazy for now. Until that works, busy relays should probably
+   *        never configure any direct backends of their own.
    *        See also: http://developerweb.net/viewtopic.php?id=3196 */
+
   pkm_yield_stop(fe->manager);
 
   chunk->first_chunk = 1;
