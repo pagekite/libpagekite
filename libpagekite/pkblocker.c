@@ -761,7 +761,9 @@ int pkb_start_blockers(struct pk_manager *pkm, int n)
 void pkb_stop_blockers(struct pk_manager *pkm)
 {
   int i;
-  pkb_add_job(&(pkm->blocking_jobs), PK_QUIT, 0, NULL);
+  for (i = 0; i < pkm->blocking_jobs.max; i++) {
+    pkb_add_job(&(pkm->blocking_jobs), PK_QUIT, 0, NULL);
+  }
   for (i = 0; i < MAX_BLOCKING_THREADS; i++) {
     if (pkm->blocking_threads[i] != NULL) {
       pthread_join(pkm->blocking_threads[i]->thread, NULL);

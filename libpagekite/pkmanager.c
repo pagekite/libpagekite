@@ -1604,6 +1604,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->lua_enable_defaults = 1;
   pkm->lua_settings = NULL;
   pkm->lua = pklua_unlock_lua(pklua_get_locked_lua(pkm));
+#else
+  pkm->lua_enable_defaults = 0;
 #endif
 
   /* SIGPIPE is boring */
