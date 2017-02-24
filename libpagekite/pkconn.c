@@ -82,6 +82,12 @@ int pkc_connect(struct pk_conn* pkc, struct addrinfo* ai)
     return (pk_error = ERR_CONNECT_CONNECT);
   }
 
+/* Uncomment to poorly simulate a bad network
+  int s = rand() % 15;
+  fprintf(stderr, "TESTING SLEEP %d\n", s);
+  sleep(s);
+ */
+
   /* FIXME: Add support for chaining through socks or HTTP proxies */
   return (pkc->sockfd = fd);
 }

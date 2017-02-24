@@ -756,6 +756,9 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
   PK_TRACE_FUNCTION;
   tried = connected = 0;
 
+  /* The lock must already be held, or we may have nasty bugs. */
+  assert(0 != pkm_reconfig_start(pkm));
+
   /* Loop through all configured kites:
    *   - if missing a desired front-end, tear down tunnels and reconnect.
    */
@@ -810,7 +813,8 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
                          CONN_STATUS_ALLOCATED |
                          (status & FE_STATUS_BITS));
 
-      /* Unblock the event loop while we attempt to connect. */
+      /* Unblock the event loop and blockers while we attempt to connect. */
+      pkm_reconfig_stop(pkm);
       pkm_unblock(pkm);
 
       if ((0 <= pk_connect_ai(&(fe->conn), &(fe->ai), 0,
@@ -819,7 +823,9 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
                               fe->fe_hostname)) &&
           (0 < set_non_blocking(fe->conn.sockfd))) {
         pk_log(PK_LOG_MANAGER_INFO, "%d: Connected!", fe->conn.sockfd);
+
         pkm_block(pkm); /* Re-block */
+        pkm_reconfig_blocking_start(pkm);
 
         pk_parser_reset(fe->parser);
 
@@ -839,6 +845,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
       }
       else {
         pkm_block(pkm); /* Re-block */
+        pkm_reconfig_blocking_start(pkm);
 
         /* FIXME: Is this the right behavior? */
         pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
@@ -878,6 +885,9 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
 
   PK_TRACE_FUNCTION;
   ping_window = time(0) - 4*pkm->housekeeping_interval_min;
+
+  /* The lock must already be held, or we may have nasty bugs. */
+  assert(0 != pkm_reconfig_start(pkm));
 
   /* Loop through all configured tunnels:
    *   1st pass: just count how many we would like to disconnect
@@ -1013,26 +1023,30 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
     next_tick = 1 + pkm->housekeeping_interval_min;
   }
 
-  /* Loop through all configured tunnels ... */
+  /* Loop through all configured tunnels, unless another reconfiguration
+   * process is already running. */
   pingsize = 0;
-  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
-    if ((fe->conn.sockfd >= 0) && !(fe->conn.status & CONN_STATUS_CHANGING)) {
-      /* If dead, shut 'em down. */
-      if (fe->conn.activity < fe->last_ping - 4*pkm->housekeeping_interval_min)
-      {
-        pk_log(PK_LOG_TUNNEL_DATA, "%d: Idle, shutting down.", fe->conn.sockfd);
-        fe->conn.status |= CONN_STATUS_BROKEN;
-        pkm_update_io(fe, NULL);
-      }
-      /* If idle, send a ping. */
-      else if (fe->conn.activity < inactive) {
-        if (pingsize == 0) pingsize = pk_format_ping(ping);
-        fe->last_ping = now;
-        pkc_write(&(fe->conn), ping, pingsize);
-        pk_log(PK_LOG_TUNNEL_DATA, "%d: Sent PING.", fe->conn.sockfd);
-        next_tick = 1 + pkm->housekeeping_interval_min;
+  if (0 == pkm_reconfig_start(pkm)) {
+    for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+      if ((fe->conn.sockfd >= 0) && !(fe->conn.status & CONN_STATUS_CHANGING)) {
+        /* If dead, shut 'em down. */
+        if (fe->conn.activity < fe->last_ping - 4*pkm->housekeeping_interval_min)
+        {
+          pk_log(PK_LOG_TUNNEL_DATA, "%d: Idle, shutting down.", fe->conn.sockfd);
+          fe->conn.status |= CONN_STATUS_BROKEN;
+          pkm_update_io(fe, NULL);
+        }
+        /* If idle, send a ping. */
+        else if (fe->conn.activity < inactive) {
+          if (pingsize == 0) pingsize = pk_format_ping(ping);
+          fe->last_ping = now;
+          pkc_write(&(fe->conn), ping, pingsize);
+          pk_log(PK_LOG_TUNNEL_DATA, "%d: Sent PING.", fe->conn.sockfd);
+          next_tick = 1 + pkm->housekeeping_interval_min;
+        }
       }
     }
+    pkm_reconfig_stop(pkm);
   }
   pkm_yield_start(pkm);
 
@@ -1710,7 +1724,7 @@ void* pkm_run(void *void_pkm)
   if (pkm->lua) pklua_set_thread_lua(pkm->lua);
 #endif
 
-  pkb_start_blockers(pkm, pkm->lua_enable_defaults ? 5 : 1);
+  pkb_start_blockers(pkm, pkm->lua_enable_defaults ? 5 : 2);
 
 #if HAVE_LUA
   if (0 == pkm_configure_lua(pkm)) {
