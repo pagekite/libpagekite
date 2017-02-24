@@ -589,10 +589,13 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   struct pk_kite_request tkite_r;
 
   pkc->status |= CONN_STATUS_CHANGING;
-  pk_log(PK_LOG_TUNNEL_CONNS, "Connecting to %s (session=%s)",
-                              in_addr_to_str(ai->ai_addr, buffer, 1024),
-                              (session_id && session_id[0] != '\0')
-                               ? session_id : "new");
+  pk_log(PK_LOG_TUNNEL_CONNS,
+         "Connecting to %s (session=%s%s%s)",
+         in_addr_to_str(ai->ai_addr, buffer, 1024),
+         (session_id && session_id[0] != '\0') ? session_id : "new",
+         (pkc->status & FE_STATUS_IS_FAST) ? ", is fast" : "",
+         (pkc->status & FE_STATUS_IN_DNS) ? ", in DNS" : "",
+         (pkc->status & FE_STATUS_NAILED_UP) ? ", nailed up" : "");
   if (0 > pkc_connect(pkc, ai))
     return (pk_error = ERR_CONNECT_CONNECT);
 

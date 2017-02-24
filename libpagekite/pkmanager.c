@@ -977,8 +977,9 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   {
     pkm->timer.repeat = pkm->next_tick;
     ev_timer_again(pkm->loop, &(pkm->timer));
-    pk_log(PK_LOG_MANAGER_INFO, "Tick!  [repeating=%s, next=%d, v=%s]",
-           pkm->enable_timer ? "yes" : "no", pkm->next_tick, PK_VERSION);
+    pk_log(PK_LOG_MANAGER_INFO, "Tick!  [repeating=%s, next=%d, tunnels=%d, v=%s]",
+           pkm->enable_timer ? "yes" : "no", pkm->next_tick,
+           pk_state.live_tunnels, PK_VERSION);
 
     /* We slow down exponentially by default... */
     next_tick += increment;
