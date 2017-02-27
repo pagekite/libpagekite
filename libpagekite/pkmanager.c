@@ -825,7 +825,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
         pk_log(PK_LOG_MANAGER_INFO, "%d: Connected!", fe->conn.sockfd);
 
         /* Note: order matters here, otherwise we can end up deadlocked
-         *       due to the pkm_block() at the top of this funciton. */
+         *       due to the pkm_block() at the top of this function. */
         pkm_reconfig_blocking_start(pkm);
         pkm_block(pkm);
 
@@ -847,7 +847,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
       }
       else {
         /* Note: order matters here, otherwise we can end up deadlocked
-         *       due to the pkm_block() at the top of this funciton. */
+         *       due to the pkm_block() at the top of this function. */
         pkm_reconfig_blocking_start(pkm);
         pkm_block(pkm);
 
