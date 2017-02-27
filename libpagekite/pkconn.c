@@ -167,6 +167,7 @@ static void pkc_do_handshake(struct pk_conn *pkc)
         pk_log(PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS,
                "%d: TLS handshake failed!", pkc->sockfd);
         pkc->status |= CONN_STATUS_BROKEN;
+        errno = ECONNRESET;
         break;
     }
   }
@@ -344,6 +345,7 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
               pkc->want_write = length;
               break;
             default:
+              if (0 == errno) errno = EIO;
               pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
                      "%d: SSL_ERROR=%d: %p/%d/%d",
                      pkc->sockfd, err, data, wrote, length);
@@ -391,6 +393,7 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
 {
   ssize_t flushed, wrote, bytes;
   flushed = wrote = errno = bytes = 0;
+  int loops_left = 1000;
 
   if (pkc->sockfd < 0) {
     pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
@@ -422,7 +425,16 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
     else if ((errno != EINTR) && (errno != 0))
       break;
   } while ((mode == BLOCKING_FLUSH) &&
-           (pkc->out_buffer_pos > 0));
+           (pkc->out_buffer_pos > 0) &&
+           (loops_left-- > 0));
+
+  if (loops_left <= 0) {
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
+           "%d[%s]: BUG! Flush failed after 1000 iterations",
+           pkc->sockfd, where);
+    errno = EIO;
+    return -1;
+  }
 
   /* At this point we either have a non-EINTR error, or we've flushed
    * everything.  Return errors, else continue. */
@@ -446,8 +458,16 @@ ssize_t pkc_flush(struct pk_conn* pkc, char *data, ssize_t length, int mode,
         wrote += bytes;
         flushed += bytes;
       }
-      else if ((errno != EINTR) && (errno != 0))
+      else if ((errno != EINTR) && (errno != 0)) {
         break;
+      }
+      else if (loops_left-- <= 0) {
+        pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
+               "%d[%s]: BUG! Flush failed after 1000 iterations",
+               pkc->sockfd, where);
+        errno = EIO;
+        break;
+      }
     }
     /* At this point, if we have a non-EINTR error, bytes is < 0 and we
      * want to return that.  Otherwise, return how much got written. */
@@ -496,7 +516,11 @@ ssize_t pkc_write(struct pk_conn* pkc, char* data, ssize_t length)
     }
     else {
       /* 2b. If new+old data > buffer size, do a blocking write. */
-      pkc_flush(pkc, data+wrote, length-wrote, BLOCKING_FLUSH, "pkc_write/2");
+      if (0 > pkc_flush(pkc, data+wrote, length-wrote, BLOCKING_FLUSH,
+                        "pkc_write/2")) {
+        /* Give up and return an error. We are broken. */
+        return -1;
+      }
     }
   }
 
