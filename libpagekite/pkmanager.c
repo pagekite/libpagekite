@@ -824,8 +824,10 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
           (0 < set_non_blocking(fe->conn.sockfd))) {
         pk_log(PK_LOG_MANAGER_INFO, "%d: Connected!", fe->conn.sockfd);
 
-        pkm_block(pkm); /* Re-block */
+        /* Note: order matters here, otherwise we can end up deadlocked
+         *       due to the pkm_block() at the top of this funciton. */
         pkm_reconfig_blocking_start(pkm);
+        pkm_block(pkm);
 
         pk_parser_reset(fe->parser);
 
@@ -844,8 +846,10 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
         connected++;
       }
       else {
-        pkm_block(pkm); /* Re-block */
+        /* Note: order matters here, otherwise we can end up deadlocked
+         *       due to the pkm_block() at the top of this funciton. */
         pkm_reconfig_blocking_start(pkm);
+        pkm_block(pkm);
 
         /* FIXME: Is this the right behavior? */
         pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
