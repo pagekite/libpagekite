@@ -153,7 +153,7 @@ int pk_log_chunk(struct pk_tunnel* fe, struct pk_chunk* chnk) {
                     "[%s]:%d requested %s://%s:%d%s [sid=%s] via %s",
                     chnk->remote_ip, chnk->remote_port,
                     chnk->request_proto, chnk->request_host, chnk->request_port,
-                    chnk->remote_tls ? " (encrypted)" : "", chnk->sid, fe_ip);
+                    chnk->remote_tls ? " (TLS to relay)" : "", chnk->sid, fe_ip);
       }
       r += pk_log(PK_LOG_TUNNEL_DATA, "[sid=%s] DATA: %d bytes via %s",
                                       chnk->sid, chnk->length, fe_ip);
