@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
   flags |= PK_WITH_IPV6;
 #endif
 
-  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIo:l:LNn:qRSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIo:l:LNn:qRsSvWw:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
