@@ -752,14 +752,17 @@ int pkb_start_blockers(struct pk_manager *pkm, int n)
     if (pkm->blocking_threads[i] == NULL) {
       pkm->blocking_threads[i] = malloc(sizeof(struct pk_blocker));
       pkm->blocking_threads[i]->manager = pkm;
+#if HAVE_LUA
+      pkm->blocking_threads[i]->lua = NULL;
+#endif
       if (0 > pthread_create(&(pkm->blocking_threads[i]->thread), NULL,
                              pkb_run_blocker,
                              (void *) pkm->blocking_threads[i])) {
         pk_log(PK_LOG_MANAGER_ERROR, "Failed to start blocking thread.");
-        free(pkm->blocking_threads[i]);
 #if HAVE_LUA
         pklua_close_lua(pkm->blocking_threads[i]->lua);
 #endif
+        free(pkm->blocking_threads[i]);
         pkm->blocking_threads[i] = NULL;
         return (pk_error = ERR_NO_THREAD);
       }
