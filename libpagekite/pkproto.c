@@ -563,6 +563,16 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
   }
   *(fsalt++) = '\0';
 
+  /* Error out if things are too large. */
+  if ((strlen(protocol) > PK_PROTOCOL_LENGTH) ||
+      (strlen(public_domain) > PK_DOMAIN_LENGTH) ||
+      (strlen(bsalt) > PK_SALT_LENGTH) ||
+      (strlen(fsalt) > PK_SALT_LENGTH)) {
+    free(copy);
+    return pk_err_null(ERR_PARSE_NO_KITENAME);
+  }
+
+  /* Copy the values */
   strncpyz(kite->protocol, protocol, PK_PROTOCOL_LENGTH);
   strncpyz(kite->public_domain, public_domain, PK_DOMAIN_LENGTH);
   strncpyz(kite_r->bsalt, bsalt, PK_SALT_LENGTH);
