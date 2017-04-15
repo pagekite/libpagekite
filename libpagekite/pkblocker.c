@@ -380,7 +380,7 @@ void* pkb_tunnel_ping(void* void_fe) {
   in_addr_to_str(fe->ai.ai_addr, printip, 1024);
 
   if (pk_state.fake_ping) {
-    fe->priority = rand() % 500;
+    fe->priority = 1 + (rand() % 500);
   }
   else {
     gettimeofday(&tv1, NULL);
@@ -422,11 +422,12 @@ void* pkb_tunnel_ping(void* void_fe) {
     }
     gettimeofday(&tv2, NULL);
 
-    fe->priority = (tv2.tv_sec - tv1.tv_sec) * 1000
-                 + (tv2.tv_usec - tv1.tv_usec) / 1000;
+    fe->priority = ((tv2.tv_sec - tv1.tv_sec) * 1000)
+                 + ((tv2.tv_usec - tv1.tv_usec) / 1000)
+                 + 1;
 
     if (strcasestr(buffer, PK_FRONTEND_OVERLOADED) != NULL) {
-      fe->priority += 1;
+      fe->priority += 1000;
       sleep(2); /* We don't want to return first! */
     }
   }
@@ -438,6 +439,7 @@ void* pkb_tunnel_ping(void* void_fe) {
      * make sure new tunnels don't stay ignored forever. */
     fe->priority /= 10;
     fe->priority *= 9;
+    if (fe->priority < 1) fe->priority = 1;
     pk_log(PK_LOG_MANAGER_DEBUG,
            "Ping %s: %dms (biased)", printip, fe->priority);
   }
@@ -445,6 +447,7 @@ void* pkb_tunnel_ping(void* void_fe) {
     /* Add artificial +/-5% jitter to ping results */
     fe->priority *= ((rand() % 11) + 95);
     fe->priority /= 100;
+    if (fe->priority < 1) fe->priority = 1;
     pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s: %dms", printip, fe->priority);
   }
 
