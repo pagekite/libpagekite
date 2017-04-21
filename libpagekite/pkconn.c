@@ -323,6 +323,18 @@ ssize_t pkc_read(struct pk_conn* pkc)
   return bytes;
 }
 
+int pkc_pending(struct pk_conn* pkc)
+{
+#ifdef HAVE_OPENSSL
+  switch (pkc->state) {
+    case CONN_SSL_DATA:
+    case CONN_SSL_HANDSHAKE:
+      return SSL_pending(pkc->ssl);
+  }
+#endif
+  return 0;
+}
+
 ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
   ssize_t wrote = 0;
   errno = 0;

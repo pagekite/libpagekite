@@ -181,6 +181,9 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
         (NULL != (pkb = pkm_connect_be(fe, chunk)))) {
       /* We are happy, pkb should be a valid connection. */
       pkm_yield_start(fe->manager);
+      /* Zero the chunk chunk request-host to suppress log spam, it was
+       * usd in pkm_connect_be above and we don't need it anymore. */
+      chunk->request_host = NULL;
     }
     else {
       pkm_yield_start(fe->manager);
@@ -618,29 +621,33 @@ static void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof)
 
 static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 {
-  int rv;
+  int rv, read_bytes;
   struct pk_tunnel* fe = (struct pk_tunnel*) w->data;
   PK_TRACE_FUNCTION;
 
   fe->conn.status &= ~CONN_STATUS_WANT_READ;
-  if (0 < pkc_read(&(fe->conn))) {
-    if (0 > (rv = pk_parser_parse(fe->parser,
-                                  fe->conn.in_buffer_pos,
-                                  (char *) fe->conn.in_buffer)))
-    {
-      /* Parse failed: remote is borked: should kill this conn. */
-      fe->conn.status |= CONN_STATUS_BROKEN;
-      pk_log(PK_LOG_TUNNEL_HEADERS,
-             "pkm_tunnel_readable_cb(): parse error = %d", rv);
-      pk_dump_state(fe->manager);
-      if (pk_state.log_mask & PK_LOG_TUNNEL_DATA) {
-        int bytes = fe->conn.in_buffer_pos;
-        if (bytes > 100) bytes = 100;
-        pk_log_raw_data(PK_LOG_TUNNEL_DATA, "data", fe->conn.in_buffer, bytes);
+  do {
+    if (0 < (read_bytes = pkc_read(&(fe->conn)))) {
+      if (0 > (rv = pk_parser_parse(fe->parser,
+                                    fe->conn.in_buffer_pos,
+                                    (char *) fe->conn.in_buffer)))
+      {
+        /* Parse failed: remote is borked: should kill this conn. */
+        fe->conn.status |= CONN_STATUS_BROKEN;
+        pk_log(PK_LOG_TUNNEL_HEADERS,
+               "pkm_tunnel_readable_cb(): parse error = %d", rv);
+        pk_dump_state(fe->manager);
+        if (pk_state.log_mask & PK_LOG_TUNNEL_DATA) {
+          int bytes = fe->conn.in_buffer_pos;
+          pk_log_raw_data(PK_LOG_TUNNEL_DATA, "data",
+                          fe->conn.sockfd, fe->conn.in_buffer, bytes);
+        }
       }
+      fe->conn.in_buffer_pos = 0;
     }
-    fe->conn.in_buffer_pos = 0;
-  }
+  /* Keep processing while OpenSSL has more data buffered and waiting */
+  } while ((read_bytes > 0) && (pkc_pending(&(fe->conn)) > 0));
+
   PK_CHECK_MEMORY_CANARIES;
   pkm_update_io(fe, NULL);
   /* -Wall dislikes unused arguments */

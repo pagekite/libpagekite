@@ -100,6 +100,7 @@ int     pkc_start_ssl(struct pk_conn*, SSL_CTX*, const char* hostname);
 #endif
 int     pkc_wait(struct pk_conn*, int);
 ssize_t pkc_read(struct pk_conn*);
+int     pkc_pending(struct pk_conn*);
 ssize_t pkc_raw_write(struct pk_conn*, char*, ssize_t);
 ssize_t pkc_flush(struct pk_conn*, char*, ssize_t, int, char*);
 ssize_t pkc_write(struct pk_conn*, char*, ssize_t);
