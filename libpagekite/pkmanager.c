@@ -447,16 +447,14 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
       pkc->status |= CONN_STATUS_CLS_WRITE;
     }
   }
+  else if ((pkc->status & CONN_STATUS_BLOCKED) &&
+           !(pkc->status & CONN_STATUS_WANT_READ)) {
+    pk_log(loglevel, "%d: Throttled.", pkc->sockfd);
+    ev_io_stop(pkm->loop, &(pkc->watch_r));
+  }
   else {
-    if ((pkc->status & CONN_STATUS_BLOCKED) &&
-        !(pkc->status & CONN_STATUS_WANT_READ)) {
-      pk_log(loglevel, "%d: Throttled.", pkc->sockfd);
-      ev_io_stop(pkm->loop, &(pkc->watch_r));
-    }
-    else {
-      pk_log(loglevel, "%d: Watching for input.", pkc->sockfd);
-      ev_io_start(pkm->loop, &(pkc->watch_r));
-    }
+    pk_log(loglevel, "%d: Watching for input.", pkc->sockfd);
+    ev_io_start(pkm->loop, &(pkc->watch_r));
   }
 
   if (pkc->status & CONN_STATUS_CLS_WRITE) {
@@ -555,6 +553,11 @@ static void pkm_flow_control_tunnel(struct pk_tunnel* fe, flow_op op)
 
   PK_TRACE_FUNCTION;
 
+  /* FIXME: This is inefficient.
+   *   1) we should only evaluate tunnels that are blocked / not blocked
+   *   2) we should only evaluate backends linked to this tunnel
+   */
+
   for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + i);
     if (pkb->tunnel == fe) {
@@ -564,11 +567,10 @@ static void pkm_flow_control_tunnel(struct pk_tunnel* fe, flow_op op)
           pkb->conn.status &= ~CONN_STATUS_TNL_BLOCKED;
         }
       }
-      else
-        if (op == CONN_TUNNEL_BLOCKED) {
-          pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel blocked", pkb->conn.sockfd);
-          pkb->conn.status |= CONN_STATUS_TNL_BLOCKED;
-        }
+      else if (op == CONN_TUNNEL_BLOCKED) {
+        pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel blocked", pkb->conn.sockfd);
+        pkb->conn.status |= CONN_STATUS_TNL_BLOCKED;
+      }
     }
   }
 }
@@ -963,7 +965,7 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
       }
     }
 
-    // If we're about to go disconnecting all our live tunnels, abort.
+    /* If we're about to go disconnecting all our live tunnels, abort. */
     if (disconnect >= live) break;
   }
   PK_CHECK_MEMORY_CANARIES;

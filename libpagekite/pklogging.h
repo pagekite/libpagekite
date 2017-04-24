@@ -28,7 +28,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 int pk_log(int, const char *fmt, ...);
 int pk_log_chunk(struct pk_tunnel*, struct pk_chunk*);
-void pk_log_raw_data(int, char*, void*, size_t);
+void pk_log_raw_data(int, char*, int, void*, size_t);
 void pk_dump_parser(char*, struct pk_parser*);
 void pk_dump_conn(char*, struct pk_conn*);
 void pk_dump_tunnel(char*, struct pk_tunnel*);
