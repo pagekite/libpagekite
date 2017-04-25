@@ -868,18 +868,30 @@ static int pkproto_test_format_pong(void)
 
 static void pkproto_test_callback(int *data, struct pk_chunk *chunk) {
   assert(chunk->sid != NULL);
-  assert(chunk->eof != NULL);
   assert(chunk->noop != NULL);
   assert(chunk->data != NULL);
-  assert(chunk->length == 5);
   assert(chunk->frame.data != NULL);
+  assert(chunk->remote_ip != NULL);
+  assert(chunk->request_proto != NULL);
   assert(0 == strcmp(chunk->sid, "1"));
-  assert(0 == strcmp(chunk->eof, "r"));
   assert(0 == strcmp(chunk->noop, "!"));
-  assert(0 == strncmp(chunk->data, "54321", chunk->length));
   assert(-1 == chunk->quota_conns);
   assert(55 == chunk->quota_days);
   assert(1234 == chunk->quota_mb);
+  if (*data < 2) {
+    assert(chunk->eof != NULL);
+    assert(0 == strcmp(chunk->eof, "r"));
+    assert(chunk->length == 5);
+    assert(0 == strncmp(chunk->data, "54321", chunk->length));
+  }
+  else if (*data == 2) {
+    chunk->first_chunk = 1;
+    pk_http_forwarding_headers_hook(0, 0, (void*) chunk, NULL);
+    assert(NULL != memmem(chunk->data, chunk->length, "X-Forward", 9));
+  }
+  else {
+    assert(NULL == memmem(chunk->data, chunk->length, "X-Forward", 9));
+  }
   *data += 1;
 }
 
@@ -888,6 +900,8 @@ static int pkproto_test_parser(struct pk_parser* p, int *callback_called)
   char* testchunk = ("SID: 1\r\n"
                      "eOf: r\r\n"
                      "NOOP: !\r\n"
+                     "Proto: http\r\n"
+                     "RIP: 127.0.0.1\r\n"
                      "Quota: 1234\r\n"
                      "QDays: 55\r\n"
                      "\r\n"
@@ -919,9 +933,25 @@ static int pkproto_test_parser(struct pk_parser* p, int *callback_called)
   assert(p->buffer_bytes_left == bytes_left);
   assert(p->chunk->data == NULL);
   assert(p->chunk->quota_days == -1);
+  assert(p->chunk->remote_ip == NULL);
 
   assert(55 == pk_state.quota_days);
   assert(1234 == pk_state.quota_mb);
+
+  /* Construct an over-large frame chunk that
+   * will require fragmented processing. */
+  char *frame = malloc(2 * PARSER_BYTES_MAX);
+  int cl = 2 * PARSER_BYTES_MAX - 10;
+  int ch = sprintf(frame, "%x\r\n", cl);
+  int cs = ch + cl;
+  strcat(frame, testchunk);
+  int hl = strlen(frame) - 5;
+  for (int i = hl; i < ch + cl; i++) frame[i] = 'A' + ((i-hl) % 26);
+  memcpy(frame+hl, "GET / HTTP/1.1\r\nHost: foo.bar.baz\r\n\r\n", 38);
+
+  pk_parser_reset(p);
+  pk_parser_parse(p, cs, frame);
+  free(frame);
 
   return 1;
 }
@@ -1003,14 +1033,14 @@ int pkproto_test(void)
 
   PK_INIT_MEMORY_CANARIES;
 
-  struct pk_parser* p = pk_parser_init(64000, buffer,
+  struct pk_parser* p = pk_parser_init(PARSER_BYTES_MIN, buffer,
                                        (pkChunkCallback*) &pkproto_test_callback,
                                        &callback_called);
   return (pkproto_test_format_frame() &&
           pkproto_test_format_reply() &&
           pkproto_test_format_eof() &&
           pkproto_test_format_pong() &&
-          pkproto_test_alloc(64000, buffer, p) &&
+          pkproto_test_alloc(PARSER_BYTES_MIN, buffer, p) &&
           pkproto_test_parser(p, &callback_called) &&
           pkproto_test_make_bsalt() &&
           pkproto_test_sign_kite_request() &&
