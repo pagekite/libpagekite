@@ -263,8 +263,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
 
   if (bytes > 0) {
     if (pk_state.log_mask & PK_LOG_TRACE) {
-      pk_log_raw_data(PK_LOG_TRACE, "R",
-                      pkc->sockfd, PKC_IN(*pkc), (bytes > 64) ? 64 : bytes);
+      pk_log_raw_data(PK_LOG_TRACE, "R", pkc->sockfd, PKC_IN(*pkc), bytes);
     }
 
     pkc->in_buffer_pos += bytes;
@@ -377,8 +376,7 @@ ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
   }
   if (wrote > 0) {
     if (pk_state.log_mask & PK_LOG_TRACE) {
-      pk_log_raw_data(PK_LOG_TRACE, "W",
-                      pkc->sockfd, data, (wrote > 64) ? 64 : wrote);
+      pk_log_raw_data(PK_LOG_TRACE, "W", pkc->sockfd, data, wrote);
     }
     pkc->wrote_bytes += wrote;
   }

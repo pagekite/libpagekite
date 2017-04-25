@@ -119,7 +119,7 @@ void pk_log_raw_data(int level, char* prefix, int fd, void* data, size_t bytes) 
 
   while (printed < bytes) {
     printed += printable_binary(buffer, 160, p + printed, bytes - printed);
-    pk_log(level, "%s/%d: %s", prefix, fd, buffer);
+    pk_log(level, "%s/%d(%d/%d): %s", prefix, fd, printed, bytes, buffer);
   }
 }
 

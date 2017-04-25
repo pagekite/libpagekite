@@ -161,7 +161,7 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk,
   chunk->header_count = 0;
   while (2 < (len = zero_first_crlf(bytes - pos, frame->data + pos)))
   {
-    PK_TRACE_LOOP("lines");
+    PK_TRACE_LOOP("chunk-header-lines");
 
     /* This gives us an upper-case (US-ASCII) of the first character. */
     first = *(frame->data + pos) & (0xff - 32);
@@ -274,6 +274,7 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
        (wanted_length > frame->raw_length)) {
     fragmenting = 1;
     parse_length = frame->raw_length - frame->hdr_length;
+    PK_TRACE_LOOP("fragmenting");
   }
 
   /* Do we have enough data? */
@@ -300,6 +301,7 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
     }
 
     if (fragmenting || (chunk->offset < chunk->total)) {
+      PK_TRACE_LOOP("adjusting");
       frame->length -= chunk->length;
       frame->raw_length -= chunk->length;
       parser->buffer_bytes_left += chunk->length;
@@ -307,6 +309,7 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
     else {
       leftovers = frame->raw_length - wanted_length;
       if (leftovers > 0) {
+        PK_TRACE_LOOP("memmove");
         memmove(frame->raw_frame,
                 frame->raw_frame + wanted_length,
                 leftovers);
@@ -314,6 +317,7 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
         pk_parser_parse_new_data(parser, leftovers);
       }
       else {
+        PK_TRACE_LOOP("reset");
         pk_parser_reset(parser);
       }
     }
@@ -337,10 +341,12 @@ int pk_parser_parse(struct pk_parser *parser, int length, char *data)
       return (pk_error = ERR_PARSE_NO_MEMORY);
     }
 
-    if (length > parser->buffer_bytes_left)
+    if (length > parser->buffer_bytes_left) {
       copy = parser->buffer_bytes_left;
-    else
+    }
+    else {
       copy = length;
+    }
 
     memcpy(frame->raw_frame + frame->raw_length, data, copy);
     status = pk_parser_parse_new_data(parser, copy);
