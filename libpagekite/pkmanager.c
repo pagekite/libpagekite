@@ -645,8 +645,10 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
                           fe->conn.sockfd, fe->conn.in_buffer, bytes);
         }
       }
-      fe->conn.in_buffer_pos = 0;
     }
+    /* pk_parser_parse always processes the entire buffer. */
+    fe->conn.in_buffer_pos = 0;
+
   /* Keep processing while OpenSSL has more data buffered and waiting */
   } while ((read_bytes > 0) && (pkc_pending(&(fe->conn)) > 0));
 

@@ -288,16 +288,30 @@ int pk_parser_parse_new_data(struct pk_parser *parser, int length)
         return (pk_error = ERR_PARSE_BAD_CHUNK);
     }
     else {
-      if (chunk->offset + length > chunk->total)
+      if (chunk->offset + length > chunk->total) {
         chunk->length = chunk->total - chunk->offset;
-      else
+      }
+      else {
         chunk->length = length;
+      }
     }
     chunk->offset += chunk->length;
 
     if (parser->chunk_callback != (pkChunkCallback *) NULL) {
-      /* FIXME: if fragmenting, we should suppress EOFs */
+      char *eof = chunk->eof;
+      char *data = chunk->data;
+      size_t length = chunk->length;
+
+      PK_TRACE_LOOP("callback");
+      if (fragmenting) chunk->eof = NULL;  /* Suppress EOFs */
       parser->chunk_callback(parser->chunk_callback_data, chunk);
+
+      /* Restore these, as they may have been modified in the callback and
+       * thus broken our accounting. */
+      chunk->eof = eof;
+      chunk->data = data;
+      chunk->length = length;
+      chunk->first_chunk = 0;
     }
 
     if (fragmenting || (chunk->offset < chunk->total)) {
