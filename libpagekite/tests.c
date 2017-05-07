@@ -29,6 +29,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkconn.h"
 #include "pkstate.h"
 #include "pkproto.h"
+#include "pktunnel.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
@@ -62,6 +63,7 @@ int main(void) {
   assert(utils_test());      fprintf(stderr, "utils test passed\n");
   assert(pke_events_test()); fprintf(stderr, "events test passed\n");
   assert(pkproto_test());    fprintf(stderr, "pkproto test passed\n");
+  assert(pktunnel_test());   fprintf(stderr, "pktunnel test passed\n");
   assert(pkmanager_test());  fprintf(stderr, "pkmanager test passed\n");
 # if HAVE_RELAY
   assert(pkrelay_test());    fprintf(stderr, "pkrelay test passed\n");

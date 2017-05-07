@@ -32,6 +32,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkerror.h"
 #include "pkconn.h"
 #include "pkproto.h"
+#include "pktunnel.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"

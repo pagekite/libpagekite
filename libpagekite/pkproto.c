@@ -27,6 +27,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkhooks.h"
 #include "pkproto.h"
 #include "pkstate.h"
+#include "pktunnel.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
@@ -169,8 +170,12 @@ int parse_chunk_header(struct pk_frame* frame, struct pk_chunk* chunk,
 
     /* Cases ordered roughly by frequency, without too much obfuscation. */
     if (first == 'S') {
-      if (0 == strncasecmp(frame->data + pos, "SID: ", 5))
+      if (0 == strncasecmp(frame->data + pos, "SID: ", 5)) {
         chunk->sid = frame->data + pos + 5;
+        if (strlen(chunk->sid) > PK_MAX_SID_SIZE) {
+          return (pk_error = ERR_PARSE_BAD_CHUNK);
+        }
+      }
       else if (0 == strncasecmp(frame->data + pos, "SKB: ", 5)) {
         if (sizeof(chunk->remote_sent_kb) == sizeof(long int)) {
           sscanf(frame->data + pos + 5,
@@ -502,7 +507,7 @@ size_t pk_format_http_rejection(
   const char* request_proto,
   const char* request_host)
 {
-  char pre[PK_REJECT_MAXSIZE];
+  char pre[PK_RESPONSE_MAXSIZE];
   char relay_ip[128];
   char* fancy_url = NULL;
   char* post = NULL;

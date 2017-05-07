@@ -31,10 +31,14 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkhooks.h"
 #include "pkproto.h"
 #include "pkblocker.h"
+#include "pktunnel.h"
 #include "pkmanager.h"
 #include "pklogging.h"
 #include "pkwatchdog.h"
 #include "opensslthreadlock.h"
+#if HAVE_RELAY
+#include "pkrelay.h"
+#endif
 
 #ifdef __MINGW32__
 #include <mxe/evwrap.c>
@@ -166,7 +170,7 @@ static void pkm_quit(struct pk_manager* pkm)
 static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
 {
   struct pk_backend_conn* pkb; /* FIXME: What if we are a front-end? */
-  char reply[PK_REJECT_MAXSIZE], rej[PK_REJECT_MAXSIZE];
+  char reply[PK_RESPONSE_MAXSIZE], rej[PK_RESPONSE_MAXSIZE];
   size_t bytes;
 
   PK_TRACE_FUNCTION;
@@ -837,20 +841,24 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
       continue;
     }
 
-    if ((fe->requests == NULL) ||
-        (fe->request_count != pkm->kite_max) ||
-        (fe->conn.sockfd < 0)) {
-      /* Reset the list of kites we will request from this relay. */
-      fe->request_count = pkm->kite_max;
-      memset(fe->requests, 0, pkm->kite_max * sizeof(struct pk_kite_request));
-      for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
-        kite_r->kite = (pkm->kites + j);
-        kite_r->status = PK_KITE_UNKNOWN;
+    if (fe->requests == NULL) {
+      fe->request_count = 0;
+    }
+    else {
+      if ((fe->request_count != pkm->kite_max) ||
+          (fe->conn.sockfd < 0)) {
+        /* Reset the list of kites we will request from this relay. */
+        fe->request_count = pkm->kite_max;
+        memset(fe->requests, 0, pkm->kite_max * sizeof(struct pk_kite_request));
+        for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
+          kite_r->kite = (pkm->kites + j);
+          kite_r->status = PK_KITE_UNKNOWN;
+        }
       }
     }
 
     reconnect = 0;
-    for (kite_r = fe->requests, j = 0; j < pkm->kite_max; j++, kite_r++) {
+    for (kite_r = fe->requests, j = 0; j < fe->request_count; j++, kite_r++) {
       if (kite_r->status == PK_KITE_UNKNOWN) reconnect++;
     }
 
@@ -1028,7 +1036,8 @@ void pkm_tick(struct pk_manager* pkm)
 static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
 {
   int i, pingsize;
-  char ping[PK_REJECT_MAXSIZE];
+  char ping[PK_RESPONSE_MAXSIZE];
+  struct pk_tunnel* fe;
   struct pk_manager* pkm = (struct pk_manager*) w->data;
   time_t next_tick = pkm->next_tick;
   time_t max_tick;
@@ -1391,6 +1400,8 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
 
   /* Scan the front-end list to see if we already have this IP or,
    * if not, find an available slot.
+   *
+   * FIXME: Start searching from a random spot?
    */
   PK_TUNNEL_ITER(pkm, fe) {
     if (fe->fe_hostname == NULL) {
@@ -1433,18 +1444,15 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
   unsigned int shift;
   struct pk_backend_conn* pkb;
   struct pk_backend_conn* pkb_oldest;
+  char safe_sid[PK_MAX_SID_SIZE + 1];
 
   PK_TRACE_FUNCTION;
 
-  /* FIXME: This becomes a bottleneck when we start to hit our connection
-   *        limits; it goes suddenly from O(1) to O(n). We might want to
-   *        replace this with a data structure degrades a bit more
-   *        gracefully.
-   */
+  strncpyz(safe_sid, sid, PK_MAX_SID_SIZE);
+  shift = pkm_sid_shift(safe_sid);
 
   max_age = pk_time();
   pkb_oldest = NULL;
-  shift = pkm_sid_shift(sid);
   for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
     if (!(pkb->conn.status & CONN_STATUS_ALLOCATED)) {
@@ -1454,7 +1462,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
        *       could suppress errors. We expect whatever allocated this
        *       conn to reset the changing flag whan it's done working. */
       pkb->conn.status |= CONN_STATUS_CHANGING;
-      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE);
+      strcpy(pkb->sid, safe_sid);
       return pkb;
     }
     if ((pkb->conn.activity <= max_age) &&
@@ -1483,7 +1491,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
       pkm_update_io(pkb->tunnel, pkb, 0);
       pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
       pkb->tunnel = fe;
-      strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE);
+      strncpyz(pkb->sid, sid, PK_MAX_SID_SIZE);
       return pkb;
     }
   }
@@ -1511,7 +1519,7 @@ struct pk_backend_conn* pkm_find_be_conn(struct pk_manager* pkm,
     pkb = (pkm->be_conns + ((i + shift) % pkm->be_conn_max));
     if ((pkb->conn.status & CONN_STATUS_ALLOCATED) &&
         (pkb->tunnel == fe) &&
-        (0 == strncmp(pkb->sid, sid, BE_MAX_SID_SIZE))) {
+        (0 == strncmp(pkb->sid, sid, PK_MAX_SID_SIZE))) {
       return pkb;
     }
   }

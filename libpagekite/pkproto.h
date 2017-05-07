@@ -42,11 +42,21 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_HANDSHAKE_KITE "X-PageKite: %s\r\n"
 #define PK_HANDSHAKE_END "\r\n"
 #define PK_HANDSHAKE_SESSIONID_MAX 256
+#define PK_HANDSHAKE_VERSION_MAX 12
+#define PK_HANDSHAKE_REQUEST_MAX 200
 
 /* Must be careful here, outsiders can manipulate the contents of the
  * reply message.  Beware the buffer overflows! */
+#define PK_RESPONSE_MAXSIZE 1024
+#define PK_RESPONSE_HEADERS ("Pragma: no-cache\r\n" \
+                             "Expires: 0\r\n" \
+                             "Cache-Control: no-store\r\n" \
+                             "Connection: close\r\n")
+#define PK_ACCEPT_HTTP "HTTP/1.1 200 OK\r\n"
+#define PK_ACCEPT_HTTP_CONNECT "HTTP/1.0 200 Connection Established\r\n\r\n"
+#define PK_REJECT_HTTP_CONNECT "HTTP/1.0 503 Unavailable\r\n\r\n"
+#define PK_REJECT_HTTP "HTTP/1.1 503 Unavailable\r\n"
 #define PK_REJECT_BACKEND -1
-#define PK_REJECT_MAXSIZE 1024
 #define PK_REJECT_FMT (\
   "HTTP/1.1 503 Unavailable\r\n" \
   "Content-Type: text/html; charset=utf-8\r\n" \
@@ -69,6 +79,11 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #define PK_REJECT_TLS_DATA "\x15\x03\0\0\x02\x02\x31"
 #define PK_REJECT_TLS_LEN  7
+
+/* FIXME: This is the TLS rejection, should we use a different
+ *        response for legacy SSL? */
+#define PK_REJECT_SSL_DATA "\x15\x03\0\0\x02\x02\x31"
+#define PK_REJECT_SSL_LEN  7
 
 #define PK_EOF_READ  0x1
 #define PK_EOF_WRITE 0x2
@@ -117,6 +132,7 @@ struct pk_frame {
 
 /* Data structure describing a parsed chunk */
 #define PK_MAX_CHUNK_HEADERS 64
+#define PK_MAX_SID_SIZE      11    /* WARNING: If lowered, fix pkrelay.c */
 struct pk_chunk {
   PK_MEMORY_CANARY
   int             header_count;    /* Raw header data, number of headers.    */

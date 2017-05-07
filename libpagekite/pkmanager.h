@@ -31,53 +31,6 @@ struct pk_manager;
 struct pk_job;
 struct pk_job_pile;
 
-/* These are also written to the conn.status field, using the fourth byte. */
-#define FE_STATUS_BITS      0xFF000000
-#define FE_STATUS_AUTO      0x00000000  /* For use in pkm_add_tunnel       */
-#define FE_STATUS_WANTED    0x01000000  /* Algorithm chose this FE         */
-#define FE_STATUS_NAILED_UP 0x02000000  /* User chose this FE              */
-#define FE_STATUS_IN_DNS    0x04000000  /* This FE is in DNS               */
-#define FE_STATUS_REJECTED  0x08000000  /* Front-end rejected connection   */
-#define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
-#define FE_STATUS_IS_FAST   0x20000000  /* This is a fast front-end        */
-struct pk_tunnel {
-  PK_MEMORY_CANARY
-  /* These apply to frontend connections only (on the backend) */
-  char*                   fe_hostname;
-  int                     fe_port;
-  time_t                  last_ddnsup;
-  int                     priority;
-  /* These apply to all tunnels (frontend or backend) */
-  struct addrinfo         ai;
-  struct pk_conn          conn;
-  int                     error_count;
-  char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX+1];
-  time_t                  last_ping;
-  time_t                  last_configured;
-  struct pk_manager*      manager;
-  struct pk_parser*       parser;
-  int                     request_count;
-  struct pk_kite_request* requests;
-  pagekite_callback_t*    callback_func;
-  void*                   callback_data;
-};
-
-/* These are also written to the conn.status field, using the third byte. */
-#define BE_STATUS_BITS           0x00FF0000
-#define BE_STATUS_EOF_READ       0x00010000
-#define BE_STATUS_EOF_WRITE      0x00020000
-#define BE_STATUS_EOF_THROTTLED  0x00040000
-#define BE_MAX_SID_SIZE          8
-struct pk_backend_conn {
-  PK_MEMORY_CANARY
-  char                 sid[BE_MAX_SID_SIZE+1];
-  struct pk_tunnel*    tunnel;
-  struct pk_pagekite*  kite;
-  struct pk_conn       conn;
-  pagekite_callback_t* callback_func;
-  void*                callback_data;
-};
-
 #define MIN_KITE_ALLOC        4
 #define MIN_FE_ALLOC          2
 #define MIN_CONN_ALLOC       16
@@ -143,6 +96,10 @@ struct pk_manager {
   time_t                   housekeeping_interval_min;
   time_t                   housekeeping_interval_max;
   time_t                   check_world_interval;
+
+#if HAVE_RELAY
+  void*                    relay;
+#endif
 };
 
 

@@ -55,6 +55,7 @@ Connections are accepted and identified like so:
 #include "pkhooks.h"
 #include "pkconn.h"
 #include "pkproto.h"
+#include "pktunnel.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pkrelay.h"
