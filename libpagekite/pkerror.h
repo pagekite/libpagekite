@@ -27,6 +27,9 @@ Note: For alternate license terms, see the file COPYING.md.
 #define ERR_PARSE_NO_KITENAME -20000
 #define ERR_PARSE_NO_BSALT    -20001
 #define ERR_PARSE_NO_FSALT    -20002
+#define ERR_PARSE_UNSIGNED    -20003
+#define ERR_PARSE_BAD_SIG     -20004
+#define ERR_PARSE_BAD_FSALT   -20005
 
 #define ERR_CONNECT_LOOKUP    -30000
 #define ERR_CONNECT_CONNECT   -30001

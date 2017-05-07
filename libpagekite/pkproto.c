@@ -547,33 +547,39 @@ size_t pk_format_http_rejection(
 
 /**[ Connecting ]**************************************************************/
 
-int pk_make_bsalt(struct pk_kite_request* kite_r) {
+int pk_make_salt(char* salt) {
   uint8_t buffer[1024];
   char digest[41];
 
-  sprintf((char*) buffer, "%s %x %x", random_junk, rand(), (int) time(0));
+  PK_TRACE_FUNCTION;
+
+  int slen = sprintf((char*) buffer, "%x %x", rand(), (int) time(0));
 
 #ifdef HAVE_OPENSSL
   SHA_CTX context;
   SHA1_Init(&context);
-  SHA1_Update(&context, buffer, strlen((const char*) buffer));
+  SHA1_Update(&context, (uint8_t*) random_junk, 31);
+  SHA1_Update(&context, buffer, slen);
   SHA1_Final((unsigned char*) buffer, &context);
 #else
   PD_SHA1_CTX context;
   pd_sha1_init(&context);
-  pd_sha1_update(&context, buffer, strlen((const char*) buffer));
+  pd_sha1_update(&context, (uint8_t*) random_junk, 31);
+  pd_sha1_update(&context, buffer, slen);
   pd_sha1_final(&context, buffer);
 #endif
   digest_to_hex(buffer, digest);
-  strncpyz(kite_r->bsalt, digest, PK_SALT_LENGTH);
+  strncpyz(salt, digest, PK_SALT_LENGTH);
 
   return 1;
 }
 
-char* pk_sign(const char* token, const char* secret, const char* payload,
-              int length, char *buffer)
+char* pk_sign(const char* token, const char* secret, time_t ts,
+              const char* payload, int length, char *buffer)
 {
-  char tbuffer[128], scratch[10240];
+  char tbuffer[128], tsbuf[12], scratch[10240];
+
+  PK_TRACE_FUNCTION;
 
   if (token == NULL) {
     sprintf(scratch, "%8.8x", rand());
@@ -581,19 +587,29 @@ char* pk_sign(const char* token, const char* secret, const char* payload,
     SHA_CTX context;
     SHA1_Init(&context);
     SHA1_Update(&context, (uint8_t*) secret, strlen(secret));
+    SHA1_Update(&context, (uint8_t*) random_junk, 31);
     SHA1_Update(&context, (uint8_t*) scratch, 8);
     SHA1_Final((unsigned char*) scratch, &context);
 #else
     PD_SHA1_CTX context;
     pd_sha1_init(&context);
     pd_sha1_update(&context, (uint8_t*) secret, strlen(secret));
+    pd_sha1_update(&context, (uint8_t*) random_junk, 31);
     pd_sha1_update(&context, (uint8_t*) scratch, 8);
     pd_sha1_final(&context, scratch);
 #endif
     digest_to_hex((uint8_t*) scratch, tbuffer);
     token = tbuffer;
   }
-  strcpy(buffer, token);
+  strncpy(buffer, token, 8);
+  buffer[8] = '\0';
+
+  /* Optionally embed a timestamp to the resolution of 10 minutes */
+  if (ts > 0) {
+    sprintf(tsbuf, "%lx", ts / 600);
+    buffer[0] = 't';
+  }
+  else tsbuf[0] = '\0';
 
 #ifdef HAVE_OPENSSL
   SHA_CTX context;
@@ -601,7 +617,8 @@ char* pk_sign(const char* token, const char* secret, const char* payload,
   SHA1_Update(&context, (uint8_t*) secret, strlen(secret));
   if (payload)
     SHA1_Update(&context, (uint8_t*) payload, strlen(payload));
-  SHA1_Update(&context, (uint8_t*) token, 8);
+  SHA1_Update(&context, (uint8_t*) tsbuf, strlen(tsbuf));
+  SHA1_Update(&context, (uint8_t*) buffer, 8);
   SHA1_Final((unsigned char*)scratch, &context);
 #else
   PD_SHA1_CTX context;
@@ -609,7 +626,8 @@ char* pk_sign(const char* token, const char* secret, const char* payload,
   pd_sha1_update(&context, (uint8_t*) secret, strlen(secret));
   if (payload)
     pd_sha1_update(&context, (uint8_t*) payload, strlen(payload));
-  pd_sha1_update(&context, (uint8_t*) token, 8);
+  pd_sha1_update(&context, (uint8_t*) tsbuf, strlen(tsbuf));
+  pd_sha1_update(&context, (uint8_t*) buffer, 8);
   pd_sha1_final(&context, scratch);
 #endif
   digest_to_hex((uint8_t*) scratch, buffer+8);
@@ -617,27 +635,52 @@ char* pk_sign(const char* token, const char* secret, const char* payload,
   return buffer;
 }
 
-int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt) {
-  char request[1024];
-  char request_sign[1024];
-  char request_salt[1024];
+char *pk_prepare_kite_challenge(char* buffer, struct pk_kite_request* kite_r,
+                                char* secret, time_t ts) {
   char proto[64];
   struct pk_pagekite* kite;
 
-  kite = kite_r->kite;
-  if (kite_r->bsalt[0] == '\0')
-    if (pk_make_bsalt(kite_r) < 0)
-      return 0;
+  PK_TRACE_FUNCTION;
 
+  kite = kite_r->kite;
   if (kite->public_port > 0)
     sprintf(proto, "%s-%d", kite->protocol, kite->public_port);
   else
     strcpy(proto, kite->protocol);
 
-  sprintf(request, "%s:%s:%s:%s", proto, kite->public_domain,
-                                         kite_r->bsalt, kite_r->fsalt);
+  if (secret != NULL) {
+    char* npe = buffer;
+    npe += sprintf(buffer, "%s:%s:%s", proto, kite->public_domain,
+                                       kite_r->bsalt);
+    pk_sign(kite_r->fsalt[0] ? kite_r->fsalt : NULL, secret, ts,
+            buffer, PK_SALT_LENGTH, npe + 1);
+    *npe = ':';
+  }
+  else {
+    sprintf(buffer, "%s:%s:%s:%s", proto, kite->public_domain,
+                                   kite_r->bsalt, kite_r->fsalt);
+  }
+
+  return buffer;
+}
+
+int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt) {
+  char request[1024];
+  char request_sign[1024];
+  char request_salt[1024];
+  struct pk_pagekite* kite;
+
+  PK_TRACE_FUNCTION;
+
+  kite = kite_r->kite;
+  if (kite_r->bsalt[0] == '\0')
+    if (pk_make_salt(kite_r->bsalt) < 0)
+      return 0;
+
+  pk_prepare_kite_challenge(request, kite_r, NULL, 0);
+
   sprintf(request_salt, "%8.8x", salt);
-  pk_sign(request_salt, kite->auth_secret, request, 36, request_sign);
+  pk_sign(request_salt, kite->auth_secret, 0, request, 36, request_sign);
 
   strcat(request, ":");
   strcat(request, request_sign);
@@ -645,42 +688,53 @@ int pk_sign_kite_request(char *buffer, struct pk_kite_request* kite_r, int salt)
   return sprintf(buffer, PK_HANDSHAKE_KITE, request);
 }
 
-char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
+char *pk_parse_kite_request(
+  struct pk_kite_request* kite_r,
+  char** signature,
+  const char *line)
 {
   char* copy;
   char* p;
   char* public_domain;
   char* bsalt;
   char* fsalt;
+  char* bsig;
   char* protocol;
   struct pk_pagekite* kite = kite_r->kite;
 
-  copy = malloc(strlen(line)+1);
+  PK_TRACE_FUNCTION;
+
+  int llen = strlen(line);
+  copy = malloc(llen+1);
   strcpy(copy, line);
 
+  char* end = copy + llen + 1;
+  *end = '\0';
+
+  /* Parse the string... */
   protocol = strchr(copy, ' ');
-  if (protocol == NULL)
+  if (protocol == NULL) {
     protocol = copy;
-  else
+  }
+  else {
     protocol++;
-
-  if (NULL == (public_domain = strchr(protocol, ':'))) {
-    free(copy);
-    return pk_err_null(ERR_PARSE_NO_KITENAME);
   }
-  *(public_domain++) = '\0';
-
-  if (NULL == (bsalt = strchr(public_domain, ':'))) {
-    free(copy);
-    return pk_err_null(ERR_PARSE_NO_BSALT);
+  if (NULL != (public_domain = strchr(protocol, ':'))) {
+    *(public_domain++) = '\0';
+    if ((public_domain < end) && NULL != (bsalt = strchr(public_domain, ':'))) {
+      *(bsalt++) = '\0';
+      if ((bsalt < end) && NULL != (fsalt = strchr(bsalt, ':'))) {
+        *(fsalt++) = '\0';
+        if ((fsalt < end) && NULL != (bsig = strchr(fsalt, ':'))) {
+          *(bsig++) = '\0';
+        }
+        else bsig = "";
+      }
+      else fsalt = bsig = "";
+    }
+    else bsalt = fsalt = bsig = "";
   }
-  *(bsalt++) = '\0';
-
-  if (NULL == (fsalt = strchr(bsalt, ':'))) {
-    free(copy);
-    return pk_err_null(ERR_PARSE_NO_FSALT);
-  }
-  *(fsalt++) = '\0';
+  else public_domain = bsalt = fsalt = bsig = "";
 
   /* Error out if things are too large. */
   if ((strlen(protocol) > PK_PROTOCOL_LENGTH) ||
@@ -696,15 +750,25 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
   strncpyz(kite->public_domain, public_domain, PK_DOMAIN_LENGTH);
   strncpyz(kite_r->bsalt, bsalt, PK_SALT_LENGTH);
   strncpyz(kite_r->fsalt, fsalt, PK_SALT_LENGTH);
-
   if (NULL != (p = strchr(kite->protocol, '-'))) {
     *p++ = '\0';
     sscanf(p, "%d", &(kite->public_port));
   }
   else
     kite->public_port = 0;
+  if (*bsig && signature) {
+    *signature = strdup(bsig);
+  }
+  else if (signature)
+    *signature = NULL;
 
+  /* Cleanup */
   free(copy);
+
+  /* Pass judgement */
+  if ('\0' == *public_domain) return pk_err_null(ERR_PARSE_NO_KITENAME);
+  if ('\0' == *bsalt) return pk_err_null(ERR_PARSE_NO_BSALT);
+  if ('\0' == *fsalt) return pk_err_null(ERR_PARSE_NO_FSALT);
   return kite->public_domain;
 }
 
@@ -714,6 +778,8 @@ struct pk_kite_request* pk_parse_pagekite_response(
   char* session_id,
   char* motd)
 {
+  PK_TRACE_FUNCTION;
+
   /* Walk through the buffer and count how many responses we have.
    * This will overshoot a bit, but that should be harmless. */
   int responses = 1;
@@ -814,7 +880,7 @@ struct pk_kite_request* pk_parse_pagekite_response(
       }
 
       if (rp->status != PK_KITE_UNKNOWN) {
-        if (NULL != pk_parse_kite_request(rp, p)) rp++;
+        if (NULL != pk_parse_kite_request(rp, NULL, p)) rp++;
       }
     }
 
@@ -834,6 +900,8 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   char buffer[16*1024], *p;
   struct pk_pagekite tkite;
   struct pk_kite_request tkite_r;
+
+  PK_TRACE_FUNCTION;
 
   pkc->status |= CONN_STATUS_CHANGING;
   pk_log(PK_LOG_TUNNEL_CONNS,
@@ -970,6 +1038,8 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
   char ports[16];
   struct addrinfo hints, *result, *rp;
 
+  PK_TRACE_FUNCTION;
+
   pkc->status |= CONN_STATUS_CHANGING;
   pk_log(PK_LOG_TUNNEL_CONNS, "pk_connect(%s:%d, %d, %p)",
                               frontend, port, n, requests);
@@ -1000,6 +1070,8 @@ int pk_http_forwarding_headers_hook(struct pk_chunk* chunk,
 {
   static unsigned char rewrite_space[PARSER_BYTES_MAX + 256];
   char forwarding_headers[1024];
+
+  PK_TRACE_FUNCTION;
 
   if (chunk->first_chunk &&
       chunk->request_proto &&
@@ -1221,7 +1293,7 @@ static int pkproto_test_alloc(unsigned int buf_len, char *buffer,
 
 static int pkproto_test_make_bsalt(void) {
   struct pk_kite_request kite;
-  pk_make_bsalt(&kite);
+  pk_make_salt(kite.bsalt);
   assert(strlen(kite.bsalt) == 36);
   return 1;
 }
@@ -1251,14 +1323,18 @@ static int pkproto_test_sign_kite_request(void) {
 static int pkproto_test_parse_kite_request(void) {
   struct pk_pagekite kite;
   struct pk_kite_request kite_r;
+  char *signature;
 
   kite_r.kite = &kite;
-  pk_parse_kite_request(&kite_r, "foo: http-99:b.com:abacab:");
+  pk_parse_kite_request(&kite_r, &signature, "X-PageKite: http-99:b.com:abacab::sig");
   assert(99 == kite.public_port);
   assert(0 == strcmp(kite.public_domain, "b.com"));
   assert(0 == strcmp(kite.protocol, "http"));
   assert(0 == strcmp(kite_r.bsalt, "abacab"));
   assert(0 == strcmp(kite_r.fsalt, ""));
+  assert(signature != NULL);
+  assert(0 == strcmp(signature, "sig"));
+  free(signature);
 
   return 1;
 }
