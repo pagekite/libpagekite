@@ -157,12 +157,15 @@ struct pk_parser* pk_parser_init (int, char*,
                                   pkChunkCallback*, void *);
 int               pk_parser_parse(struct pk_parser*, int, char*);
 void              pk_parser_reset(struct pk_parser*);
+void              pk_chunk_reset(struct pk_chunk*);
+void              pk_chunk_reset_values(struct pk_chunk*);
 
 void              pk_reset_pagekite(struct pk_pagekite* kite);
 
 size_t            pk_format_frame(char*, const char*, const char *, size_t);
 size_t            pk_reply_overhead(const char *sid, size_t);
 size_t            pk_format_reply(char*, const char*, size_t, const char*);
+ssize_t           pk_format_chunk(char*, size_t, struct pk_chunk*);
 size_t            pk_format_skb(char*, const char*, int);
 size_t            pk_format_eof(char*, const char*, int);
 size_t            pk_format_pong(char*);

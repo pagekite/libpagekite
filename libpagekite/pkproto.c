@@ -64,7 +64,7 @@ void frame_reset(struct pk_frame* frame)
   frame->raw_frame = NULL;
 }
 
-void chunk_reset_values(struct pk_chunk* chunk)
+void pk_chunk_reset_values(struct pk_chunk* chunk)
 {
   PK_ADD_MEMORY_CANARY(chunk);
   chunk->sid = NULL;
@@ -89,9 +89,9 @@ void chunk_reset_values(struct pk_chunk* chunk)
   chunk->data = NULL;
 }
 
-void chunk_reset(struct pk_chunk* chunk)
+void pk_chunk_reset(struct pk_chunk* chunk)
 {
-  chunk_reset_values(chunk);
+  pk_chunk_reset_values(chunk);
   frame_reset(&(chunk->frame));
 }
 
@@ -108,7 +108,7 @@ struct pk_parser* pk_parser_init(int buf_length, char* buf,
 
   parser->chunk = (struct pk_chunk *) (buf + parser_size);
   parser_size += sizeof(struct pk_chunk);
-  chunk_reset(parser->chunk);
+  pk_chunk_reset(parser->chunk);
 
   parser->chunk->frame.raw_frame = (char *) (buf + parser_size);
 
@@ -125,7 +125,7 @@ void pk_parser_reset(struct pk_parser *parser)
   PK_ADD_MEMORY_CANARY(parser);
   parser->buffer_bytes_left += parser->chunk->frame.raw_length;
   frame_reset_values(&(parser->chunk->frame));
-  chunk_reset_values(parser->chunk);
+  pk_chunk_reset_values(parser->chunk);
 }
 
 int parse_frame_header(struct pk_frame* frame)
@@ -416,6 +416,57 @@ size_t pk_format_reply(char* buf, const char* sid,
   }
   else
     return hlen;
+}
+
+ssize_t pk_format_chunk(char* buf, size_t maxbytes, struct pk_chunk* chunk)
+{
+  size_t bytes = 0;
+  size_t hlen = pk_reply_overhead(chunk->sid, maxbytes);
+  char* tbuf = malloc(maxbytes - hlen);
+  if (tbuf == NULL) return (pk_error = ERR_PARSE_NO_MEMORY);
+
+  #define free_and_return(rv) { free(tbuf); return rv; }
+  #define _add_str(h, v) if (v != NULL) { \
+                  if (hlen + bytes + strlen(h) + strlen(v) + 5 <= maxbytes) { \
+                    bytes += sprintf(tbuf + bytes, "%s: %s\r\n", h, v); \
+                  } else free_and_return(pk_error = ERR_PARSE_NO_MEMORY); }
+  #define _add_int(h, v) if (v >= 0) { \
+                  if (hlen + bytes + strlen(h) + 10 + 5 <= maxbytes) { \
+                    bytes += sprintf(tbuf + bytes, "%s: %d\r\n", h, v); \
+                  } else free_and_return(pk_error = ERR_PARSE_NO_MEMORY); }
+  #define _add_sst(h, v) if (v >= 0) { \
+                  if (hlen + bytes + strlen(h) + 10 + 5 <= maxbytes) { \
+                    bytes += sprintf(tbuf + bytes, "%s: %ld\r\n", h, v); \
+                  } else free_and_return(pk_error = ERR_PARSE_NO_MEMORY); }
+
+  _add_str("EOF",    chunk->eof);
+  _add_str("NOOP",   chunk->noop);
+  _add_str("PING",   chunk->ping);
+  _add_str("Host",   chunk->request_host);
+  _add_int("Port",   chunk->request_port);
+  _add_str("Proto",  chunk->request_proto);
+  _add_str("RIP",    chunk->remote_ip);
+  _add_int("RPort",  chunk->remote_port);
+  _add_str("RTLS",   chunk->remote_tls);
+  _add_sst("SKB",    chunk->remote_sent_kb);
+  _add_int("QDays",  chunk->quota_days);
+  _add_int("QConns", chunk->quota_conns);
+  _add_int("Quota",  chunk->quota_mb);
+
+  bytes += sprintf(tbuf + bytes, "\r\n");
+
+  if (chunk->length > 0) {
+    if (hlen + chunk->length + bytes - 2 > maxbytes) {
+      free_and_return(pk_error = ERR_PARSE_NO_MEMORY);
+    }
+    memcpy(tbuf + bytes, chunk->data, chunk->length);
+    bytes += chunk->length;
+  }
+
+  hlen = pk_format_frame(buf, chunk->sid, "SID: %s\r\n", bytes);
+  memcpy(buf + hlen, tbuf, bytes);
+
+  free_and_return(hlen + bytes);
 }
 
 size_t pk_format_eof(char* buf, const char* sid, int how)
@@ -965,6 +1016,28 @@ static int pkproto_test_format_reply(void)
   return 1;
 }
 
+static int pkproto_test_format_chunk(void)
+{
+  struct pk_chunk chunk;
+  char dest[1024];
+
+  pk_chunk_reset_values(&chunk);
+  chunk.sid = "1234";
+  chunk.eof = "1W";
+  chunk.quota_mb = 10;
+  chunk.data = "Potato salads";
+  chunk.length = strlen(chunk.data);
+  char* expect = "2e\r\nSID: 1234\r\nEOF: 1W\r\nQuota: 10\r\n\r\nPotato salads";
+  size_t bytes = strlen(expect);
+
+  /* Make sure our memory bounds are respected */
+  assert(ERR_PARSE_NO_MEMORY == pk_format_chunk(dest, bytes - 1, &chunk));
+  assert(bytes == pk_format_chunk(dest, bytes, &chunk));
+
+  assert(0 == strncmp(expect, dest, bytes));
+  return 1;
+}
+
 static int pkproto_test_format_eof(void)
 {
   char dest[1024];
@@ -1157,6 +1230,7 @@ int pkproto_test(void)
                                        &callback_called);
   return (pkproto_test_format_frame() &&
           pkproto_test_format_reply() &&
+          pkproto_test_format_chunk() &&
           pkproto_test_format_eof() &&
           pkproto_test_format_pong() &&
           pkproto_test_alloc(PARSER_BYTES_MIN, buffer, p) &&
