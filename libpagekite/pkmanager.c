@@ -222,6 +222,10 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
   else
     pkm_yield_start(fe->manager);
 
+  if (fe->manager->enable_http_forwarding_headers) {
+    pk_http_forwarding_headers_hook(chunk, pkb);
+  }
+
   PK_HOOK(PK_HOOK_CHUNK_INCOMING, 0, chunk, pkb);
 
   if (NULL != chunk->noop) {

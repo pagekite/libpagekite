@@ -791,12 +791,11 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
   return (pk_error = ERR_CONNECT_CONNECT);
 }
 
-int pk_http_forwarding_headers_hook(int hook_id, int iv, void* p1, void* p2)
+int pk_http_forwarding_headers_hook(struct pk_chunk* chunk,
+                                    struct pk_backend_conn* pkb)
 {
   static unsigned char rewrite_space[PARSER_BYTES_MAX + 256];
   char forwarding_headers[1024];
-  struct pk_chunk *chunk = (struct pk_chunk*) p1;
-  struct pk_backend_conn *pkb = (struct pk_backend_conn*) p2;
 
   if (chunk->first_chunk &&
       chunk->request_proto &&
@@ -900,7 +899,7 @@ static void pkproto_test_callback(int *data, struct pk_chunk *chunk) {
   }
   else if (*data == 2) {
     chunk->first_chunk = 1;
-    pk_http_forwarding_headers_hook(0, 0, (void*) chunk, NULL);
+    pk_http_forwarding_headers_hook(chunk, NULL);
     assert(NULL != memmem(chunk->data, chunk->length, "X-Forward", 9));
   }
   else {

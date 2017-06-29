@@ -146,6 +146,9 @@ struct pk_parser {
   void*            chunk_callback_data;
 };
 
+/* Forward declaration to help us out a bit... */
+struct pk_backend_conn;
+
 struct pk_parser* pk_parser_init (int, char*,
                                   pkChunkCallback*, void *);
 int               pk_parser_parse(struct pk_parser*, int, char*);
@@ -171,6 +174,7 @@ int               pk_connect_ai(struct pk_conn*, struct addrinfo*, int,
 int               pk_connect(struct pk_conn*, char*, int,
                              unsigned int, struct pk_kite_request*, char*,
                              SSL_CTX*);
-int               pk_http_forwarding_headers_hook(int, int, void*, void*);
+int               pk_http_forwarding_headers_hook(struct pk_chunk*,
+                                                  struct pk_backend_conn*);
 
 int pkproto_test(void);

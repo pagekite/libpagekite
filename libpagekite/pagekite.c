@@ -383,12 +383,8 @@ int pagekite_enable_watchdog(pagekite_mgr pkm, int enable)
 
 int pagekite_enable_http_forwarding_headers(pagekite_mgr pkm, int enable)
 {
-  if (enable) {
-    pk_hooks[PK_HOOK_CHUNK_INCOMING] = &pk_http_forwarding_headers_hook;
-  }
-  else {
-    pk_hooks[PK_HOOK_CHUNK_INCOMING] = NULL;
-  }
+  if (pkm == NULL) return -1;
+  PK_MANAGER(pkm)->enable_http_forwarding_headers = (enable > 0);
   return 0;
 }
 
