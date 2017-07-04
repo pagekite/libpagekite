@@ -276,7 +276,10 @@ int main(int argc, char **argv) {
   /* Move the logging to the event API, mostly for testing. */
   if (0 == (flags & PK_WITH_SYSLOG)) {
     pagekite_set_log_destination(m, PK_LOG_DEST_NONE);
-    pagekite_set_event_mask(m, PK_EV_MASK_LOGGING);
+    pagekite_set_event_mask(m, PK_EV_MASK_LOGGING | PK_EV_MASK_MISC);
+  }
+  else {
+    pagekite_set_event_mask(m, PK_EV_MASK_MISC);
   }
 
   for (ac = gotargs; ac+5 < argc; ac += 5) {
@@ -334,17 +337,12 @@ int main(int argc, char **argv) {
   while (PK_EV_SHUTDOWN != (
     (eid = pagekite_await_event(m, 1)) & PK_EV_TYPE_MASK))
   {
-    fprintf(stderr, "GOT EVENT: 0x%8.8x ", eid);
-    int e_int;
-    const char* e_str;
     switch (eid & PK_EV_TYPE_MASK) {
       case PK_EV_LOGGING:
-        e_int = pagekite_get_event_int(m, eid);
-        e_str = pagekite_get_event_str(m, eid);
-        fprintf(stderr, "int=%d, str=%s\n", e_int, e_str);
+        fprintf(stderr, "%s\n", pagekite_get_event_str(m, eid));
         break;
       default:
-        fprintf(stderr, "\n");
+        fprintf(stderr, "[Got event 0x%8.8x]\n", eid);
     }
     pagekite_event_respond(m, eid, PK_EV_RESPOND_DEFAULT);
   }
