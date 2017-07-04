@@ -24,6 +24,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkcommon.h"
 #include "pkutils.h"
 #include "pkconn.h"
+#include "pkhooks.h"
 #include "pkproto.h"
 #include "pkstate.h"
 #include "pkblocker.h"

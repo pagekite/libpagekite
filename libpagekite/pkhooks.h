@@ -62,3 +62,36 @@ pagekite_callback2_t* pk_hooks[PK_HOOK_MAX] = {
 #define PK_HOOK(n, i, p1, p2) \
         ((pk_hooks[n] == NULL) ? -1 : (pk_hooks[n])(n, i, p1, p2))
 
+
+struct pke_event {
+  time_t          posted;
+  unsigned int    event_code;
+  int             event_int;
+  char*           event_str;
+  unsigned int    response_code;
+  int*            response_int;
+  char**          response_str;
+  pthread_cond_t  trigger;
+};
+
+struct pke_events {
+  struct pke_event*   events;
+  unsigned int        event_mask;
+  unsigned int        event_max;
+  unsigned int        event_ptr;
+  pthread_mutex_t     lock;
+  pthread_cond_t      trigger;
+};
+
+
+void pke_init_events             (struct pke_events*, unsigned int);
+void pke_free_event              (struct pke_events*, unsigned int);
+void pke_post_event              (struct pke_events*, unsigned int,
+                                  int, const char*);
+int pke_post_blocking_event      (struct pke_events*, unsigned int,
+                                  int, const char*, int*, char**);
+struct pke_event* pke_await_event(struct pke_events*, int);
+struct pke_event* pke_get_event  (struct pke_events*, unsigned int);
+void pke_post_response           (struct pke_events*, unsigned int,
+                                  unsigned int, int, const char*);
+void pke_cancel_all_events       (struct pke_events*);

@@ -128,6 +128,7 @@ struct pk_manager {
   pthread_t                watchdog_thread;
   struct pk_blocker*       blocking_threads[MAX_BLOCKING_THREADS];
   struct pk_job_pile       blocking_jobs;
+  struct pke_events        events;
 
   /* Settings */
   int                      kite_max;

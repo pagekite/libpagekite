@@ -64,9 +64,9 @@ def java_ret_type(ret_type):
     ret_type = ret_type.strip()
     if ret_type in ('pagekite_mgr', 'void'):
         return 'boolean'
-    elif ret_type.replace(' ', '') in ('char*', 'constchar*'):
+    elif ret_type.replace(' ', '') in ('unsignedchar*', 'char*', 'constchar*'):
         return 'String'
-    elif ret_type in ('int', 'pk_neg_fail'):
+    elif ret_type.replace(' ', '') in ('unsignedint', 'int', 'pk_neg_fail'):
         return 'int'
     else:
         raise ValueError('Unknown return value type: %s' % ret_type)
@@ -272,9 +272,9 @@ def python_ret_type(ret_type):
     ret_type = ret_type.strip()
     if ret_type in ('pagekite_mgr',):
         return 'c_void_p'
-    elif ret_type.replace(' ', '') in ('char*', 'constchar*'):
+    elif ret_type.replace(' ', '') in ('unsignedchar*', 'char*', 'constchar*'):
         return 'c_char_p'
-    elif ret_type in ('int', 'pk_neg_fail'):
+    elif ret_type.replace(' ', '') in ('unsignedint', 'int', 'pk_neg_fail'):
         return 'c_int'
     else:
         raise ValueError('Unknown return value type: %s' % ret_type)
@@ -491,7 +491,7 @@ def get_constants(pagekite_h):
             if line.startswith('#define '):
                 define, varname, value = line.split(' ', 2)
                 if varname[:6] in ('PK_WIT', 'PK_AS_', 'PK_STA',
-                                   'PK_LOG', 'PK_VER'):
+                                   'PK_LOG', 'PK_VER', 'PK_EV_'):
                     if varname == lastvarname:
                         constants[-1] = (varname, value.strip())
                     else:

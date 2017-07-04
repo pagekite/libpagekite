@@ -1551,6 +1551,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
       pkm->ev_loop_malloced = 0;
   }
   pkm->loop = loop;
+  pke_init_events(&(pkm->events), 3);  /* FIXME: Magic number */
 
   PK_ADD_MEMORY_CANARY(pkm);
 
@@ -1758,10 +1759,13 @@ void* pkm_run(void *void_pkm)
     pthread_mutex_unlock(&(pkm->loop_lock));
   }
 
+  pke_cancel_all_events(&(pkm->events));
   pkb_stop_blockers(pkm);
   if (pkm->enable_watchdog) pkw_stop_watchdog(pkm);
   pk_log(PK_LOG_MANAGER_DEBUG, "Event loop and workers stopped.");
+
   PK_HOOK(PK_HOOK_STOPPED, 0, pkm, NULL);
+  pke_post_event(&(pkm->events), PK_EV_SHUTDOWN, 0, NULL);
 
 #if HAVE_LUA
   if (pkm->lua) pklua_remove_thread_lua();

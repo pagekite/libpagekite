@@ -26,12 +26,12 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkutils.h"
 #include "pkstate.h"
 #include "pkerror.h"
+#include "pkhooks.h"
 #include "pkconn.h"
 #include "pkproto.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
-#include "pkhooks.h"
 #if HAVE_RELAY
 #include "pkrelay.h"
 #endif
@@ -528,6 +528,55 @@ int pagekite_thread_wait(pagekite_mgr pkm) {
 int pagekite_thread_stop(pagekite_mgr pkm) {
   if (pkm == NULL) return -1;
   if (0 > pkm_stop_thread(PK_MANAGER(pkm))) return -1;
+  return 0;
+}
+
+int pagekite_set_event_mask(pagekite_mgr pkm, unsigned int mask) {
+  if (pkm == NULL) return -1;
+  PK_MANAGER(pkm)->events.event_mask = mask;
+  return 0;
+}
+
+unsigned int pagekite_await_event(pagekite_mgr pkm, int timeout) {
+  if (pkm == NULL) return -1;
+  return pke_await_event(&(PK_MANAGER(pkm)->events), timeout)->event_code;
+}
+
+int pagekite_get_event_int(pagekite_mgr pkm, unsigned int event_code)
+{
+  if (pkm == NULL) return 0;
+  return pke_get_event(&(PK_MANAGER(pkm)->events), event_code)->event_int;
+}
+
+const char* pagekite_get_event_str(pagekite_mgr pkm, unsigned int event_code)
+{
+  /* We always return a string, but it may be the empty string. */
+  if (pkm == NULL) return "";
+  const char* s =  pke_get_event(&(PK_MANAGER(pkm)->events),
+                                 event_code)->event_str;
+  return (s == NULL) ? "" : s;
+}
+
+int pagekite_event_respond(pagekite_mgr pkm,
+  unsigned int event_code,
+  unsigned int response_code)
+{
+  if (pkm == NULL) return 0;
+  pke_post_response(&(PK_MANAGER(pkm)->events),
+                    event_code, response_code, 0, NULL);
+  return 0;
+}
+
+int pagekite_event_respond_with_data(
+  pagekite_mgr pkm,
+  unsigned int event_code,
+  unsigned int response_code,
+  int          response_int,
+  const char*  response_str)
+{
+  if (pkm == NULL) return 0;
+  pke_post_response(&(PK_MANAGER(pkm)->events),
+                    event_code, response_code, response_int, response_str);
   return 0;
 }
 

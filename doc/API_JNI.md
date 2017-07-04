@@ -25,6 +25,12 @@
       * [`threadWait                                  `](#thrdWt)
       * [`threadStop                                  `](#thrdStp)
       * [`free                                        `](#fr)
+      * [`setEventMask                                `](#stEvntMsk)
+      * [`awaitEvent                                  `](#wtEvnt)
+      * [`getEventInt                                 `](#gtEvntInt)
+      * [`getEventStr                                 `](#gtEvntStr)
+      * [`eventRespond                                `](#vntRspnd)
+      * [`eventRespondWithData                        `](#vntRspndWthDt)
       * [`getStatus                                   `](#gtStts)
       * [`getLog                                      `](#gtLg)
       * [`dumpStateToLog                              `](#dmpSttTLg)
@@ -494,7 +500,8 @@ This function should only be called once (per session).
 
 Wait for the main pagekite thread to finish.
 
-This function should only be called once (per session).
+This function should only be called once (per session). Running
+this function will implicitly respond to all API events with PK_EV_RESPOND_DEFAULT.
 
 **Arguments**:
 
@@ -531,6 +538,106 @@ Call this to free any memory allocated by the init functions.
 
 
 **Returns**: 0 on success, -1 on failure.
+
+
+<a                                                    name="stEvntMsk"><hr></a>
+
+#### `int setEventMask(...)`
+
+Configure which API events we are interested in.
+
+This function will change the event mask to enable or disable
+posting of API events. This can be called at any time, but if
+events outside the mask have already been posted (but not handled)
+they will not be not function.
+
+**Arguments**:
+
+   * `int mask`: A bitmask describing which events we want
+
+**Returns**: Always returns 0.
+
+
+<a                                                       name="wtEvnt"><hr></a>
+
+#### `int awaitEvent(...)`
+
+Wait for a libpagekite event.
+
+This function blocks until one of the libpagekite worker threads
+posts an API event.
+
+**Arguments**:
+
+   * `int timeout`: Max seconds to wait for an event
+
+**Returns**: An integer code identifying the event.
+
+
+<a                                                    name="gtEvntInt"><hr></a>
+
+#### `int getEventInt(...)`
+
+Get event data (integer).
+
+This function returns the integer data associated with a given
+API event.
+
+**Arguments**:
+
+   * `int event_code`: The code identifying the event
+
+**Returns**: An integer.
+
+
+<a                                                    name="gtEvntStr"><hr></a>
+
+#### `String getEventStr(...)`
+
+Get event data (string).
+
+This function returns a pointer to the data associated with a
+given API event.
+
+**Arguments**:
+
+   * `int event_code`: The code identifying the event
+
+**Returns**: A pointer to a string.
+
+
+<a                                                     name="vntRspnd"><hr></a>
+
+#### `int eventRespond(...)`
+
+Respond to a pagekite event.
+
+Post a response to an API event.
+
+**Arguments**:
+
+   * `int event_code`: The event code
+   * `int response_code`: Our response
+
+**Returns**: Always returns 0.
+
+
+<a                                                name="vntRspndWthDt"><hr></a>
+
+#### `int eventRespondWithData(...)`
+
+Respond to a pagekite event.
+
+Post a response (with data) to an API event.
+
+**Arguments**:
+
+   * `int event_code`: The event code
+   * `int response_code`: Our response
+   * `int response_int`: Integer response data
+   * `String response_str`: String response data (or NULL)
+
+**Returns**: Always returns 0.
 
 
 <a                                                       name="gtStts"><hr></a>
@@ -688,3 +795,28 @@ PageKiteAPI.PK_LOG_DEBUG = (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG)
 PageKiteAPI.PK_LOG_ALL = 0xffff00  
 PageKiteAPI.PK_LOG_DEST_SYSLOG = -1  
 PageKiteAPI.PK_LOG_DEST_NONE = -2  
+PageKiteAPI.PK_EV_ALL = 0xff000000  
+PageKiteAPI.PK_EV_IS_BLOCKING = 0x80000000  
+PageKiteAPI.PK_EV_PROCESSING = 0x40000000  
+PageKiteAPI.PK_EV_MASK_ALL = 0x3f000000  
+PageKiteAPI.PK_EV_MASK_LOGGING = 0x01000000  
+PageKiteAPI.PK_EV_MASK_STATS = 0x02000000  
+PageKiteAPI.PK_EV_MASK_CONN = 0x04000000  
+PageKiteAPI.PK_EV_MASK__UNUSED__ = 0x08000000  
+PageKiteAPI.PK_EV_MASK_DATA = 0x10000000  
+PageKiteAPI.PK_EV_MASK_MISC = 0x20000000  
+PageKiteAPI.PK_EV_SLOT_MASK = 0x00ff0000  
+PageKiteAPI.PK_EV_SLOT_SHIFT = 16  
+PageKiteAPI.PK_EV_SLOTS_MAX = 0x0100  
+PageKiteAPI.PK_EV_TYPE_MASK = 0x3f00ffff  
+PageKiteAPI.PK_EV_NONE = 0x00000000  
+PageKiteAPI.PK_EV_SHUTDOWN = (0x00000001 | PK_EV_MASK_ALL)  
+PageKiteAPI.PK_EV_LOGGING = (0x00000002 | PK_EV_MASK_LOGGING)  
+PageKiteAPI.PK_EV_COUNTER = (0x00000003 | PK_EV_MASK_STATS)  
+PageKiteAPI.PK_EV_RESPOND_DEFAULT = 0x00000000  
+PageKiteAPI.PK_EV_RESPOND_TRUE = 0x000000ff  
+PageKiteAPI.PK_EV_RESPOND_OK = 0x00000001  
+PageKiteAPI.PK_EV_RESPOND_ACCEPT = 0x00000002  
+PageKiteAPI.PK_EV_RESPOND_FALSE = 0x0000ff00  
+PageKiteAPI.PK_EV_RESPOND_ABORT = 0x00000100  
+PageKiteAPI.PK_EV_RESPOND_REJECT = 0x00000200  

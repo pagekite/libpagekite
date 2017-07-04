@@ -273,6 +273,12 @@ int main(int argc, char **argv) {
   pagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
   pagekite_enable_lua_plugins(m, !lua_no_defaults, lua_settings);
 
+  /* Move the logging to the event API, mostly for testing. */
+  if (0 == (flags & PK_WITH_SYSLOG)) {
+    pagekite_set_log_destination(m, PK_LOG_DEST_NONE);
+    pagekite_set_event_mask(m, PK_EV_MASK_LOGGING);
+  }
+
   for (ac = gotargs; ac+5 < argc; ac += 5) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
         (1 != sscanf(argv[ac+4], "%d", &pport))) {
@@ -324,6 +330,24 @@ int main(int argc, char **argv) {
     safe_exit(EXIT_ERR_START_THREAD);
   }
 
+  unsigned int eid;
+  while (PK_EV_SHUTDOWN != (
+    (eid = pagekite_await_event(m, 1)) & PK_EV_TYPE_MASK))
+  {
+    fprintf(stderr, "GOT EVENT: 0x%8.8x ", eid);
+    int e_int;
+    const char* e_str;
+    switch (eid & PK_EV_TYPE_MASK) {
+      case PK_EV_LOGGING:
+        e_int = pagekite_get_event_int(m, eid);
+        e_str = pagekite_get_event_str(m, eid);
+        fprintf(stderr, "int=%d, str=%s\n", e_int, e_str);
+        break;
+      default:
+        fprintf(stderr, "\n");
+    }
+    pagekite_event_respond(m, eid, PK_EV_RESPOND_DEFAULT);
+  }
   pagekite_thread_wait(m);
   pagekite_free(m);
 

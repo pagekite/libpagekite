@@ -25,6 +25,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #include "pkutils.h"
 #include "pkerror.h"
+#include "pkhooks.h"
 #include "pkconn.h"
 #include "pkstate.h"
 #include "pkproto.h"
@@ -39,6 +40,7 @@ Note: For alternate license terms, see the file COPYING.md.
 struct pk_global_state pk_state;
 
 int utils_test();
+int pke_events_test();
 int pkproto_test();
 int pkmanager_test();
 
@@ -57,11 +59,12 @@ int main(void) {
   }
 # endif
 
-  assert(utils_test());     fprintf(stderr, "utils test passed\n");
-  assert(pkproto_test());   fprintf(stderr, "pkproto test passed\n");
-  assert(pkmanager_test()); fprintf(stderr, "pkmanager test passed\n");
+  assert(utils_test());      fprintf(stderr, "utils test passed\n");
+  assert(pke_events_test()); fprintf(stderr, "events test passed\n");
+  assert(pkproto_test());    fprintf(stderr, "pkproto test passed\n");
+  assert(pkmanager_test());  fprintf(stderr, "pkmanager test passed\n");
 # if HAVE_RELAY
-  assert(pkrelay_test());   fprintf(stderr, "pkrelay test passed\n");
+  assert(pkrelay_test());    fprintf(stderr, "pkrelay test passed\n");
 # endif
 
 #else

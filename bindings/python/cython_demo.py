@@ -32,4 +32,11 @@ with PageKite().init_pagekitenet(
     pk.thread_start()
 
     while True:
-        time.sleep(60)
+        event_id = pk.await_event(1)
+        pk.event_respond(event_id, PK_EV_RESPOND_DEFAULT)
+
+        if (event_id != PK_EV_NONE):
+            print("Got event: %x" % event_id)
+
+        if ((event_id & PK_EV_TYPE_MASK) == PK_EV_SHUTDOWN):
+            break

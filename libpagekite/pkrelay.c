@@ -52,6 +52,7 @@ Connections are accepted and identified like so:
 #include "pkutils.h"
 #include "pkstate.h"
 #include "pkerror.h"
+#include "pkhooks.h"
 #include "pkconn.h"
 #include "pkproto.h"
 #include "pkblocker.h"

@@ -72,6 +72,7 @@ int pk_log(int level, const char* fmt, ...)
     va_end(args);
 
     if ((r > 0) && PK_HOOK(PK_HOOK_LOG, len, output, NULL)) {
+      pke_post_event(NULL, PK_EV_LOGGING, len, output);
       pks_logcopy(output, len);
       log_file = pk_state.log_file; /* Avoid race conditions if it changes. */
       if (log_file != NULL) {

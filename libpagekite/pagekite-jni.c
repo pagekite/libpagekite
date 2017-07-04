@@ -394,6 +394,94 @@ jint Java_net_pagekite_lib_PageKiteAPI_free(
   return rv;
 }
 
+jint Java_net_pagekite_lib_PageKiteAPI_setEventMask(
+  JNIEnv* env, jclass unused_class
+, jint jmask
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  unsigned int mask = jmask;
+
+  jint rv = pagekite_set_event_mask(pagekite_manager_global, mask);
+
+  return rv;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_awaitEvent(
+  JNIEnv* env, jclass unused_class
+, jint jtimeout
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  int timeout = jtimeout;
+
+  jint rv = pagekite_await_event(pagekite_manager_global, timeout);
+
+  return rv;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_getEventInt(
+  JNIEnv* env, jclass unused_class
+, jint jevent_code
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  unsigned int event_code = jevent_code;
+
+  jint rv = pagekite_get_event_int(pagekite_manager_global, event_code);
+
+  return rv;
+}
+
+jstring Java_net_pagekite_lib_PageKiteAPI_getEventStr(
+  JNIEnv* env, jclass unused_class
+, jint jevent_code
+){
+  if (pagekite_manager_global == NULL) return NULL;
+
+  unsigned int event_code = jevent_code;
+
+  jstring rv = (*env)->NewStringUTF(env, pagekite_get_event_str(pagekite_manager_global, event_code));
+
+  return rv;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_eventRespond(
+  JNIEnv* env, jclass unused_class
+, jint jevent_code
+, jint jresponse_code
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  unsigned int event_code = jevent_code;
+  unsigned int response_code = jresponse_code;
+
+  jint rv = pagekite_event_respond(pagekite_manager_global, event_code, response_code);
+
+  return rv;
+}
+
+jint Java_net_pagekite_lib_PageKiteAPI_eventRespondWithData(
+  JNIEnv* env, jclass unused_class
+, jint jevent_code
+, jint jresponse_code
+, jint jresponse_int
+, jstring jresponse_str
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  unsigned int event_code = jevent_code;
+  unsigned int response_code = jresponse_code;
+  int          response_int = jresponse_int;
+  const jbyte* response_str = NULL;
+  if (jresponse_str != NULL) response_str = (*env)->GetStringUTFChars(env, jresponse_str, NULL);
+
+  jint rv = pagekite_event_respond_with_data(pagekite_manager_global, event_code, response_code, response_int, response_str);
+
+  if (jresponse_str != NULL) (*env)->ReleaseStringUTFChars(env, jresponse_str, response_str);
+  return rv;
+}
+
 jint Java_net_pagekite_lib_PageKiteAPI_getStatus(
   JNIEnv* env, jclass unused_class
 ){
