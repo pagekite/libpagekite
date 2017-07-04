@@ -10,6 +10,7 @@
       * [`pagekite_lookup_and_add_frontend            `](#pgktlkpndddfrntnd)
       * [`pagekite_add_frontend                       `](#pgktddfrntnd)
       * [`pagekite_set_log_mask                       `](#pgktstlgmsk)
+      * [`pagekite_set_log_destination                `](#pgktstlgdstntn)
       * [`pagekite_set_housekeeping_min_interval      `](#pgktsthskpngmnntrvl)
       * [`pagekite_set_housekeeping_max_interval      `](#pgktsthskpngmxntrvl)
       * [`pagekite_enable_http_forwarding_headers     `](#pgktnblhttpfrwrdnghdrs)
@@ -261,6 +262,24 @@ This function can be called at any time.
 
    * `pagekite_mgr`: A reference to the PageKite manager object
    * `int mask`: A bitmask
+
+**Returns**: Always returns 0.
+
+
+<a                                               name="pgktstlgdstntn"><hr></a>
+
+#### `int pagekite_set_log_destination(...)`
+
+Configure log destination.
+
+This function can be called at any time. The argument should be
+either a file descriptor (integer >= 0) or one of the constants
+PK_LOG_DEST_SYSLOG or PK_LOG_DEST_NONE.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `int log_destination`: Log destination
 
 **Returns**: Always returns 0.
 
@@ -751,3 +770,5 @@ PK_LOG_CONNS = (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
 PK_LOG_NORMAL = (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER|PK_LOG_LUA_INFO)  
 PK_LOG_DEBUG = (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG)  
 PK_LOG_ALL = 0xffff00  
+PK_LOG_DEST_SYSLOG = -1  
+PK_LOG_DEST_NONE = -2  

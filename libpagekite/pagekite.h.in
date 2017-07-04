@@ -85,6 +85,9 @@ WARNING: This file is processed automatically to generate the JNI and API
 #define PK_LOG_DEBUG           (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG)
 #define PK_LOG_ALL             0xffff00
 
+#define PK_LOG_DEST_SYSLOG     -1
+#define PK_LOG_DEST_NONE       -2
+
 /* Constants: Pagekite.net service related constants */
 #define PAGEKITE_NET_DDNS "http://up.pagekite.net/?hostname=%s&myip=%s&sign=%s"
 #define PAGEKITE_NET_V4FRONTENDS "fe4_091c.b5p.us", 443
@@ -308,6 +311,20 @@ DECLSPEC_DLL int pagekite_add_frontend(
 DECLSPEC_DLL int pagekite_set_log_mask(
   pagekite_mgr,         /* A reference to the PageKite manager object */
   int mask              /* A bitmask */
+);
+
+
+/* Initialization: Configure log destination.
+ *
+ *    This function can be called at any time. The argument should be
+ *    either a file descriptor (integer >= 0) or one of the constants
+ *    PK_LOG_DEST_SYSLOG or PK_LOG_DEST_NONE.
+ *
+ * Returns: Always returns 0.
+ */
+DECLSPEC_DLL int pagekite_set_log_destination(
+  pagekite_mgr,         /* A reference to the PageKite manager object */
+  int log_destination   /* Log destination */
 );
 
 

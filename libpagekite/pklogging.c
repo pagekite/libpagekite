@@ -36,6 +36,8 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 
+
+FILE* PK_DISABLE_LOGGING = (FILE*) "Disabled";
 static unsigned int logged_lines = 0;
 static unsigned int logged_errors = 0;
 
@@ -80,7 +82,7 @@ int pk_log(int level, const char* fmt, ...)
                               "libpagekite", "%.4000s\n", output);
         } else
 #endif
-        {
+        if (log_file != PK_DISABLE_LOGGING) {
           fprintf(log_file, "%.4000s\n", output);
           fflush(log_file);
         }

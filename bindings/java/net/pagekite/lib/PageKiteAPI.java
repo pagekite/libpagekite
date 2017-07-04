@@ -63,6 +63,8 @@ public class PageKiteAPI extends Object
     public static final int PK_LOG_NORMAL = (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER|PK_LOG_LUA_INFO);
     public static final int PK_LOG_DEBUG = (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG);
     public static final int PK_LOG_ALL = 0xffff00;
+    public static final int PK_LOG_DEST_SYSLOG = -1;
+    public static final int PK_LOG_DEST_NONE = -2;
 
     public static native boolean init(String app_id, int max_kites, int max_frontends, int max_conns, String dyndns_url, int flags, int verbosity);
     public static native boolean initPagekitenet(String app_id, int max_kites, int max_conns, int flags, int verbosity);
@@ -73,6 +75,7 @@ public class PageKiteAPI extends Object
     public static native int lookupAndAddFrontend(String domain, int port, int update_from_dns);
     public static native int addFrontend(String domain, int port);
     public static native int setLogMask(int mask);
+    public static native int setLogDestination(int log_destination);
     public static native int setHousekeepingMinInterval(int interval);
     public static native int setHousekeepingMaxInterval(int interval);
     public static native int enableHttpForwardingHeaders(int enable);

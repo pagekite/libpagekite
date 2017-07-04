@@ -356,6 +356,21 @@ int pagekite_set_log_mask(pagekite_mgr pkm, int mask)
   return 0;
 }
 
+int pagekite_set_log_destination(pagekite_mgr pkm, int log_destination)
+{
+  (void) pkm;
+  if (log_destination == PK_LOG_DEST_SYSLOG) {
+    pk_state.log_file = NULL;
+  }
+  else if (log_destination == PK_LOG_DEST_NONE) {
+    pk_state.log_file = PK_DISABLE_LOGGING;
+  }
+  else {
+    pk_state.log_file = fdopen(log_destination, "a");
+  }
+  return 0;
+}
+
 int pagekite_set_housekeeping_min_interval(pagekite_mgr pkm, int seconds)
 {
   if (pkm == NULL) return -1;

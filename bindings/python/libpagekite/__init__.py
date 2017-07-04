@@ -61,6 +61,8 @@ PK_LOG_CONNS = (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
 PK_LOG_NORMAL = (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER|PK_LOG_LUA_INFO)
 PK_LOG_DEBUG = (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG)
 PK_LOG_ALL = 0xffff00
+PK_LOG_DEST_SYSLOG = -1
+PK_LOG_DEST_NONE = -2
 
 
 def get_libpagekite_cdll():
@@ -76,6 +78,7 @@ def get_libpagekite_cdll():
             (c_int, "lookup_and_add_frontend", (c_void_p, c_char_p, c_int, c_int,)),
             (c_int, "add_frontend", (c_void_p, c_char_p, c_int,)),
             (c_int, "set_log_mask", (c_void_p, c_int,)),
+            (c_int, "set_log_destination", (c_void_p, c_int,)),
             (c_int, "set_housekeeping_min_interval", (c_void_p, c_int,)),
             (c_int, "set_housekeeping_max_interval", (c_void_p, c_int,)),
             (c_int, "enable_http_forwarding_headers", (c_void_p, c_int,)),
@@ -351,6 +354,23 @@ class PageKite(object):
         """
         assert(self.pkm is not None)
         return self.dll.pagekite_set_log_mask(self.pkm, c_int(mask))
+
+    def set_log_destination(self, log_destination):
+        """
+        Configure log destination.
+        
+        This function can be called at any time. The argument
+        should be either a file descriptor (integer >= 0) or one
+        of the constants PK_LOG_DEST_SYSLOG or PK_LOG_DEST_NONE.
+    
+        Args:
+           * `int log_destination`: Log destination
+    
+        Returns:
+            Always returns 0.
+        """
+        assert(self.pkm is not None)
+        return self.dll.pagekite_set_log_destination(self.pkm, c_int(log_destination))
 
     def set_housekeeping_min_interval(self, interval):
         """

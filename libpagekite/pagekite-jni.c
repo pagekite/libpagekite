@@ -217,6 +217,19 @@ jint Java_net_pagekite_lib_PageKiteAPI_setLogMask(
   return rv;
 }
 
+jint Java_net_pagekite_lib_PageKiteAPI_setLogDestination(
+  JNIEnv* env, jclass unused_class
+, jint jlog_destination
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  int log_destination = jlog_destination;
+
+  jint rv = pagekite_set_log_destination(pagekite_manager_global, log_destination);
+
+  return rv;
+}
+
 jint Java_net_pagekite_lib_PageKiteAPI_setHousekeepingMinInterval(
   JNIEnv* env, jclass unused_class
 , jint jinterval

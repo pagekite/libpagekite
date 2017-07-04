@@ -10,6 +10,7 @@
       * [`lookupAndAddFrontend                        `](#lkpAndAddFrntnd)
       * [`addFrontend                                 `](#ddFrntnd)
       * [`setLogMask                                  `](#stLgMsk)
+      * [`setLogDestination                           `](#stLgDstntn)
       * [`setHousekeepingMinInterval                  `](#stHskpngMnIntrvl)
       * [`setHousekeepingMaxInterval                  `](#stHskpngMxIntrvl)
       * [`enableHttpForwardingHeaders                 `](#nblHttpFrwrdngHdrs)
@@ -251,6 +252,23 @@ This function can be called at any time.
 **Arguments**:
 
    * `int mask`: A bitmask
+
+**Returns**: Always returns 0.
+
+
+<a                                                   name="stLgDstntn"><hr></a>
+
+#### `int setLogDestination(...)`
+
+Configure log destination.
+
+This function can be called at any time. The argument should be
+either a file descriptor (integer >= 0) or one of the constants
+PK_LOG_DEST_SYSLOG or PK_LOG_DEST_NONE.
+
+**Arguments**:
+
+   * `int log_destination`: Log destination
 
 **Returns**: Always returns 0.
 
@@ -668,3 +686,5 @@ PageKiteAPI.PK_LOG_CONNS = (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS)
 PageKiteAPI.PK_LOG_NORMAL = (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER|PK_LOG_LUA_INFO)  
 PageKiteAPI.PK_LOG_DEBUG = (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG)  
 PageKiteAPI.PK_LOG_ALL = 0xffff00  
+PageKiteAPI.PK_LOG_DEST_SYSLOG = -1  
+PageKiteAPI.PK_LOG_DEST_NONE = -2  
