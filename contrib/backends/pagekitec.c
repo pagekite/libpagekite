@@ -104,12 +104,9 @@ int main(int argc, char **argv) {
   char* proto;
   char* kitename;
   char* secret;
-  char* lua_settings[MAX_PLUGIN_ARGS+1];
   char* whitelabel_tld = NULL;
   char* app_name = "pagekitec";
   char* localhost = "localhost";
-  int lua_settingc = 0;
-  int lua_no_defaults = 0;
   int gotargs = 0;
   int verbosity = 0;
   int use_current = 1;
@@ -133,7 +130,7 @@ int main(int argc, char **argv) {
   flags |= PK_WITH_IPV6;
 #endif
 
-  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIo:l:LNn:qRsSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIl:Nn:qRsSvWw:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -206,14 +203,6 @@ int main(int argc, char **argv) {
         gotargs++;
         if (1 == sscanf(optarg, "%u", &conn_eviction_idle_s)) break;
         usage(EXIT_ERR_USAGE);
-      case 'o':
-        if (lua_settingc >= MAX_PLUGIN_ARGS) usage(EXIT_ERR_USAGE);
-        gotargs++;
-        lua_settings[lua_settingc++] = strdup(optarg);
-        break;
-      case 'L':
-        lua_no_defaults = 1;
-        break;
       case 'n':
         gotargs++;
         if (1 == sscanf(optarg, "%d", &spare_frontends)) break;
@@ -223,7 +212,6 @@ int main(int argc, char **argv) {
     }
     gotargs++;
   }
-  lua_settings[lua_settingc] = NULL;
 
   if ((argc-1-gotargs) < 5 || ((argc-1-gotargs) % 5) != 0) {
     usage(EXIT_ERR_USAGE);
@@ -271,7 +259,6 @@ int main(int argc, char **argv) {
   pagekite_enable_fake_ping(m, use_fake_ping);
   pagekite_set_bail_on_errors(m, bail_on_errors);
   pagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
-  pagekite_enable_lua_plugins(m, !lua_no_defaults, lua_settings);
 
   /* Move the logging to the event API, mostly for testing. */
   if (0 == (flags & PK_WITH_SYSLOG)) {

@@ -38,9 +38,6 @@
       * [`pagekite_tick                               `](#pgkttck)
       * [`pagekite_set_bail_on_errors                 `](#pgktstblnrrrs)
       * [`pagekite_perror                             `](#pgktprrr)
-   * Experimental
-      * [`pagekite_add_listener                       `](#pgktddlstnr)
-      * [`pagekite_enable_lua_plugins                 `](#pgktnbllplgns)
    * [Constants](#constants)
 
 ## Functions
@@ -781,64 +778,16 @@ This function can be called at any time.
 
 <a                                                     name="pgktprrr"><hr></a>
 
-#### `void pagekite_perror(...)`
+#### `int pagekite_perror(...)`
 
 Log an error and reset the internal error state.
 
 **Arguments**:
 
    * `pagekite_mgr`: A reference to the PageKite manager object
-   * `const char*`: Prefix for the logged message
+   * `const char* prefix`: Prefix for the logged message
 
 **Returns**: Always returns 0.
-
-### Experimental
-
-<a                                                  name="pgktddlstnr"><hr></a>
-
-#### `int pagekite_add_listener(...)`
-
-Add a listening port to the event loop.
-
-When a connection has been accepted, the requested callback will
-be invoked. The callback should take two arguments: the first
-an int (the file descriptor of the accepted connection), the second
-a `void*` which will contain the `callback_data`.
-
-**Note:** This function is experimental and may change in the
-future.
-
-**Arguments**:
-
-   * `pagekite_mgr`: A reference to the PageKite manager object
-   * `const char* domain`: Hostname or IP to listen on, e.g. "0.0.0.0"
-   * `int port`: Port to listen on
-   * `pagekite_callback_t* callback_func`: Callback function
-   * `void* callback_data`: Arbitrary data to pass to callback on connect
-
-**Returns**: The number of relay IPs configured, or -1 on failure.
-
-
-<a                                                name="pgktnbllplgns"><hr></a>
-
-#### `int pagekite_enable_lua_plugins(...)`
-
-Enable and configure Lua plugins.
-
-This will configure and enable Lua plugins, either only those
-specified in the `settings` list, or all default plugins if `enable_defaults`
-is nonzero.
-
-**Note:** This function is experimental and may change in the
-future.
-
-**Arguments**:
-
-   * `pagekite_mgr`: A reference to the PageKite manager object
-   * `int enable_defaults`: If non-zero, default plugins will be enabled
-   * `char** settings`: NULL-terminated list of settings, e.g. web_ui=8080.
-
-**Returns**: The number of relay IPs configured, or -1 on failure.
 
 <a                                                    name="constants"><hr></a>
 

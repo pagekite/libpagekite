@@ -751,55 +751,27 @@ DECLSPEC_DLL int pagekite_set_bail_on_errors(
  *
  * Returns: Always returns 0.
  */
-DECLSPEC_DLL void pagekite_perror(
+DECLSPEC_DLL int pagekite_perror(
   pagekite_mgr,         /* A reference to the PageKite manager object */
-  const char*           /* Prefix for the logged message */
-);
-
-
-/* Experimental: Add a listening port to the event loop.
- *
- *    When a connection has been accepted, the requested callback will
- *    be invoked. The callback should take two arguments: the first an
- *    int (the file descriptor of the accepted connection), the second
- *    a `void*` which will contain the `callback_data`.
- *
- *    **Note:** This function is experimental and may change in the future.
- *
- * Returns: The number of relay IPs configured, or -1 on failure.
- */
-DECLSPEC_DLL int pagekite_add_listener(
-  pagekite_mgr,         /* A reference to the PageKite manager object */
-  const char* domain,   /* Hostname or IP to listen on, e.g. "0.0.0.0" */
-  int port,             /* Port to listen on */
-  pagekite_callback_t* callback_func, /* Callback function */
-  void* callback_data   /* Arbitrary data to pass to callback on connect */
-);
-
-
-/* Experimental: Enable and configure Lua plugins.
- *
- *    This will configure and enable Lua plugins, either only those
- *    specified in the `settings` list, or all default plugins if
- *    `enable_defaults` is nonzero.
- *
- *    **Note:** This function is experimental and may change in the future.
- *
- * Returns: The number of relay IPs configured, or -1 on failure.
- */
-DECLSPEC_DLL int pagekite_enable_lua_plugins(
-  pagekite_mgr,         /* A reference to the PageKite manager object */
-  int enable_defaults,  /* If non-zero, default plugins will be enabled */
-  char** settings       /* NULL-terminated list of settings, e.g. web_ui=8080. */
+  const char* prefix    /* Prefix for the logged message */
 );
 
 
 #if WITH_PAGEKITE_RELAY
+
+
+/* Relays: Enable PageKite relaying on a given port
+ *
+ *    This will configure and enable the PageKite relay on a given port.
+ *
+ * Returns: 0 on success, a negative error code on failure.
+ */
 DECLSPEC_DLL int pagekite_add_relay_listener(
   pagekite_mgr,         /* A reference to the PageKite manager object */
   int port,             /* The port to listen on */
   int flags             /* Flags, which features to enable */
 );
+
 #endif
 
 #ifdef __cplusplus

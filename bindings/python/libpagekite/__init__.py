@@ -128,7 +128,8 @@ def get_libpagekite_cdll():
             (c_int, "dump_state_to_log", (c_void_p,)),
             (c_int, "poll", (c_void_p, c_int,)),
             (c_int, "tick", (c_void_p,)),
-            (c_int, "set_bail_on_errors", (c_void_p, c_int,))):
+            (c_int, "set_bail_on_errors", (c_void_p, c_int,)),
+            (c_int, "perror", (c_void_p, c_char_p,))):
         method = getattr(dll, "pagekite_%s" % func_name)
         method.restype = restype
         method.argtypes = argtypes
@@ -867,3 +868,16 @@ class PageKite(object):
         """
         assert(self.pkm is not None)
         return self.dll.pagekite_set_bail_on_errors(self.pkm, c_int(errors))
+
+    def perror(self, prefix):
+        """
+        Log an error and reset the internal error state.
+    
+        Args:
+           * `const char* prefix`: Prefix for the logged message
+    
+        Returns:
+            Always returns 0.
+        """
+        assert(self.pkm is not None)
+        return self.dll.pagekite_perror(self.pkm, c_char_p(prefix.encode("utf-8")))

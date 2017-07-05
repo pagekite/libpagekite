@@ -37,6 +37,7 @@
       * [`poll                                        `](#pll)
       * [`tick                                        `](#tck)
       * [`setBailOnErrors                             `](#stBlOnErrrs)
+      * [`perror                                      `](#prrr)
    * [Constants](#constants)
 
 ## Functions
@@ -747,6 +748,19 @@ This function can be called at any time.
 **Arguments**:
 
    * `int errors`: An error threshold
+
+**Returns**: Always returns 0.
+
+
+<a                                                         name="prrr"><hr></a>
+
+#### `int perror(...)`
+
+Log an error and reset the internal error state.
+
+**Arguments**:
+
+   * `String prefix`: Prefix for the logged message
 
 **Returns**: Always returns 0.
 

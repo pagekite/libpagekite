@@ -557,11 +557,20 @@ jint Java_net_pagekite_lib_PageKiteAPI_setBailOnErrors(
   return rv;
 }
 
-/* FIXME: void pagekite_perror(pagekite_mgr, const char*) */
+jint Java_net_pagekite_lib_PageKiteAPI_perror(
+  JNIEnv* env, jclass unused_class
+, jstring jprefix
+){
+  if (pagekite_manager_global == NULL) return -1;
 
-/* FIXME: int pagekite_add_listener(pagekite_mgr, const char* domain, int port, pagekite_callback_t* callback_func, void* callback_data) */
+  const jbyte* prefix = NULL;
+  if (jprefix != NULL) prefix = (*env)->GetStringUTFChars(env, jprefix, NULL);
 
-/* FIXME: int pagekite_enable_lua_plugins(pagekite_mgr, int enable_defaults, char** settings) */
+  jint rv = pagekite_perror(pagekite_manager_global, prefix);
+
+  if (jprefix != NULL) (*env)->ReleaseStringUTFChars(env, jprefix, prefix);
+  return rv;
+}
 #else
 #  warning Java not found, not building JNI.
 #endif

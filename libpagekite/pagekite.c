@@ -431,15 +431,6 @@ int pagekite_set_openssl_ciphers(pagekite_mgr pkm, const char* ciphers)
   return 0;
 }
 
-int pagekite_enable_lua_plugins(pagekite_mgr pkm,
-  int enable_defaults,
-  char** settings)
-{
-  PK_MANAGER(pkm)->lua_enable_defaults = (enable_defaults != 0);
-  PK_MANAGER(pkm)->lua_settings = (const char**) settings;
-  return pkm_configure_lua(PK_MANAGER(pkm));
-}
-
 int pagekite_want_spare_frontends(pagekite_mgr pkm, int spares)
 {
   if (pkm == NULL) return -1;
@@ -484,17 +475,6 @@ int pagekite_add_frontend(pagekite_mgr pkm,
   if (pkm == NULL) return -1;
   return pkm_lookup_and_add_frontend(PK_MANAGER(pkm), domain, port,
                                      FE_STATUS_AUTO, 0);
-}
-
-int pagekite_add_listener(pagekite_mgr pkm,
-  const char* domain,
-  int port,
-  pagekite_callback_t* callback_func,
-  void* callback_data)
-{
-  if (pkm == NULL) return -1;
-  return pkm_add_listener(PK_MANAGER(pkm), domain, port,
-                          callback_func, callback_data);
 }
 
 int pagekite_enable_tick_timer(pagekite_mgr pkm, int enabled)
