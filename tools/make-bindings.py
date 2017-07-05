@@ -31,6 +31,7 @@ Note: For alternate license terms, see the file COPYING.md.
 **************************************************************************** */
 """
 import datetime
+import os
 import re
 import subprocess
 import sys
@@ -510,12 +511,14 @@ def get_functions(pagekite_h):
                           '(pagekite_\S+)'
                           '\((.*)\)$', flags=re.DOTALL)
     for statement in (s.strip() for s in pagekite_h.split(';')):
-        m = re.match(func_re, statement)
+        while statement.startswith('#if'):
+            ignore, statement = statement.split('\n', 1)
+        m = re.match(func_re, statement.strip())
         if m:
             docs, ret_type, func_name, argstr = (
                 m.group(1), m.group(2), m.group(3), m.group(4))
             args = [a.strip() for a in uncomment(argstr).split(',')]
-            if '_relay_' not in func_name:
+            if os.getenv('HAVE_RELAY') == '1' or '_relay_' not in func_name:
                 functions.append([ret_type, func_name, args, docs, argstr])
     return functions
 
