@@ -14,8 +14,10 @@
 .deps
 .libs
 .mxe.bashrc
+00.Local/
 bin/
 lib/
+tmp/
 contrib/private/
 include/libpagekite/
 contrib/Windows-GUI/bin/
