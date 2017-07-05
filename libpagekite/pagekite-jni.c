@@ -20,6 +20,11 @@ If not, see: <http://www.apache.org/licenses/>
 Note: For alternate license terms, see the file COPYING.md.
 **************************************************************************** */
 
+#include "config.h"
+#if HAVE_RELAY
+#define WITH_PAGEKITE_RELAY 1
+#endif
+
 #include "pagekite.h"
 #include "pkcommon.h"
 

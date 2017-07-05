@@ -221,6 +221,11 @@ def jni_code(functions):
         BOILERPLATE % {
             'file': 'pagekite-jni.c',
             'year': '%s' % datetime.datetime.now().year},
+        '#include "config.h"',
+        '#if HAVE_RELAY',
+        '#define WITH_PAGEKITE_RELAY 1',
+        '#endif',
+        '',
         '#include "pagekite.h"',
         '#include "pkcommon.h"',
         '',
