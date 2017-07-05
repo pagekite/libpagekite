@@ -6,7 +6,7 @@ LD=$(CROSS)ld
 AR=$(CROSS)ar
 PKG_CONFIG=$(CROSS)pkg-config
 TARGET_CFLAGS ?= -fpic -I/usr/include/libev
-TARGET_CLINK ?= -lev -llua5.1
+TARGET_CLINK ?= -lev
 TARGET_OBJ ?= 
 
 OPT ?= -g -O3
@@ -16,12 +16,12 @@ CLINK ?= -L. -lpthread -lssl -lcrypto -lm $(TARGET_CLINK)
 
 TOBJ = sha1_test.o
 
-OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o pklua.o \
+OBJ = pkerror.o pkproto.o pkconn.o pkblocker.o pkmanager.o \
       pklogging.o pkstate.o pkhooks.o utils.o pd_sha1.o pkwatchdog.o \
       pagekite.o \
       $(TARGET_OBJ)
 HDRS = pkcommon.h pkutils.h pkstate.h pkhooks.h pkconn.h pkerror.h pkproto.h \
-       pklogging.h pkmanager.h pklua.h pd_sha1.h pkwatchdog.h Makefile.pk \
+       pklogging.h pkmanager.h pd_sha1.h pkwatchdog.h Makefile.pk \
        ../include/pagekite.h
 
 ROBJ = pkrelay.o
@@ -32,11 +32,9 @@ PK_MEMORY_CANARIES ?= 0
 PK_TESTS ?= 1
 HAVE_OPENSSL ?= 1
 HAVE_IPV6 ?= 1
-HAVE_LUA ?= 1
 
 DEFINES=-DHAVE_IPV6=$(HAVE_IPV6) \
         -DHAVE_OPENSSL=$(HAVE_OPENSSL) \
-        -DHAVE_LUA=$(HAVE_LUA) \
         -DPK_MEMORY_CANARIES=$(PK_MEMORY_CANARIES) \
         -DPK_TRACE=$(PK_TRACE) \
         -DPK_TESTS=$(PK_TESTS)
@@ -78,14 +76,6 @@ libpagekite.so: .unix $(OBJ)
 libpagekite-agpl.so: .unix $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -shared -o libpagekite-agpl.so $(OBJ) $(ROBJ) $(CLINK)
 
-pklualua.h: pklua.lua Makefile.pk ../contrib/plugins
-	cat pklua.lua |grep -v -e '^return ' >pklua_combined.lua
-	cat ../contrib/plugins/*.lua >>pklua_combined.lua
-	echo 'return pklua' >>pklua_combined.lua
-	../tools/embedfiles.py pklua_combined.lua \
-          |sed -e 's/embedded_file_data_0/pklualua/' >pklualua.h
-	rm -f pklua_combined.lua
-
 pagekiter: pagekiter.o $(OBJ) $(ROBJ)
 	$(CC) $(CFLAGS) -o pagekiter pagekiter.o $(OBJ) $(ROBJ) $(CLINK)
 
@@ -116,7 +106,6 @@ pagekiter.o: $(HDRS) $(RHDRS)
 pagekite-jni.o: $(HDRS)
 pkblocker.o: $(HDRS)
 pkhooks.o: $(HDRS)
-pklua.o: $(HDRS) pklualua.h
 pkconn.o: pkcommon.h pkutils.h pkerror.h pklogging.h
 pkerror.o: pkcommon.h pkutils.h pkerror.h pklogging.h
 pklogging.o: pkcommon.h pkstate.h pkconn.h pkproto.h pklogging.h

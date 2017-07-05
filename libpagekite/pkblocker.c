@@ -31,7 +31,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkblocker.h"
 #include "pkmanager.h"
 #include "pklogging.h"
-#include "pklua.h"
 #if HAVE_RELAY
 #include "pkrelay.h"
 #endif
@@ -682,13 +681,6 @@ void* pkb_run_blocker(void *void_pkblocker)
   struct pk_blocker* this = (struct pk_blocker*) void_pkblocker;
   struct pk_manager* pkm = this->manager;
 
-#if HAVE_LUA
-  /* Initialize Lua state for this thread/blocker. */
-  if (pkm->lua != NULL) {
-    this->lua = pklua_unlock_lua(pklua_get_locked_lua(pkm));
-  }
-#endif
-
   pk_log(PK_LOG_MANAGER_DEBUG, "Started blocking thread.");
   PK_HOOK(PK_HOOK_START_BLOCKER, 0, this, pkm);
 
@@ -726,14 +718,9 @@ void* pkb_run_blocker(void *void_pkblocker)
           pkm_reconfig_stop((struct pk_manager*) job.ptr_data);
         }
         break;
-      case PK_ACCEPT_LUA:
-#if HAVE_LUA
-        pklua_socket_server_accepted(this->lua, job.int_data, job.ptr_data);
-#endif
-        break;
       case PK_RELAY_INCOMING:
 #if HAVE_RELAY
-        pkr_relay_incoming(this->lua, job.int_data, job.ptr_data);
+        pkr_relay_incoming(job.int_data, job.ptr_data);
 #endif
         break;
       case PK_QUIT:
@@ -752,16 +739,10 @@ int pkb_start_blockers(struct pk_manager *pkm, int n)
     if (pkm->blocking_threads[i] == NULL) {
       pkm->blocking_threads[i] = malloc(sizeof(struct pk_blocker));
       pkm->blocking_threads[i]->manager = pkm;
-#if HAVE_LUA
-      pkm->blocking_threads[i]->lua = NULL;
-#endif
       if (0 > pthread_create(&(pkm->blocking_threads[i]->thread), NULL,
                              pkb_run_blocker,
                              (void *) pkm->blocking_threads[i])) {
         pk_log(PK_LOG_MANAGER_ERROR, "Failed to start blocking thread.");
-#if HAVE_LUA
-        pklua_close_lua(pkm->blocking_threads[i]->lua);
-#endif
         free(pkm->blocking_threads[i]);
         pkm->blocking_threads[i] = NULL;
         return (pk_error = ERR_NO_THREAD);
@@ -784,9 +765,6 @@ void pkb_stop_blockers(struct pk_manager *pkm)
   for (i = 0; i < MAX_BLOCKING_THREADS; i++) {
     if (pkm->blocking_threads[i] != NULL) {
       pthread_join(pkm->blocking_threads[i]->thread, NULL);
-#if HAVE_LUA
-      pklua_close_lua(pkm->blocking_threads[i]->lua);
-#endif
       free(pkm->blocking_threads[i]);
       pkm->blocking_threads[i] = NULL;
     }

@@ -17,12 +17,6 @@ if HAVE_JAVA
 libpagekite_la_SOURCES += pagekite-jni.c
 endif
 
-if HAVE_LUA
-libpagekite_la_SOURCES += pklua.c
-libpagekite_la_CFLAGS += $(LUA_INCLUDES)
-libpagekite_la_LDFLAGS += $(LUA_LIBS)
-endif
-
 if HAVE_RELAY
 libpagekite_la_SOURCES += pkrelay.c
 endif

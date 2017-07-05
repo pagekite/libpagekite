@@ -34,7 +34,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 #include "pkwatchdog.h"
-#include "pklua.h"
 
 #ifdef __MINGW32__
 #include <mxe/evwrap.c>
@@ -1676,15 +1675,6 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->interrupt.data = (void *) pkm;
   ev_async_start(loop, &(pkm->interrupt));
 
-#if HAVE_LUA
-  /* Prepare lua */
-  pkm->lua_enable_defaults = 1;
-  pkm->lua_settings = NULL;
-  pkm->lua = pklua_unlock_lua(pklua_get_locked_lua(pkm));
-#else
-  pkm->lua_enable_defaults = 0;
-#endif
-
   /* SIGPIPE is boring */
 #ifndef _MSC_VER
   signal(SIGPIPE, SIG_IGN);
@@ -1717,41 +1707,13 @@ void pkm_manager_free(struct pk_manager* pkm)
   }
 }
 
-int pkm_configure_lua(struct pk_manager* pkm)
-{
-#ifdef HAVE_LUA
-  if (pkm->lua == NULL || 0 != pklua_configure(pkm->lua, pkm))
-    return 1;
-
-  for (int i = 0; i < MAX_BLOCKING_THREADS; i++) {
-    if (pkm->blocking_threads[i] && pkm->blocking_threads[i]->lua)
-      if (0 != pklua_configure(pkm->blocking_threads[i]->lua, pkm))
-        return 2;
-  }
-#endif
-
-  (void) pkm;
-  return 0;
-}
-
 void* pkm_run(void *void_pkm)
 {
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
 
   if (pkm->enable_watchdog) pkw_start_watchdog(pkm);
 
-#if HAVE_LUA
-  if (pkm->lua) pklua_set_thread_lua(pkm->lua);
-#endif
-
-  pkb_start_blockers(pkm, pkm->lua_enable_defaults ? 5 : 2);
-
-#if HAVE_LUA
-  if (0 == pkm_configure_lua(pkm)) {
-    /* Ask Lua to configure listeners */
-    pklua_add_listeners(pkm->lua);
-  };
-#endif
+  pkb_start_blockers(pkm, 2);
 
   if (PK_HOOK(PK_HOOK_START_EV_LOOP, 0, pkm, NULL)) {
     pthread_mutex_lock(&(pkm->loop_lock));
@@ -1767,9 +1729,6 @@ void* pkm_run(void *void_pkm)
   PK_HOOK(PK_HOOK_STOPPED, 0, pkm, NULL);
   pke_post_event(&(pkm->events), PK_EV_SHUTDOWN, 0, NULL);
 
-#if HAVE_LUA
-  if (pkm->lua) pklua_remove_thread_lua();
-#endif
   pkm_reset_manager(pkm);
 
   return void_pkm;

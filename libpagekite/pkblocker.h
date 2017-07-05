@@ -24,7 +24,6 @@ typedef enum {
   PK_NO_JOB,
   PK_CHECK_WORLD,
   PK_CHECK_FRONTENDS,
-  PK_ACCEPT_LUA,
   PK_RELAY_INCOMING,
   PK_QUIT,
 } pk_job_t;
@@ -47,7 +46,6 @@ struct pk_job_pile {
 
 struct pk_blocker {
   pthread_t          thread;
-  pk_lua_t*          lua;
   struct pk_manager* manager;
 };
 

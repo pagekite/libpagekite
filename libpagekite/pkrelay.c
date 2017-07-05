@@ -279,7 +279,7 @@ static int _pkr_parse_http(char* peeked,
 
     if (_find_tunnel(ics)) return PARSE_MATCH_FAST;
 
-    /* FIXME: Is it a connection to an internal LUA HTTPd? */
+    /* FIXME: Is it a connection to an internal HTTPD of some sort? */
 
     return PARSE_FAILED;
   }
@@ -345,7 +345,6 @@ static int _pkr_process_readable(struct incoming_conn_state* ics)
 
   if (!result) result = _pkr_parse_ssltls(peeked, bytes, ics);
   if (!result) result = _pkr_parse_http(peeked, bytes, ics);
-  /* FIXME: Add lua checker! */
 
   /* No result yet? Do we have enough data? */
   if (!result) {
@@ -369,7 +368,7 @@ static int _pkr_process_readable(struct incoming_conn_state* ics)
   }
   else if (result == PARSE_MATCH_FAST) {
     /* Parsers found something. Process now. */
-    pkr_relay_incoming(ics->pkm->lua, result, ics);
+    pkr_relay_incoming(result, ics);
   }
   else {
     /* result == PARSE_FAILED */
@@ -381,7 +380,7 @@ static int _pkr_process_readable(struct incoming_conn_state* ics)
   return result;
 }
 
-void pkr_relay_incoming(pk_lua_t* LUA, int result, void* void_data) {
+void pkr_relay_incoming(int result, void* void_data) {
   struct incoming_conn_state* ics = (struct incoming_conn_state*) void_data;
 
   PK_TRACE_FUNCTION;

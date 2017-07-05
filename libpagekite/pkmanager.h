@@ -103,10 +103,6 @@ struct pk_manager {
   struct pk_tunnel*        tunnels;
   struct pk_backend_conn*  be_conns;
 
-  pk_lua_t*                lua;
-  unsigned int             lua_enable_defaults:1;
-  const char**             lua_settings;
-
   PK_MEMORY_CANARY
 
   pthread_t                main_thread;
@@ -184,7 +180,6 @@ void pkm_reconfig_stop              (struct pk_manager*);
 int pkm_reconnect_all               (struct pk_manager*, int);
 int pkm_disconnect_unused           (struct pk_manager*);
 
-int pkm_configure_lua               (struct pk_manager*);
 void pkm_set_timer_enabled          (struct pk_manager*, int);
 void pkm_tick                       (struct pk_manager*);
 

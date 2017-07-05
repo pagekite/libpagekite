@@ -49,7 +49,7 @@ AC_ARG_WITH(debug-canaries,
 
 AC_ARG_WITH(lua,
 	[AS_HELP_STRING([--without-lua],
-		[Do not compile pagekite lua bindings even if Lua is available])],
+		[OBSOLETE: ignored])],
 		[], [with_lua=yes])
 
 AC_ARG_WITH(os-libev,
@@ -245,26 +245,6 @@ if test "$with_debug_canaries" = "yes"; then
   AC_DEFINE([PK_MEMORY_CANARIES], [1], [Define to 1 if you want to build with memory canaries.])
   PK_MEMORY_CANARIES=1
 fi
-
-
-# Lua support
-AS_IF([test "x$with_lua" != 'xno'],
-	[ AX_PROG_LUA([5.1], [], [lua_interp='yes'], [lua_interp='no'])
-
-    AS_IF([test "x$lua_interp" = 'xyes'],
-      [ AX_LUA_HEADERS([lua_headers='yes'], [lua_headers='no'])
-        AX_LUA_LIBS([lua_libs='yes'], [lua_libs='no'])
-      ])
-
-    AS_IF([test "x$lua_interp" = 'xyes' &&
-           test "x$lua_headers" = 'xyes' &&
-           test "x$lua_libs" = 'xyes'],
-      [with_lua='yes'],
-      [with_lua='no'])
-  ])
-AM_CONDITIONAL(HAVE_LUA, test "x$with_lua" = "xyes")
-AC_SUBST([LUA_INCLUDE])
-AC_SUBST([LUA_LIBS])
 
 
 # Relay code
