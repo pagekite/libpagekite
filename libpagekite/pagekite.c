@@ -106,7 +106,7 @@ pagekite_mgr pagekite_init(
                                        max_kites,
                                        max_frontends,
                                        max_conns,
-                                       dyndns_url,
+                                       (dyndns_url && *dyndns_url) ? dyndns_url : NULL,
                                        ssl_ctx))) {
     return NULL;
   }
@@ -458,7 +458,12 @@ int pagekite_add_kite(pagekite_mgr pkm,
 {
   if (pkm == NULL) return -1;
   return (NULL != pkm_add_kite(PK_MANAGER(pkm),
-                               proto, kitename, pport, secret, backend, lport)
+                               (proto && *proto) ? proto : NULL,
+                               (kitename && *kitename) ? kitename : NULL,
+                               pport,
+                               (secret && *secret) ? secret : NULL,
+                               (backend && *backend) ? backend : NULL,
+                               lport)
           ) ? 0 : -1;
 }
 
@@ -585,9 +590,10 @@ int pagekite_get_status(pagekite_mgr pkm) {
   return PK_MANAGER(pkm)->status;
 }
 
-void pagekite_perror(pagekite_mgr pkm, const char* prefix) {
+int pagekite_perror(pagekite_mgr pkm, const char* prefix) {
   (void) pkm;
   pk_perror(prefix);
+  return 0;
 }
 
 char* pagekite_get_log(pagekite_mgr pkm) {

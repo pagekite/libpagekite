@@ -751,9 +751,9 @@ DECLSPEC_DLL int pagekite_set_bail_on_errors(
  *
  * Returns: Always returns 0.
  */
-DECLSPEC_DLL void pagekite_perror(
+DECLSPEC_DLL int pagekite_perror(
   pagekite_mgr,         /* A reference to the PageKite manager object */
-  const char*           /* Prefix for the logged message */
+  const char* prefix    /* Prefix for the logged message */
 );
 
 
