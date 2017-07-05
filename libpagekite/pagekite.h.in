@@ -795,11 +795,20 @@ DECLSPEC_DLL int pagekite_enable_lua_plugins(
 
 
 #if WITH_PAGEKITE_RELAY
+
+
+/* Experimental: Enable PageKite relaying on a given port
+ *
+ *    This will configure and enable the PageKite relay on a given port.
+ *
+ * Returns: 0 on success, a negative error code on failure.
+ */
 DECLSPEC_DLL int pagekite_add_relay_listener(
   pagekite_mgr,         /* A reference to the PageKite manager object */
   int port,             /* The port to listen on */
   int flags             /* Flags, which features to enable */
 );
+
 #endif
 
 #ifdef __cplusplus
