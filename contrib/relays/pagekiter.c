@@ -86,9 +86,11 @@ int main(int argc, char **argv) {
   char* proto;
   char* kitename;
   char* secret;
+#ifdef HAVE_LUA
   char* lua_settings[MAX_PLUGIN_ARGS+1];
   int lua_settingc = 0;
   int lua_no_defaults = 0;
+#endif
   int listen_ports[MAX_LISTEN_PORTS+1];
   int listen_portc = 0;
   int gotargs = 0;
@@ -130,6 +132,7 @@ int main(int argc, char **argv) {
         }
         gotargs++;
         break;
+#ifdef HAVE_LUA
       case 'L':
         lua_no_defaults = 1;
         break;
@@ -138,6 +141,7 @@ int main(int argc, char **argv) {
         gotargs++;
         lua_settings[lua_settingc++] = strdup(optarg);
         break;
+#endif
       case 'p':
         if ((listen_portc >= MAX_LISTEN_PORTS) ||
             (1 != sscanf(optarg, "%d", &listen_ports[listen_portc++]))) {
@@ -159,7 +163,9 @@ int main(int argc, char **argv) {
     }
     gotargs++;
   }
+#ifdef HAVE_LUA
   lua_settings[lua_settingc] = NULL;
+#endif
 
   /* By default we listen on port 9443 */
   if (listen_portc == 0) listen_ports[listen_portc++] = 9443;
@@ -191,7 +197,9 @@ int main(int argc, char **argv) {
   pagekite_enable_watchdog(m, use_watchdog);
   pagekite_set_bail_on_errors(m, bail_on_errors);
   pagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
+#ifdef HAVE_LUA
   pagekite_enable_lua_plugins(m, !lua_no_defaults, lua_settings);
+#endif
 
   for (ac = gotargs; ac+3 < argc; ac += 3) {
     proto = argv[ac];
