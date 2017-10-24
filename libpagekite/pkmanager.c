@@ -500,10 +500,11 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
 
   if (eof) {
     if (pkb != NULL) {
-      /* This is a backend conn, send EOF to over tunnel. */
+      /* This is a backend conn, forcibly send EOF over tunnel. */
       bytes = pk_format_eof(buffer, pkb->sid, eof);
       pkc_write(&(fe->conn), buffer, bytes);
-      pk_log(loglevel, "%d: Sent EOF (0x%x)", pkc->sockfd, eof);
+      pkc_flush(&(fe->conn), NULL, 0, BLOCKING_FLUSH, "tunnel");
+      pk_log(loglevel, "%d: Sent and flushed EOF (0x%x)", pkc->sockfd, eof);
     }
     else {
       /* This is a tunnel, send EOF to all backends, mark for reconnection. */
