@@ -65,7 +65,7 @@ Or to run the Python test:
 
     $ export LD_LIBRARY_PATH=$(pwd)/lib
     $ cd bindings/python
-    $ export PYTHONPATH="$(pwd);$PYTHONPATH"
+    $ export PYTHONPATH="$(pwd):$PYTHONPATH"
     $ python ./cython_demo.py 80 http yourkite.pagekite.me secret
 
 Press `CTRL+C` to exit any of the test apps.
