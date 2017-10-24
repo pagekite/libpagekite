@@ -86,9 +86,6 @@ int main(int argc, char **argv) {
   char* proto;
   char* kitename;
   char* secret;
-  char* lua_settings[MAX_PLUGIN_ARGS+1];
-  int lua_settingc = 0;
-  int lua_no_defaults = 0;
   int listen_ports[MAX_LISTEN_PORTS+1];
   int listen_portc = 0;
   int gotargs = 0;
@@ -105,7 +102,7 @@ int main(int argc, char **argv) {
   flags |= PK_WITH_IPV6;
 #endif
 
-  while (-1 != (ac = getopt(argc, argv, "46Ic:k:Lo:p:qvW"))) {
+  while (-1 != (ac = getopt(argc, argv, "46Ic:k:p:qvW"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -130,14 +127,6 @@ int main(int argc, char **argv) {
         }
         gotargs++;
         break;
-      case 'L':
-        lua_no_defaults = 1;
-        break;
-      case 'o':
-        if (lua_settingc >= MAX_PLUGIN_ARGS) usage(EXIT_ERR_USAGE);
-        gotargs++;
-        lua_settings[lua_settingc++] = strdup(optarg);
-        break;
       case 'p':
         if ((listen_portc >= MAX_LISTEN_PORTS) ||
             (1 != sscanf(optarg, "%d", &listen_ports[listen_portc++]))) {
@@ -159,7 +148,6 @@ int main(int argc, char **argv) {
     }
     gotargs++;
   }
-  lua_settings[lua_settingc] = NULL;
 
   /* By default we listen on port 9443 */
   if (listen_portc == 0) listen_ports[listen_portc++] = 9443;
@@ -191,7 +179,6 @@ int main(int argc, char **argv) {
   pagekite_enable_watchdog(m, use_watchdog);
   pagekite_set_bail_on_errors(m, bail_on_errors);
   pagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
-  pagekite_enable_lua_plugins(m, !lua_no_defaults, lua_settings);
 
   for (ac = gotargs; ac+3 < argc; ac += 3) {
     proto = argv[ac];
