@@ -74,7 +74,11 @@ pagekite_mgr pagekite_init(
   if (verbosity < 0x100) {
     pk_state.log_mask = ((verbosity < 0) ? PK_LOG_ERRORS :
                         ((verbosity < 1) ? PK_LOG_NORMAL :
-                        ((verbosity < 2) ? PK_LOG_DEBUG : PK_LOG_ALL)));
+                        ((verbosity < 2) ? PK_LOG_HEADERS :
+                        ((verbosity < 3) ? PK_LOG_DATA :
+                        ((verbosity < 4) ? PK_LOG_DEBUG :
+                        ((verbosity < 5) ? (PK_LOG_DEBUG|PK_LOG_TRACE) :
+                                           PK_LOG_ALL))))));
   }
   else {
     pk_state.log_mask = verbosity;
