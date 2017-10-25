@@ -147,10 +147,25 @@ static void pkc_end_handshake(struct pk_conn *pkc)
   pkc->state = CONN_SSL_DATA;
 }
 
+static void pkc_reset_error_state()
+{
+#ifdef HAVE_OPENSSL
+  unsigned long ssl_errno;
+  char message[257];
+  while (0 != (ssl_errno = ERR_get_error())) {
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+           "Cleared queued SSL ERROR=%ld: %s",
+           ssl_errno, ERR_error_string(ssl_errno, message));
+  }
+  ERR_clear_error();
+#endif
+  errno = 0;
+}
+
 static void pkc_do_handshake(struct pk_conn *pkc)
 {
   int rv;
-  errno = 0;
+  pkc_reset_error_state();
   rv = SSL_do_handshake(pkc->ssl);
   if (rv == 1) {
     pkc_end_handshake(pkc);
@@ -247,7 +262,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
   switch (pkc->state) {
 #ifdef HAVE_OPENSSL
     case CONN_SSL_DATA:
-      errno = 0;
+      pkc_reset_error_state();
       bytes = SSL_read(pkc->ssl, PKC_IN(*pkc), PKC_IN_FREE(*pkc));
       if (bytes < 0) ssl_errno = SSL_get_error(pkc->ssl, bytes);
       break;
@@ -337,7 +352,7 @@ int pkc_pending(struct pk_conn* pkc)
 
 ssize_t pkc_raw_write(struct pk_conn* pkc, char* data, ssize_t length) {
   ssize_t wrote = 0;
-  errno = 0;
+  pkc_reset_error_state();
   switch (pkc->state) {
 #ifdef HAVE_OPENSSL
     case CONN_SSL_DATA:

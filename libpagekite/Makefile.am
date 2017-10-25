@@ -4,7 +4,7 @@ bin_PROGRAMS = tests
 libpagekite_la_SOURCES = \
         pkerror.c pkproto.c pkconn.c pkblocker.c pkmanager.c pklogging.c \
         pkstate.c pkutils.c pd_sha1.c pkwatchdog.c pkhooks.c \
-        pagekite.c
+        pagekite.c opensslthreadlock.c
 libpagekite_la_CPPFLAGS = -I$(top_srcdir)/include -std=c99 -fno-strict-aliasing
 libpagekite_la_CFLAGS = $(LIBEV_CFLAGS)
 libpagekite_la_LDFLAGS = -lpthread $(OPENSSL_LIBS) $(LIBEV_LIBS) \

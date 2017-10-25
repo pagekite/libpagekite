@@ -34,6 +34,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkmanager.h"
 #include "pklogging.h"
 #include "pkwatchdog.h"
+#include "opensslthreadlock.h"
 
 #ifdef __MINGW32__
 #include <mxe/evwrap.c>
@@ -1503,6 +1504,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   better_srand(PK_RANDOM_DEFAULT);
 
 #ifdef HAVE_OPENSSL
+  pk_ssl_thread_setup();
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_ZERO_RETURN = %d", SSL_ERROR_ZERO_RETURN);
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_WRITE = %d", SSL_ERROR_WANT_WRITE);
   pk_log(PK_LOG_TUNNEL_DATA, "SSL_ERROR_WANT_READ = %d", SSL_ERROR_WANT_READ);
@@ -1689,6 +1691,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
 
 void pkm_manager_free(struct pk_manager* pkm)
 {
+  pk_ssl_thread_cleanup();
+
   if (pkm->ev_loop_malloced) {
     ev_loop_destroy(pkm->loop);
   }
