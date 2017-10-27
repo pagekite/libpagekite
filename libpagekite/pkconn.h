@@ -31,6 +31,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define CONN_REPORT_INCREMENT        16
 
 typedef enum {
+  FLOW_OP_NONE,
   CONN_TUNNEL_BLOCKED,
   CONN_TUNNEL_UNBLOCKED,
   CONN_DEST_BLOCKED,

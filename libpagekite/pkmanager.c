@@ -53,8 +53,8 @@ static struct pk_backend_conn* pkm_connect_be(struct pk_tunnel*,
                                               struct pk_chunk*);
 static ssize_t pkm_write_chunked(struct pk_tunnel*, struct pk_backend_conn*,
                                  ssize_t, char*);
-static int pkm_update_io(struct pk_tunnel*, struct pk_backend_conn*);
-static void pkm_flow_control_tunnel(struct pk_tunnel*, flow_op);
+static int pkm_update_io(struct pk_tunnel*, struct pk_backend_conn*, int);
+static void pkm_flow_control_tunnel(struct pk_tunnel*, flow_op, int);
 static void pkm_flow_control_conn(struct pk_conn*, flow_op);
 static void pkm_parse_eof(struct pk_backend_conn* pkb, char *eof);
 static void pkm_tunnel_readable_cb(EV_P_ ev_io*, int);
@@ -260,7 +260,11 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
     if (0 < chunk->remote_sent_kb) {
       pkb->conn.sent_kb = chunk->remote_sent_kb;
     }
-    pkm_update_io(fe, pkb);
+    else if (pkb->conn.send_window_kb < CONN_WINDOW_SIZE_KB_MINIMUM) {
+      pkb->conn.send_window_kb = CONN_WINDOW_SIZE_KB_MINIMUM;
+    }
+
+    pkm_update_io(fe, pkb, 0);
   }
 }
 
@@ -398,7 +402,10 @@ static ssize_t pkm_write_chunked(struct pk_tunnel* fe,
   return pkc_write(pkc, data, length);
 }
 
-static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
+static int pkm_update_io(
+  struct pk_tunnel* fe,
+  struct pk_backend_conn* pkb,
+  int recursion)
 {
   int i;
   int bytes;
@@ -408,8 +415,15 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
   int flows = 2;
   struct pk_conn* pkc;
   struct pk_manager* pkm = fe->manager;
+  flow_op tunnel_flow_op = FLOW_OP_NONE;
 
   PK_TRACE_FUNCTION;
+
+  recursion += 1;
+  if (recursion > 3) {
+    pk_log(PK_LOG_ERROR, "BUG: Too much pkm_update_io recursion!");
+    return 0;
+  }
 
   if (pkb != NULL) {
     pkc = &(pkb->conn);
@@ -453,7 +467,7 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
   }
   else if ((pkc->status & CONN_STATUS_BLOCKED) &&
            !(pkc->status & CONN_STATUS_WANT_READ)) {
-    pk_log(loglevel, "%d: Throttled.", pkc->sockfd);
+    pk_log(loglevel, "%d: Throttled input.", pkc->sockfd);
     ev_io_stop(pkm->loop, &(pkc->watch_r));
   }
   else {
@@ -481,8 +495,8 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
            (pkc->status & CONN_STATUS_WANT_WRITE)) {
     /* Blocked: activate write listener */
     ev_io_start(pkm->loop, &(pkc->watch_w));
-    pk_log(loglevel, "%d: Blocked!", pkc->sockfd);
-    pkm_flow_control_tunnel(fe, CONN_TUNNEL_BLOCKED);
+    pk_log(loglevel, "%d: Blocked output!", pkc->sockfd);
+    if (NULL == pkb) tunnel_flow_op = CONN_TUNNEL_BLOCKED;
   }
   else {
     if (pkc->status & CONN_STATUS_END_WRITE) {
@@ -493,8 +507,8 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
       pk_log(loglevel, "%d: Closed for writing (remote).", pkc->sockfd);
     }
     else {
-      pk_log(loglevel, "%d: Unblocked!", pkc->sockfd);
-      pkm_flow_control_tunnel(fe, CONN_TUNNEL_UNBLOCKED);
+      pk_log(loglevel, "%d: Waiting for output.", pkc->sockfd);
+      if (NULL == pkb) tunnel_flow_op = CONN_TUNNEL_UNBLOCKED;
     }
     ev_io_stop(pkm->loop, &(pkc->watch_w));
   }
@@ -515,9 +529,10 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
         pkb = (pkm->be_conns+i);
         if ((pkb->tunnel == fe) && (pkb->conn.status != CONN_STATUS_UNKNOWN)) {
           pkb->conn.status |= (CONN_STATUS_END_WRITE|CONN_STATUS_END_READ);
-          pkm_update_io(fe, pkb);
+          pkm_update_io(fe, pkb, recursion);
         }
       }
+      tunnel_flow_op = FLOW_OP_NONE;
       pkb = NULL;
     }
   }
@@ -545,12 +560,15 @@ static int pkm_update_io(struct pk_tunnel* fe, struct pk_backend_conn* pkb)
     }
     pkc->sockfd = -1;
   }
+  else if (tunnel_flow_op != FLOW_OP_NONE) {
+    pkm_flow_control_tunnel(fe, tunnel_flow_op, recursion);
+  }
 
   pkm_yield(pkm);
   return flows;
 }
 
-static void pkm_flow_control_tunnel(struct pk_tunnel* fe, flow_op op)
+static void pkm_flow_control_tunnel(struct pk_tunnel* fe, flow_op op, int rec)
 {
   int i;
   struct pk_backend_conn* pkb;
@@ -565,17 +583,27 @@ static void pkm_flow_control_tunnel(struct pk_tunnel* fe, flow_op op)
 
   for (i = 0; i < pkm->be_conn_max; i++) {
     pkb = (pkm->be_conns + i);
-    if (pkb->tunnel == fe) {
+    unsigned int old_status = pkb->conn.status;
+    if ((pkb->tunnel == fe) && (pkb->conn.sockfd >= 0)) {
       if (pkb->conn.status & CONN_STATUS_TNL_BLOCKED) {
         if (op == CONN_TUNNEL_UNBLOCKED) {
-          pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel unblocked", pkb->conn.sockfd);
+          pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel unblocked.", pkb->conn.sockfd);
           pkb->conn.status &= ~CONN_STATUS_TNL_BLOCKED;
         }
       }
       else if (op == CONN_TUNNEL_BLOCKED) {
-        pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel blocked", pkb->conn.sockfd);
+        pk_log(PK_LOG_TUNNEL_DATA, "%d: Tunnel blocked.", pkb->conn.sockfd);
         pkb->conn.status |= CONN_STATUS_TNL_BLOCKED;
       }
+    }
+    if (old_status != pkb->conn.status) {
+      if (op == CONN_TUNNEL_BLOCKED) {
+        /* Oops, writing too fast! Reduce window size by about a third */
+        pkb->conn.send_window_kb -= (1 + pkb->conn.send_window_kb / 3);
+        if (pkb->conn.send_window_kb < CONN_WINDOW_SIZE_KB_MINIMUM)
+          pkb->conn.send_window_kb = CONN_WINDOW_SIZE_KB_MINIMUM;
+      }
+      pkm_update_io(fe, pkb, rec);
     }
   }
 }
@@ -585,14 +613,16 @@ static void pkm_flow_control_conn(struct pk_conn* pkc, flow_op op)
   PK_TRACE_FUNCTION;
   if (pkc->status & CONN_STATUS_DST_BLOCKED) {
     if (op == CONN_DEST_UNBLOCKED) {
-      pk_log(PK_LOG_BE_DATA, "%d: Destination unblocked", pkc->sockfd);
+      pk_log(PK_LOG_BE_DATA, "%d: Destination unblocked.", pkc->sockfd);
       pkc->status &= ~CONN_STATUS_DST_BLOCKED;
     }
   }
   else
     if (op == CONN_DEST_BLOCKED) {
-      pk_log(PK_LOG_BE_DATA, "%d: Destination blocked", pkc->sockfd);
       pkc->status |= CONN_STATUS_DST_BLOCKED;
+      pk_log(PK_LOG_BE_DATA,
+        "%d: Destination blocked; read_kb=%d; sent_kb=%d; send_window_kb=%d",
+        pkc->sockfd, pkc->read_kb, pkc->sent_kb, pkc->send_window_kb);
     }
 }
 
@@ -658,7 +688,7 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
   } while ((read_bytes > 0) && (pkc_pending(&(fe->conn)) > 0));
 
   PK_CHECK_MEMORY_CANARIES;
-  pkm_update_io(fe, NULL);
+  pkm_update_io(fe, NULL, 0);
   /* -Wall dislikes unused arguments */
   (void) loop;
   (void) revents;
@@ -677,7 +707,7 @@ static void pkm_tunnel_writable_cb(EV_P_ ev_io* w, int revents)
   pkc_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
   PK_CHECK_MEMORY_CANARIES;
 
-  pkm_update_io(fe, NULL);
+  pkm_update_io(fe, NULL, 0);
   /* -Wall dislikes unused arguments */
   (void) loop;
   (void) revents;
@@ -690,20 +720,26 @@ static void pkm_be_conn_readable_cb(EV_P_ ev_io* w, int revents)
 
   PK_TRACE_FUNCTION;
 
-  pkb->conn.status &= ~CONN_STATUS_WANT_READ;
-  bytes = pkc_read(&(pkb->conn));
-  if ((0 < bytes) &&
-      (0 <= pkm_write_chunked(pkb->tunnel, pkb,
-                              pkb->conn.in_buffer_pos,
-                              pkb->conn.in_buffer))) {
-    pkb->conn.in_buffer_pos = 0;
-    pk_log(PK_LOG_BE_DATA, ">%5.5s> DATA: %d bytes", pkb->sid, bytes);
+  if (pkb->conn.status & CONN_STATUS_TNL_BLOCKED) {
+    pk_log(PK_LOG_BE_DATA, ">%5.5s> BLOCKED: Tunnel is blocked.", pkb->sid);
   }
-  else if (bytes == 0) {
-    pk_log(PK_LOG_BE_DATA, ">%5.5s> EOF: read", pkb->sid);
+  else {
+    pkb->conn.status &= ~CONN_STATUS_WANT_READ;
+    bytes = pkc_read(&(pkb->conn));
+    if ((0 < bytes) &&
+        (0 <= pkm_write_chunked(pkb->tunnel, pkb,
+                                pkb->conn.in_buffer_pos,
+                                pkb->conn.in_buffer))) {
+      pkb->conn.in_buffer_pos = 0;
+      pk_log(PK_LOG_BE_DATA, ">%5.5s> DATA: %d bytes", pkb->sid, bytes);
+    }
+    else if (bytes == 0) {
+      pk_log(PK_LOG_BE_DATA, ">%5.5s> EOF: read", pkb->sid);
+    }
   }
+
   PK_CHECK_MEMORY_CANARIES;
-  pkm_update_io(pkb->tunnel, pkb);
+  pkm_update_io(pkb->tunnel, pkb, 0);
   /* -Wall dislikes unused arguments */
   (void) loop;
   (void) revents;
@@ -733,7 +769,7 @@ static void pkm_be_conn_writable_cb(EV_P_ ev_io* w, int revents)
            pkb->kite->local_domain, pkb->kite->local_port);
   }
   PK_CHECK_MEMORY_CANARIES;
-  pkm_update_io(pkb->tunnel, pkb);
+  pkm_update_io(pkb->tunnel, pkb, 0);
   /* -Wall dislikes unused arguments */
   (void) loop;
   (void) revents;
@@ -1054,7 +1090,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
         {
           pk_log(PK_LOG_TUNNEL_DATA, "%d: Idle, shutting down.", fe->conn.sockfd);
           fe->conn.status |= CONN_STATUS_BROKEN;
-          pkm_update_io(fe, NULL);
+          pkm_update_io(fe, NULL, 0);
         }
         /* If idle, send a ping. */
         else if (fe->conn.activity < inactive) {
@@ -1446,7 +1482,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
 
     if (evicting) {
       pkb->conn.status |= (CONN_STATUS_CLS_WRITE|CONN_STATUS_CLS_READ);
-      pkm_update_io(pkb->tunnel, pkb);
+      pkm_update_io(pkb->tunnel, pkb, 0);
       pkc_reset_conn(&(pkb->conn), CONN_STATUS_ALLOCATED);
       pkb->tunnel = fe;
       strncpyz(pkb->sid, sid, BE_MAX_SID_SIZE);
