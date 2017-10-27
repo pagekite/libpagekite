@@ -25,10 +25,10 @@ Note: For alternate license terms, see the file COPYING.md.
  * to minimize buffer bloat, we want to keep the window relatively small
  * and assume that selecting a nearby front-end will keep this from
  * becoming too big a bottleneck on transfer speeds. */
-#define CONN_WINDOW_SIZE_KB_MAXIMUM 256
-#define CONN_WINDOW_SIZE_KB_MINIMUM  16
-#define CONN_WINDOW_SIZE_STEPFACTOR  16 /* Lower: more aggressive/volatile */
-#define CONN_REPORT_INCREMENT        16
+#define CONN_WINDOW_SIZE_KB_MAXIMUM   384  /* 10Mbit/s at 300ms rtt */
+#define CONN_WINDOW_SIZE_KB_INITIAL   128  /* Send up 128KB before 1st ACK */
+#define CONN_WINDOW_SIZE_KB_MINIMUM     4  /* Kernels eat at least this */
+#define CONN_REPORT_INCREMENT          16
 
 typedef enum {
   FLOW_OP_NONE,

@@ -252,13 +252,30 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
 
   pkm_yield_stop(fe->manager);
   if (NULL != pkb) {
+    /* Flow control: we have recieved a chunk telling us how much has
+     * been written to the remote end of the connection. We record this
+     * to track progress and tweak our sending window. */
+
     if (0 < chunk->throttle_spd) {
-      if (pkb->conn.send_window_kb > CONN_WINDOW_SIZE_KB_MINIMUM) {
-        pkb->conn.send_window_kb *= 0.8;
-      }
+      /* Integer-safe way to reduce by about 20% */
+      pkb->conn.send_window_kb -= (1 + pkb->conn.send_window_kb / 5);
     }
+
     if (0 < chunk->remote_sent_kb) {
       pkb->conn.sent_kb = chunk->remote_sent_kb;
+      if (pkb->conn.send_window_kb == CONN_WINDOW_SIZE_KB_INITIAL) {
+        int window_kb = pkb->conn.read_kb - pkb->conn.sent_kb;
+        pkb->conn.send_window_kb = window_kb + (window_kb / 8);
+      }
+      else {
+        /* Ramp up our sending speed by default. Push-back from the
+         * tunnel blocking will lower this if it gets too high. */
+        pkb->conn.send_window_kb += 1;
+      }
+    }
+
+    if (pkb->conn.send_window_kb > CONN_WINDOW_SIZE_KB_MAXIMUM) {
+      pkb->conn.send_window_kb = CONN_WINDOW_SIZE_KB_MAXIMUM;
     }
     else if (pkb->conn.send_window_kb < CONN_WINDOW_SIZE_KB_MINIMUM) {
       pkb->conn.send_window_kb = CONN_WINDOW_SIZE_KB_MINIMUM;

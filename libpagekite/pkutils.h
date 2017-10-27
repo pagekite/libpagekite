@@ -18,6 +18,9 @@ Note: For alternate license terms, see the file COPYING.md.
 
 ******************************************************************************/
 
+#define max(a, b) ((a > b) ? (a) : (b))
+#define min(a, b) ((a < b) ? (a) : (b))
+#define abs(a)   ((a < 0) ? (-a) : (a))
 #define strncpyz(dest, src, len) { strncpy(dest, src, len); dest[len] = '\0'; }
 #define free_outside(ptr, buf, len) { if ((ptr != NULL) && ((ptr < buf) || (ptr >= buf+len))) free(ptr); }
 

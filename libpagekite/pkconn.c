@@ -49,7 +49,7 @@ void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
   pkc->activity = time(0);
   pkc->out_buffer_pos = 0;
   pkc->in_buffer_pos = 0;
-  pkc->send_window_kb = CONN_WINDOW_SIZE_KB_MAXIMUM/2;
+  pkc->send_window_kb = CONN_WINDOW_SIZE_KB_INITIAL;
   pkc->read_bytes = 0;
   pkc->read_kb = 0;
   pkc->sent_kb = 0;
@@ -290,11 +290,6 @@ ssize_t pkc_read(struct pk_conn* pkc)
     while (pkc->read_bytes >= 1024) {
       pkc->read_kb += 1;
       pkc->read_bytes -= 1024;
-      if ((pkc->read_kb & 0x1f) == 0x00) {
-        delta = (CONN_WINDOW_SIZE_KB_MAXIMUM - pkc->send_window_kb);
-        if (delta < 0) delta = 0;
-        pkc->send_window_kb += (delta/CONN_WINDOW_SIZE_STEPFACTOR);
-      }
     }
   }
   else if (bytes == 0) {
