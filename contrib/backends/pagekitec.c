@@ -329,7 +329,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "%s\n", pagekite_get_event_str(m, eid));
         break;
       default:
-        fprintf(stderr, "[Got event 0x%8.8x]\n", eid);
+        if (verbosity > 2) fprintf(stderr, "[Got event 0x%8.8x]\n", eid);
     }
     pagekite_event_respond(m, eid, PK_EV_RESPOND_DEFAULT);
   }
