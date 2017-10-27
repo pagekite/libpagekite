@@ -287,7 +287,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
 
     /* Update KB counter and window... this is a bit messy. */
     pkc->read_bytes += bytes;
-    while (pkc->read_bytes > 1024) {
+    while (pkc->read_bytes >= 1024) {
       pkc->read_kb += 1;
       pkc->read_bytes -= 1024;
       if ((pkc->read_kb & 0x1f) == 0x00) {
@@ -403,7 +403,7 @@ void pkc_report_progress(struct pk_conn* pkc, char *sid, struct pk_conn* feconn)
 {
   char buffer[256];
   int bytes;
-  if (pkc->wrote_bytes > CONN_REPORT_INCREMENT*1024) {
+  if (pkc->wrote_bytes >= CONN_REPORT_INCREMENT*1024) {
     pkc->reported_kb += (pkc->wrote_bytes/1024);
     pkc->wrote_bytes %= 1024;
     bytes = pk_format_skb(buffer, sid, pkc->reported_kb);
