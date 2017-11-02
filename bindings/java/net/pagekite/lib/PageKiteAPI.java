@@ -24,7 +24,7 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
-    public static final String PK_VERSION = "0.91.170427C";
+    public static final String PK_VERSION = "0.91.171102C";
     public static final int PK_STATUS_STARTUP = 10;
     public static final int PK_STATUS_CONNECTING = 20;
     public static final int PK_STATUS_UPDATING_DNS = 30;
@@ -54,14 +54,14 @@ public class PageKiteAPI extends Object
     public static final int PK_LOG_MANAGER_INFO = 0x020000;
     public static final int PK_LOG_MANAGER_DEBUG = 0x040000;
     public static final int PK_LOG_TRACE = 0x080000;
-    public static final int PK_LOG_LUA_DEBUG = 0x008000;
-    public static final int PK_LOG_LUA_INFO = 0x000800;
     public static final int PK_LOG_ERROR = 0x100000;
     public static final int PK_LOG_ERRORS = (PK_LOG_ERROR|PK_LOG_MANAGER_ERROR);
     public static final int PK_LOG_MANAGER = (PK_LOG_MANAGER_ERROR|PK_LOG_MANAGER_INFO);
     public static final int PK_LOG_CONNS = (PK_LOG_BE_CONNS|PK_LOG_TUNNEL_CONNS);
-    public static final int PK_LOG_NORMAL = (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER|PK_LOG_LUA_INFO);
-    public static final int PK_LOG_DEBUG = (PK_LOG_NORMAL|PK_LOG_MANAGER_DEBUG|PK_LOG_LUA_DEBUG);
+    public static final int PK_LOG_NORMAL = (PK_LOG_ERRORS|PK_LOG_CONNS|PK_LOG_MANAGER);
+    public static final int PK_LOG_HEADERS = (PK_LOG_NORMAL|PK_LOG_TUNNEL_HEADERS|PK_LOG_BE_HEADERS);
+    public static final int PK_LOG_DATA = (PK_LOG_HEADERS|PK_LOG_TUNNEL_DATA|PK_LOG_BE_DATA);
+    public static final int PK_LOG_DEBUG = (PK_LOG_DATA|PK_LOG_MANAGER_DEBUG);
     public static final int PK_LOG_ALL = 0xffff00;
     public static final int PK_LOG_DEST_SYSLOG = -1;
     public static final int PK_LOG_DEST_NONE = -2;
