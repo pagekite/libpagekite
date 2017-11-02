@@ -693,8 +693,7 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
         pk_dump_state(fe->manager);
         if (pk_state.log_mask & PK_LOG_TUNNEL_DATA) {
           int bytes = fe->conn.in_buffer_pos;
-          pk_log_raw_data(PK_LOG_TUNNEL_DATA, "data",
-                          fe->conn.sockfd, fe->conn.in_buffer, bytes);
+          pk_log_raw_data(PK_LOG_TUNNEL_DATA, "data", fe->conn.in_buffer, bytes);
         }
       }
     }
