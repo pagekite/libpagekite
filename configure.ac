@@ -140,6 +140,22 @@ AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([clock_gettime dup2 gethostbyname gettimeofday inet_ntoa malloc memmove memset select socket strcasecmp strchr strdup strerror strncasecmp strrchr uname sched_yield pthread_yield pthread_yield_np])
 
+# Check for CLOCK_MONOTONIC
+AC_MSG_CHECKING([for CLOCK_MONOTONIC])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <time.h>
+]], [[
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return 0;
+]])], [
+AC_MSG_RESULT([yes])
+AC_DEFINE([HAVE_CLOCK_MONOTONIC], 1,
+          [Define to 1 if you have the `CLOCK_MONOTONIC' constant.])
+], [
+AC_MSG_RESULT([no])
+])
+
 # OpenSSL requires dlopen on some platforms
 AC_SEARCH_LIBS(dlopen, dl)
 
