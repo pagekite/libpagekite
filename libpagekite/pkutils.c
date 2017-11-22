@@ -113,6 +113,25 @@ int32_t murmur3_32(const uint8_t* key, size_t len) {
   return h;
 }
 
+int zero_first_eol(int length, char* data)
+{
+  int i;
+  for (i = 0; i < length; i++)
+  {
+    if ((i < length - 1) && (data[i] == '\r') && (data[i+1] == '\n'))
+    {
+      data[i] = data[i+1] = '\0';
+      return i+2;
+    }
+    else if (data[i] == '\n')
+    {
+      data[i] = '\0';
+      return i+1;
+    }
+  }
+  return 0;
+}
+
 int zero_first_crlf(int length, char* data)
 {
   int i;
@@ -720,6 +739,12 @@ int utils_test(void)
 
   assert(length == 6);
   assert((buffer1[4] == '\0') && (buffer1[5] == '\0') && (buffer1[6] == '\r'));
+  assert(strcmp(buffer1, "abcd") == 0);
+
+  strcpy(buffer1, "abcd\n\ndefghijklmnop");
+  length = zero_first_eol(strlen(buffer1), buffer1);
+  assert(length == 5);
+  assert((buffer1[4] == '\0') && (buffer1[5] == '\n'));
   assert(strcmp(buffer1, "abcd") == 0);
 
   strcpy(buffer1, "abcd\r\nfoo\r\n\r\ndef");

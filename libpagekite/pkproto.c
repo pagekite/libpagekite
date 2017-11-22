@@ -610,6 +610,124 @@ char *pk_parse_kite_request(struct pk_kite_request* kite_r, const char *line)
   return kite->public_domain;
 }
 
+struct pk_kite_request* pk_parse_pagekite_response(
+  char* buffer,
+  size_t bufsize,
+  char* session_id,
+  char* motd)
+{
+  /* Walk through the buffer and count how many responses we have.
+   * This will overshoot a bit, but that should be harmless. */
+  int responses = 1;
+  char* p = buffer;
+  char lastc = buffer[bufsize - 1];
+  buffer[bufsize - 1] = '\0'; /* Ensure strcasestr will terminate */
+  while (NULL != (p = strcasestr(p, "X-PageKite-"))) {
+    responses++;
+    p++;
+  }
+  buffer[bufsize - 1] = lastc; /* Put things back the way they were */
+
+  /* FIXME: Magic number. This prevents malicious remotes from making us
+   *        allocate arbitrary amounts of RAM, but also puts an undocumented
+   *        upper limit on how many kites we support per tunnel. */
+  if (responses >= 1000) return pk_err_null(ERR_NO_MORE_KITES);
+
+  /* Allocate space for pk_kite_request and pk_pagekite structures.
+   * We put the pk_kite_requests first, and then tack the pk_pagekites on
+   * to the end. The following math calculates first how much size we need
+   * for the pk_kite_request structures, and then recalculate in terms of
+   * pk_pagekite equivalents. These shenanigans allow us to get away with
+   * a single malloc() and easier cleanup elsewhere. */
+  int rsize = responses * sizeof(struct pk_kite_request);
+  int rskip = 1 + (rsize / sizeof(struct pk_pagekite)); /* +1 because / rounds down */
+  rsize = (rskip + responses) * sizeof(struct pk_pagekite);
+
+  struct pk_kite_request* res = malloc(rsize);
+  struct pk_kite_request* rp = res;
+  struct pk_pagekite* rpk = ((struct pk_pagekite*) res) + rskip;
+  if (res == NULL) return pk_err_null(ERR_NO_MORE_KITES);
+
+  /* Set the pk_pagekite pointer for each allocated pk_kite_request */
+  for (int i = 0; i < responses; i++) res[i].kite = &(rpk[i]);
+
+  /* Walk through the response header line-by-line and parse.
+   * This loop is destructive due to use of zero_first_eol.
+   */
+  int bytes;
+  p = buffer;
+  do {
+    PK_TRACE_LOOP("response line");
+
+    /* Note: We use zero_first_eol instead of zero_first_crlf, to be
+     *       more tolerant of slightly lame implementations. */
+    bytes = zero_first_eol(bufsize - (p-buffer), p);
+    rp->status = PK_KITE_UNKNOWN;
+
+                     /* 12345678901 = 11 bytes */
+    if (strncasecmp(p, "X-PageKite-", 11) == 0)
+    {
+                          /* 123 = 3 bytes */
+      if (strncasecmp(p+11, "OK:", 3) == 0) {
+        rp->status = PK_KITE_FLYING;
+      }
+                               /* 1234567 = 7 bytes */
+      else if (strncasecmp(p+11, "SSL-OK:", 7) == 0) {
+        /* FIXME: Note that we are OK with relay MITM SSL active! */
+        /* FIXME: Backtrack rp to avoid duplicate entries response? */
+      }
+                               /* 1234567890 = 10 bytes */
+      else if (strncasecmp(p+11, "Duplicate:", 10) == 0) {
+        rp->status = PK_KITE_DUPLICATE;
+      }
+                               /* 12345678 = 8 bytes */
+      else if (strncasecmp(p+11, "Invalid:", 8) == 0) {
+        rp->status = PK_KITE_INVALID;
+      }
+                               /* 123456789012 = 12 bytes */
+      else if (strncasecmp(p+11, "Invalid-Why:", 12) == 0) {
+        /* FIXME: Parse the reason out of the response */
+        /* FIXME: Backtrack rp to avoid duplicate entries response? */
+      }
+                               /* 123456789 = 9 bytes */
+      else if (strncasecmp(p+11, "SignThis:", 9) == 0) {
+        rp->status = PK_KITE_WANTSIG;
+      }
+                               /* 123456 = 6 bytes */
+      else if (strncasecmp(p+11, "Quota:", 6) == 0) {
+        /* FIXME: Parse out current bandwidth quota value */
+      }
+                               /* 1234567 = 7 bytes */
+      else if (strncasecmp(p+11, "QConns:", 7) == 0) {
+        /* FIXME: Parse out current connection quota value */
+      }
+                               /* 123456 = 6 bytes */
+      else if (strncasecmp(p+11, "QDays:", 6) == 0) {
+        /* FIXME: Parse out current days-left quota value */
+      }
+      else if (session_id &&    /* 1234567890 = 10 bytes */
+               (strncasecmp(p+11, "SessionID:", 10) == 0)) {
+        strncpyz(session_id, p+11+10+1, PK_HANDSHAKE_SESSIONID_MAX);
+        pk_log(PK_LOG_TUNNEL_DATA, "Session ID is: %s", session_id);
+      }
+      else if (motd &&          /* 12345 = 5 bytes */
+               (strncasecmp(p+11, "Misc:", 5) == 0)) {
+        /* FIXME: Record/log the "misc" messages. */
+      }
+
+      if (rp->status != PK_KITE_UNKNOWN) {
+        if (NULL != pk_parse_kite_request(rp, p)) rp++;
+      }
+    }
+
+    p += bytes;
+  } while (bytes);
+
+  rp->status = PK_KITE_UNKNOWN;
+  return res;
+}
+
+
 int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
                   unsigned int n, struct pk_kite_request* requests,
                   char *session_id, SSL_CTX *ctx, const char* hostname)
@@ -691,53 +809,40 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
   }
   pk_log(PK_LOG_TUNNEL_DATA, " - Parsing!");
 
-  /* OK, let's walk through the response header line-by-line and parse. */
   i = 0;
-  p = buffer;
-  do {
-    PK_TRACE_LOOP("response line");
+  struct pk_kite_request* rkites = NULL;
+  rkites = pk_parse_pagekite_response(buffer, sizeof(buffer), session_id, NULL);
 
-    bytes = zero_first_crlf(sizeof(buffer) - (p-buffer), p);
-
-                      /* 123456789012345678901 = 21 bytes */
-    if ((strncasecmp(p, "X-PageKite-Duplicate:", 21) == 0) ||
-        (strncasecmp(p, "X-PageKite-Invalid:", 19) == 0)) {
-      pk_log(PK_LOG_TUNNEL_CONNS, "%s", p);
-      pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
-      /* FIXME: Should update the status of each individual request. */
-      return (pk_error = (p[12] == 'u') ? ERR_CONNECT_DUPLICATE
-                                        : ERR_CONNECT_REJECTED);
-    }
-                     /* 12345678901234567890 = 20 bytes */
-    if (strncasecmp(p, "X-PageKite-SignThis:", 20) == 0) {
-      tkite_r.kite = &tkite;
-      if (NULL != pk_parse_kite_request(&tkite_r, p)) {
-        pk_log(PK_LOG_TUNNEL_DATA, " - Parsed: %s", p);
-        for (j = 0; j < n; j++) {
-          if ((requests[j].kite->protocol[0] != '\0') &&
-              (requests[j].kite->public_port == tkite.public_port) &&
-              (0 == strcmp(requests[j].kite->public_domain, tkite.public_domain)) &&
-              (0 == strcmp(requests[j].kite->protocol, tkite.protocol)))
-          {
-            pk_log(PK_LOG_TUNNEL_DATA, " - Matched: %s:%s",
-                                       requests[j].kite->protocol,
-                                       requests[j].kite->public_domain);
-            strncpyz(requests[j].fsalt, tkite_r.fsalt, PK_SALT_LENGTH);
-            i++;
+  if (NULL != rkites) {
+    struct pk_kite_request* pkr;
+    for (pkr = rkites; pkr->status != PK_KITE_UNKNOWN; pkr++) {
+      switch (pkr->status) {
+        case PK_KITE_REJECTED:
+        case PK_KITE_DUPLICATE:
+        case PK_KITE_INVALID:
+          pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
+          free(rkites);
+          return ((pkr->status == PK_KITE_DUPLICATE) ? ERR_CONNECT_DUPLICATE
+                                                     : ERR_CONNECT_REJECTED);
+        case PK_KITE_WANTSIG:
+          for (j = 0; j < n; j++) {
+            if ((requests[j].kite->protocol[0] != '\0') &&
+                (requests[j].kite->public_port == pkr->kite->public_port) &&
+                (0 == strcmp(requests[j].kite->public_domain, pkr->kite->public_domain)) &&
+                (0 == strcmp(requests[j].kite->protocol, pkr->kite->protocol)))
+            {
+              pk_log(PK_LOG_TUNNEL_DATA, " - Matched: %s:%s",
+                                         requests[j].kite->protocol,
+                                         requests[j].kite->public_domain);
+              strncpyz(requests[j].fsalt, pkr->fsalt, PK_SALT_LENGTH);
+              i++;
+            }
           }
-        }
-      }
-      else {
-        pk_log(PK_LOG_TUNNEL_DATA, " - Bogus: %s", p);
+          break;
       }
     }
-    else if (session_id && /* 123456789012345678901 = 21 bytes */
-             (strncasecmp(p, "X-PageKite-SessionID:", 21) == 0)) {
-      strncpyz(session_id, p+22, PK_HANDSHAKE_SESSIONID_MAX);
-      pk_log(PK_LOG_TUNNEL_DATA, "Session ID is: %s", session_id);
-    }
-    p += bytes;
-  } while (bytes);
+    free(rkites);
+  }
 
   if (i) {
     if (reconnecting) {

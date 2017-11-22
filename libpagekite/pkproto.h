@@ -84,8 +84,12 @@ struct  pk_pagekite {
 
 /* Data structure describing a kite request */
 #define PK_KITE_UNKNOWN   0x0000
-#define PK_KITE_FLYING    0x0001
-#define PK_KITE_REJECTED  0x0002
+#define PK_KITE_OK        0x0001
+#define PK_KITE_FLYING    0x0001  /* Same as OK */
+#define PK_KITE_WANTSIG   0x0002
+#define PK_KITE_REJECTED  0x0003
+#define PK_KITE_DUPLICATE 0x0004
+#define PK_KITE_INVALID   0x0005
 #define PK_SALT_LENGTH    36
 struct pk_kite_request {
   PK_MEMORY_CANARY
@@ -168,6 +172,7 @@ int               pk_make_bsalt(struct pk_kite_request*);
 char*             pk_sign(const char*, const char*, const char*, int, char *);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);
 char*             pk_parse_kite_request(struct pk_kite_request*, const char*);
+struct pk_kite_request* pk_parse_pagekite_response(char*, size_t, char*, char*);
 int               pk_connect_ai(struct pk_conn*, struct addrinfo*, int,
                                 unsigned int, struct pk_kite_request*, char*,
                                 SSL_CTX*, const char*);
