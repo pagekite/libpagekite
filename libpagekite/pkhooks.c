@@ -65,8 +65,16 @@ outward facing public API methods described above are defined in pagekite.c.
 #include "pagekite.h"
 
 #include "pkcommon.h"
+#include "pkutils.h"
+#include "pkerror.h"
+#include "pkconn.h"
+#include "pkstate.h"
 #include "pkhooks.h"
 #include "pkutils.h"
+#include "pkproto.h"
+#include "pkblocker.h"
+#include "pkmanager.h"
+#include "pklogging.h"
 
 #define _EV(pke, event_code) \
   (pke->events + ((event_code & PK_EV_SLOT_MASK) >> PK_EV_SLOT_SHIFT))
@@ -80,6 +88,8 @@ void pke_init_events(struct pke_events* pke, unsigned int threads) {
   pke->event_ptr = 0;
   pke->event_max = threads * 12;
   if (pke->event_max > PK_EV_SLOTS_MAX) pke->event_max = PK_EV_SLOTS_MAX;
+
+  PK_TRACE_FUNCTION;
 
   bytes = sizeof(struct pke_event) * pke->event_max;
   pke->events = malloc(bytes);
@@ -101,6 +111,8 @@ void pke_init_events(struct pke_events* pke, unsigned int threads) {
 
 int _pke_unlocked_free_event(struct pke_events* pke, unsigned int event_code)
 {
+  PK_TRACE_FUNCTION;
+
   struct pke_event* ev = _EV(pke, event_code);
   ev->event_code &= PK_EV_SLOT_MASK;
   if (ev->event_str != NULL) free(ev->event_str);
@@ -115,6 +127,8 @@ int _pke_unlocked_free_event(struct pke_events* pke, unsigned int event_code)
 struct pke_event* _pke_get_oldest_event(struct pke_events* pke,
                                         int nonzero, int excl_id)
 {
+  PK_TRACE_FUNCTION;
+
   struct pke_event* oldest = NULL;
   struct pke_event* ev = &(pke->events[1]);
   for (int i = 1; i < pke->event_max; i++, ev++) {
@@ -134,6 +148,8 @@ struct pke_event* _pke_unlocked_post_event(
   int event_type, int event_int, const char* event_str,
   int* response_int, char** response_str)
 {
+  PK_TRACE_FUNCTION;
+
   if ((pke->event_mask != PK_EV_ALL) &&
       (0 == (event_type & pke->event_mask))) return NULL;
 
@@ -159,6 +175,8 @@ struct pke_event* _pke_unlocked_post_event(
 
 void pke_free_event(struct pke_events* pke, unsigned int event_code)
 {
+  PK_TRACE_FUNCTION;
+
   pke = (pke != NULL) ? pke : _pke_default_pke;
   if (pke == NULL) return;
 
@@ -174,6 +192,8 @@ void pke_post_event(
   struct pke_events* pke,
   unsigned int event_type, int event_int, const char* event_str)
 {
+  PK_TRACE_FUNCTION;
+
   pke = (pke != NULL) ? pke : _pke_default_pke;
   if (pke == NULL) return;
 
@@ -236,6 +256,8 @@ int pke_post_blocking_event(
 
 struct pke_event* pke_await_event(struct pke_events* pke, int timeout)
 {
+  PK_TRACE_FUNCTION;
+
   pke = (pke != NULL) ? pke : _pke_default_pke;
   struct pke_event* oldest = NULL;
 
@@ -274,6 +296,8 @@ struct pke_event* pke_get_event(struct pke_events* pke, unsigned int event_code)
 void pke_post_response(struct pke_events* pke, unsigned int event_code,
                        unsigned int rcode,
                        int response_int, const char* response_str) {
+  PK_TRACE_FUNCTION;
+
   pke = (pke != NULL) ? pke : _pke_default_pke;
 
   struct pke_event* ev = _EV(pke, event_code);
@@ -309,6 +333,8 @@ void pke_post_response(struct pke_events* pke, unsigned int event_code,
 }
 
 void pke_cancel_all_events(struct pke_events* pke) {
+  PK_TRACE_FUNCTION;
+
   pke = (pke != NULL) ? pke : _pke_default_pke;
 
   struct pke_event* ev = &(pke->events[1]);
