@@ -275,7 +275,7 @@ void pk_dump_state(struct pk_manager* pkm)
   pk_log(LL, "pk_manager/last_world_update: %x", pkm->last_world_update);
   pk_log(LL, "pk_manager/next_tick: %d", pkm->next_tick);
   pk_log(LL, "pk_manager/enable_timer: %d", 0 < pkm->enable_timer);
-  pk_log(LL, "pk_manager/fancy_pagekite_net_rejection: %d", 0 < pkm->fancy_pagekite_net_rejection);
+  pk_log(LL, "pk_manager/fancy_pagekite_net_rejection_url: %s", pkm->fancy_pagekite_net_rejection_url);
   pk_log(LL, "pk_manager/want_spare_frontends: %d", pkm->want_spare_frontends);
   pk_log(LL, "pk_manager/dynamic_dns_url: %s", pkm->dynamic_dns_url);
 

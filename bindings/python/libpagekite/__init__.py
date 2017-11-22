@@ -108,6 +108,7 @@ def get_libpagekite_cdll():
             (c_int, "set_log_destination", (c_void_p, c_int,)),
             (c_int, "set_housekeeping_min_interval", (c_void_p, c_int,)),
             (c_int, "set_housekeeping_max_interval", (c_void_p, c_int,)),
+            (c_int, "set_rejection_url", (c_void_p, c_char_p,)),
             (c_int, "enable_http_forwarding_headers", (c_void_p, c_int,)),
             (c_int, "enable_fake_ping", (c_void_p, c_int,)),
             (c_int, "enable_watchdog", (c_void_p, c_int,)),
@@ -455,6 +456,25 @@ class PageKite(object):
         """
         assert(self.pkm is not None)
         return self.dll.pagekite_set_housekeeping_max_interval(self.pkm, c_int(interval))
+
+    def set_rejection_url(self, url):
+        """
+        Configure the rejection URL.
+        
+        See the destination URL included in the IFRAME for incoming
+        requests that cannot be handled (e.g. because the origin
+        web server is down or things are misconfigured).
+        
+        This function can be called at any time.
+    
+        Args:
+           * `const char* url`: The new URL
+    
+        Returns:
+            0
+        """
+        assert(self.pkm is not None)
+        return self.dll.pagekite_set_rejection_url(self.pkm, c_char_p(url.encode("utf-8")))
 
     def enable_http_forwarding_headers(self, enable):
         """

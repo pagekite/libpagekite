@@ -13,6 +13,7 @@
       * [`pagekite_set_log_destination                `](#pgktstlgdstntn)
       * [`pagekite_set_housekeeping_min_interval      `](#pgktsthskpngmnntrvl)
       * [`pagekite_set_housekeeping_max_interval      `](#pgktsthskpngmxntrvl)
+      * [`pagekite_set_rejection_url                  `](#pgktstrjctnrl)
       * [`pagekite_enable_http_forwarding_headers     `](#pgktnblhttpfrwrdnghdrs)
       * [`pagekite_enable_fake_ping                   `](#pgktnblfkpng)
       * [`pagekite_enable_watchdog                    `](#pgktnblwtchdg)
@@ -335,6 +336,26 @@ This function can be called at any time.
    * `int interval`: Interval, in seconds
 
 **Returns**: The new maximum housekeeping interval.
+
+
+<a                                                name="pgktstrjctnrl"><hr></a>
+
+#### `int pagekite_set_rejection_url(...)`
+
+Configure the rejection URL.
+
+See the destination URL included in the IFRAME for incoming requests
+that cannot be handled (e.g. because the origin web server is
+down or things are misconfigured).
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+   * `const char* url`: The new URL
+
+**Returns**: 0
 
 
 <a                                       name="pgktnblhttpfrwrdnghdrs"><hr></a>

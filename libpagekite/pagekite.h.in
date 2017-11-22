@@ -401,6 +401,24 @@ DECLSPEC_DLL int pagekite_set_housekeeping_max_interval(
 );
 
 
+/* Initialization: Configure the rejection URL.
+ *
+ *    See the destination URL included in the IFRAME for incoming requests
+ *    that cannot be handled (e.g. because the origin web server is down
+ *    or things are misconfigured).
+ *
+ *    This function can be called at any time.
+ *
+ * Returns: 0
+ */
+DECLSPEC_DLL int pagekite_set_rejection_url(
+  pagekite_mgr,         /* A reference to the PageKite manager object */
+  const char* url       /* The new URL */
+);
+
+
+
+
 /* Initialization: Enable or disable HTTP forwarding headers.
  *
  *    When enabled, libpagekite will rewrite incoming HTTP headers

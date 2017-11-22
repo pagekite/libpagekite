@@ -105,6 +105,7 @@ public class PageKiteAPI extends Object
     public static native int setLogDestination(int log_destination);
     public static native int setHousekeepingMinInterval(int interval);
     public static native int setHousekeepingMaxInterval(int interval);
+    public static native int setRejectionUrl(String url);
     public static native int enableHttpForwardingHeaders(int enable);
     public static native int enableFakePing(int enable);
     public static native int enableWatchdog(int enable);

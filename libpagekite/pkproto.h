@@ -45,21 +45,27 @@ Note: For alternate license terms, see the file COPYING.md.
 
 /* Must be careful here, outsiders can manipulate the contents of the
  * reply message.  Beware the buffer overflows! */
+#define PK_REJECT_BACKEND -1
 #define PK_REJECT_MAXSIZE 1024
-#define PK_REJECT_FMT ("HTTP/1.1 503 Unavailable\r\n" \
-                       "Content-Type: text/html; charset=utf-8\r\n" \
-                       "Pragma: no-cache\r\n" \
-                       "Expires: 0\r\n" \
-                       "Cache-Control: no-store\r\n" \
-                       "Connection: close\r\n" \
-                       "\r\n" \
-                       "<html>%s<h1>Sorry! (%.3s/%s)</h1>" \
-                       "<p>The %.8s <a href='http://pagekite.org/'>" \
-                       "<i>PageKite</i></a> for <b>%.64s</b> is unavailable " \
-                       "at the moment.</p><p>Please try again later.</p>" \
-                       "%s</html>")
-#define PK_REJECT_PRE_PAGEKITE ("<frameset cols='*'><frame target='_top' src='https://pagekite.net/offline/?&where=%.3s&v=%s&proto=%.8s&domain=%.64s'><noframes>")
-#define PK_REJECT_POST_PAGEKITE "</noframes></frameset>"
+#define PK_REJECT_FMT (\
+  "HTTP/1.1 503 Unavailable\r\n" \
+  "Content-Type: text/html; charset=utf-8\r\n" \
+  "Pragma: no-cache\r\n" \
+  "Expires: 0\r\n" \
+  "Cache-Control: no-store\r\n" \
+  "Connection: close\r\n" \
+  "\r\n" \
+  "<html>%.450s<h1>Sorry! (%.2s/%.16s)</h1><p>The %.8s" \
+  " <a href='http://pagekite.org/'><i>PageKite</i></a> for <b>%.128s</b>" \
+  " is unavailable at the moment.</p><p>Please try again later.</p>" \
+  "%.64s</html>")
+#define PK_REJECT_FANCY_URL "https://pagekite.net/offline/"
+#define PK_REJECT_FANCY_PRE (\
+  "<frameset cols='*'><frame target='_top' " \
+  "src='%.128s?&where=%.2s&v=%.16s&proto=%.8s&domain=%.64s&relay_ip=%.40s'>" \
+  "<noframes>")
+#define PK_REJECT_FANCY_POST (\
+  "</noframes></frameset>")
 
 #define PK_REJECT_TLS_DATA "\x15\x03\0\0\x02\x02\x31"
 #define PK_REJECT_TLS_LEN  7
@@ -170,6 +176,8 @@ size_t            pk_format_skb(char*, const char*, int);
 size_t            pk_format_eof(char*, const char*, int);
 size_t            pk_format_pong(char*);
 size_t            pk_format_ping(char*);
+size_t            pk_format_http_rejection(char*, int, const char*,
+                                           const char*, const char*);
 
 int               pk_make_bsalt(struct pk_kite_request*);
 char*             pk_sign(const char*, const char*, const char*, int, char *);

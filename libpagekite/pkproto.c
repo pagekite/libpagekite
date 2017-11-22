@@ -495,6 +495,53 @@ size_t pk_format_ping(char* buf)
   return pk_format_frame(buf, "", "NOOP: 1%s\r\nPING: 1\r\n\r\n", 0);
 }
 
+size_t pk_format_http_rejection(
+  char* buf,
+  int frontend_sockfd,
+  const char* default_fancy_url,
+  const char* request_proto,
+  const char* request_host)
+{
+  char pre[PK_REJECT_MAXSIZE];
+  char relay_ip[128];
+  char* fancy_url = NULL;
+  char* post = NULL;
+
+  if (default_fancy_url && *default_fancy_url) {
+    struct pke_event* ev = pke_post_blocking_event(NULL,
+      PK_EV_CFG_FANCY_URL, 0, request_host, NULL, &fancy_url);
+    if (NULL == fancy_url) fancy_url = (char*) default_fancy_url;
+
+    relay_ip[0] = '\0';
+    if (frontend_sockfd != PK_REJECT_BACKEND) {
+      struct sockaddr_in sin;
+      socklen_t len = sizeof(sin);
+      if (-1 != getsockname(frontend_sockfd, (struct sockaddr*) &sin, &len))
+        in_ipaddr_to_str((struct sockaddr*) &sin, relay_ip, 128);
+    }
+
+    sprintf(pre, PK_REJECT_FANCY_PRE,
+                 fancy_url,
+                 (frontend_sockfd == PK_REJECT_BACKEND) ? "BE" : "FE",
+                 pk_state.app_id_short,
+                 request_proto, request_host, relay_ip);
+    post = PK_REJECT_FANCY_POST;
+
+    if (ev) pke_free_event(NULL, ev->event_code);
+    if (fancy_url != default_fancy_url) free(fancy_url);
+  }
+  else {
+    pre[0] = '\0';
+    post = pre;
+  }
+
+  return sprintf(buf, PK_REJECT_FMT,
+                      pre,
+                      (frontend_sockfd == PK_REJECT_BACKEND) ? "be" : "fe",
+                      pk_state.app_id_short,
+                      request_proto, request_host, post);
+}
+
 
 
 

@@ -393,6 +393,20 @@ int pagekite_set_housekeeping_max_interval(pagekite_mgr pkm, int seconds)
   return 0;
 }
 
+int pagekite_set_rejection_url(pagekite_mgr pkm, const char* url)
+{
+  if (pkm == NULL) return -1;
+  if (PK_MANAGER(pkm)->fancy_pagekite_net_rejection_url != PK_REJECT_FANCY_URL)
+    free(PK_MANAGER(pkm)->fancy_pagekite_net_rejection_url);
+  if (url == NULL) {
+    PK_MANAGER(pkm)->fancy_pagekite_net_rejection_url = PK_REJECT_FANCY_URL;
+  }
+  else {
+    PK_MANAGER(pkm)->fancy_pagekite_net_rejection_url = strdup(url);
+  }
+  return 0;
+}
+
 int pagekite_enable_watchdog(pagekite_mgr pkm, int enable)
 {
   if (pkm == NULL) return -1;

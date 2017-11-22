@@ -166,9 +166,8 @@ static void pkm_quit(struct pk_manager* pkm)
 static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
 {
   struct pk_backend_conn* pkb; /* FIXME: What if we are a front-end? */
-  char reply[PK_REJECT_MAXSIZE], pre[PK_REJECT_MAXSIZE], rej[PK_REJECT_MAXSIZE];
-  char *post;
-  int bytes;
+  char reply[PK_REJECT_MAXSIZE], rej[PK_REJECT_MAXSIZE];
+  size_t bytes;
 
   PK_TRACE_FUNCTION;
   pk_log_chunk(fe, chunk);
@@ -196,20 +195,12 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
         pkc_write(&(fe->conn), reply, bytes);
       }
       else {
-        if (fe->manager->fancy_pagekite_net_rejection) {
-          sprintf(pre, PK_REJECT_PRE_PAGEKITE, "BE", pk_state.app_id_short,
-                       chunk->request_proto, chunk->request_host);
-          post = PK_REJECT_POST_PAGEKITE;
-        }
-        else {
-          pre[0] = '\0';
-          post = pre;
-        }
-        sprintf(rej, PK_REJECT_FMT,
-                     pre, "be", pk_state.app_id_short,
-                     chunk->request_proto, chunk->request_host, post);
-
-        bytes = pk_format_reply(reply, chunk->sid, strlen(rej), rej);
+        bytes = pk_format_http_rejection(rej,
+          PK_REJECT_BACKEND,
+          fe->manager->fancy_pagekite_net_rejection_url,
+          chunk->request_proto,
+          chunk->request_host);
+        bytes = pk_format_reply(reply, chunk->sid, bytes, rej);
         pkc_write(&(fe->conn), reply, bytes);
       }
 
@@ -1678,7 +1669,7 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pkm->buffer_bytes_free -= parse_buffer_bytes;
   }
 
-  pkm->fancy_pagekite_net_rejection = 1;
+  pkm->fancy_pagekite_net_rejection_url = PK_REJECT_FANCY_URL;
   pkm->enable_watchdog = 0;
   pkm->want_spare_frontends = 0;
   pkm->housekeeping_interval_min = PK_HOUSEKEEPING_INTERVAL_MIN;

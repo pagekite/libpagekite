@@ -54,6 +54,7 @@ void usage(int ecode) {
 #endif
   fprintf(stderr, "\t-S\tStatic setup, disable FE failover and DDNS updates\n"
                   "\t-w D\tWhite-label configuration using domain D.\n"
+                  "\t-r U\tSet a custom rejection URL, U.\n"
                   "\t-l D\tConnect to host D instead of localhost\n"
                   "\t-c N\tSet max connection count to N (default = 25)\n"
                   "\t-n N\tAlways connect to N spare frontends (default = 0)\n"
@@ -102,6 +103,7 @@ int main(int argc, char **argv) {
   char* whitelabel_tld = NULL;
   char* app_name = "pagekitec";
   char* localhost = "localhost";
+  char* rejection_url = NULL;
   int gotargs = 0;
   int verbosity = 0;
   int use_current = 1;
@@ -125,7 +127,7 @@ int main(int argc, char **argv) {
   flags |= PK_WITH_IPV6;
 #endif
 
-  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIl:Nn:qRsSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIl:Nn:qr:RsSvWw:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -157,6 +159,9 @@ int main(int argc, char **argv) {
       case 'I':
         flags &= ~PK_WITH_SSL;
         break;
+      case 'r':
+        gotargs++;
+        rejection_url = strdup(optarg);
       case 'R':
         use_fake_ping = 1;
         break;
@@ -254,6 +259,7 @@ int main(int argc, char **argv) {
   pagekite_enable_fake_ping(m, use_fake_ping);
   pagekite_set_bail_on_errors(m, bail_on_errors);
   pagekite_set_conn_eviction_idle_s(m, conn_eviction_idle_s);
+  if (rejection_url != NULL) pagekite_set_rejection_url(m, rejection_url);
 
   /* Move the logging to the event API, mostly for testing. */
   if (0 == (flags & PK_WITH_SYSLOG)) {

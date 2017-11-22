@@ -13,6 +13,7 @@
       * [`setLogDestination                           `](#stLgDstntn)
       * [`setHousekeepingMinInterval                  `](#stHskpngMnIntrvl)
       * [`setHousekeepingMaxInterval                  `](#stHskpngMxIntrvl)
+      * [`setRejectionUrl                             `](#stRjctnUrl)
       * [`enableHttpForwardingHeaders                 `](#nblHttpFrwrdngHdrs)
       * [`enableFakePing                              `](#nblFkPng)
       * [`enableWatchdog                              `](#nblWtchdg)
@@ -326,6 +327,25 @@ This function can be called at any time.
    * `int interval`: Interval, in seconds
 
 **Returns**: The new maximum housekeeping interval.
+
+
+<a                                                   name="stRjctnUrl"><hr></a>
+
+#### `int setRejectionUrl(...)`
+
+Configure the rejection URL.
+
+See the destination URL included in the IFRAME for incoming requests
+that cannot be handled (e.g. because the origin web server is
+down or things are misconfigured).
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `String url`: The new URL
+
+**Returns**: 0
 
 
 <a                                           name="nblHttpFrwrdngHdrs"><hr></a>
