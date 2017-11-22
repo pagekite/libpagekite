@@ -88,7 +88,8 @@ void pke_init_events             (struct pke_events*, unsigned int);
 void pke_free_event              (struct pke_events*, unsigned int);
 void pke_post_event              (struct pke_events*, unsigned int,
                                   int, const char*);
-int pke_post_blocking_event      (struct pke_events*, unsigned int,
+struct pke_event* pke_post_blocking_event(
+                                  struct pke_events*, unsigned int,
                                   int, const char*, int*, char**);
 struct pke_event* pke_await_event(struct pke_events*, int);
 struct pke_event* pke_get_event  (struct pke_events*, unsigned int);

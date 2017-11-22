@@ -222,18 +222,21 @@ void pke_post_event(
  * string. It is the caller's responsibility to free the memory when the
  * data has been processed.
  */
-int pke_post_blocking_event(
+struct pke_event* pke_post_blocking_event(
   struct pke_events* pke,
   unsigned int event_type, int event_int, const char* event_str,
   int* response_int, char** response_str)
 {
-  pke = (pke != NULL) ? pke : _pke_default_pke;
-  if (pke == NULL) return PK_EV_RESPOND_DEFAULT;
+  PK_TRACE_FUNCTION;
 
   if (response_int != NULL) *response_int = 0;
   if (response_str != NULL) *response_str = NULL;
+
+  pke = (pke != NULL) ? pke : _pke_default_pke;
+  if (pke == NULL) return PK_EV_RESPOND_DEFAULT;
+
   if ((pke->event_mask != PK_EV_ALL) &&
-      (0 == (event_type & pke->event_mask))) return PK_EV_RESPOND_DEFAULT;
+      (0 == (event_type & pke->event_mask))) return NULL;
 
   pthread_mutex_lock(&(pke->lock));
 
@@ -251,7 +254,7 @@ int pke_post_blocking_event(
   pthread_cond_wait(&(ev->trigger), &(pke->lock));
   pthread_mutex_unlock(&(pke->lock));
 
-  return ev->response_code;
+  return ev;
 }
 
 struct pke_event* pke_await_event(struct pke_events* pke, int timeout)
@@ -353,6 +356,7 @@ void pke_cancel_all_events(struct pke_events* pke) {
 
 void* pke_event_test_poster(void* void_pke) {
   struct pke_events* pke = (struct pke_events*) void_pke;
+  struct pke_event* ev;
   int r_int;
   char* r_str;
 
@@ -361,12 +365,13 @@ void* pke_event_test_poster(void* void_pke) {
   pke_post_event(NULL, 678, 0, NULL); fprintf(stderr, "."); sleep(1);
   pke_post_event(NULL, 901, 0, NULL); fprintf(stderr, "."); sleep(1);
 
-  assert(76 == pke_post_blocking_event(pke, 255, 9, "hello", &r_int, &r_str));
+  ev = pke_post_blocking_event(pke, 255, 9, "hello", &r_int, &r_str);
+  assert(76 == ev->response_code);
   assert(r_int == 9);
   assert(r_str != NULL);
   assert(strcasecmp(r_str, "hello") == 0);
   free(r_str);
-  pke_free_event(pke, 255);
+  pke_free_event(pke, ev->event_code);
 
   return void_pke;
 }
