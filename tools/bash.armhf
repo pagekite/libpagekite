@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+# This script sets up the environment for cross-compiling libpagekite
+# using mingw32 and MXE. The MXE enviroment needs to be built with pthread
+# and openssl, not much else at the moment.
+#
+
+# sudo dpkg --add-architecture armhf
+# 
+# apt-get install crossbuild-essential-armhf
+
+[ -e 'bash.armhf' ] && cd ..
+[ -e bin -a -e lib -a -e libpagekite ] || exit 1
+
+if [ ! -e tmp/openssl ]; then
+    mkdir -p tmp
+    cd tmp
+    echo
+    echo "OpenSSL not found! Downloading..."
+    echo
+    git clone https://github.com/openssl/openssl.git -b 'OpenSSL_1_1_0-stable'
+    cd ..
+    echo
+fi
+
+unset `env | \
+    perl -npe 's/\\\\\\n//gs' | \
+    grep -vi '^EDITOR=\|^HOME=\|^LANG=\|^MXE\|^PK_\|^PATH=' | \
+    grep -vi 'PKG_CONFIG\|PROXY\|^PS1=\|^TERM=' | \
+    grep = | cut -d '=' -f1 | tr '\n' ' '`
+
+export LD_LIBRARY_PATH=$(pwd)/lib
+
+if [ "$1" = "" ]; then
+    echo "PS1='\$? \[\033[1;33m\]\\w\[\033[0m\] armhf> '" > .armhf.bashrc
+
+    echo
+    echo "You probably want:"
+    echo
+    if [ ! -e lib/libssl.a ]; then
+        echo " ## To build OpenSSL for use with libpagekite on ARM:"
+        echo
+        echo "   cd tmp/openssl"
+        echo "   ./Configure linux-armv4 --prefix=\$(cd ../..; pwd) \\"
+        echo "       --cross-compile-prefix=arm-linux-gnueabihf-"
+        echo "   make clean && make install"
+        echo "   cd ../.."
+        echo "   rm -rf share ssl"
+        echo
+    fi
+    echo " ## To build libpagekite:"
+    echo
+    echo "   ./configure --host=arm-linux-gnueabihf \\"
+    echo "                --enable-static --disable-shared \\"
+    echo "               --without-java --with-openssl=\$(pwd) \\"
+    echo "               --prefix=\$(pwd)"
+    echo "   make install"
+    echo
+    bash --rcfile .armhf.bashrc -i "$@"
+    RV=$?
+else
+    bash -c "$*"
+    RV=$?
+fi
+rm -f .armhf.bashrc
+exit $RV
