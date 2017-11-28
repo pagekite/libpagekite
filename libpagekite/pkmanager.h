@@ -92,6 +92,8 @@ struct pk_backend_conn {
                             + sizeof(struct pk_job) * (c+f))
 #define PK_MANAGER_MINSIZE PK_MANAGER_BUFSIZE(MIN_KITE_ALLOC, MIN_FE_ALLOC, \
                                               MIN_CONN_ALLOC, PARSER_BYTES_MIN)
+#define PK_TUNNEL_ITER(pkm, fe) for (struct pk_tunnel* fe = pkm->tunnels; fe < (pkm->tunnels + pkm->tunnel_max); fe++)
+#define PK_KITE_ITER(pkm, kite) for (struct pk_pagekite* kite = pkm->kites; kite < (pkm->kites + pkm->kite_max); kite++)
 
 struct pk_manager {
   pk_status_t              status;

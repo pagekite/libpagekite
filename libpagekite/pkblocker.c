@@ -92,12 +92,8 @@ int pkb_get_job(struct pk_job_pile* pkj, struct pk_job* dest)
 
 void pkb_clear_transient_flags(struct pk_manager* pkm)
 {
-  int i;
-  struct pk_tunnel* fe;
-
   PK_TRACE_FUNCTION;
-
-  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     fe->conn.status &= ~FE_STATUS_REJECTED;
     fe->conn.status &= ~FE_STATUS_LAME;
     fe->conn.status &= ~FE_STATUS_IS_FAST;
@@ -106,14 +102,13 @@ void pkb_clear_transient_flags(struct pk_manager* pkm)
 
 void pkb_choose_tunnels(struct pk_manager* pkm)
 {
-  int i, wanted, wantn, highpri, prio;
-  struct pk_tunnel* fe;
+  int wanted, wantn, highpri, prio;
   struct pk_tunnel* highpri_fe;
 
   PK_TRACE_FUNCTION;
 
   /* Clear WANTED flag... */
-  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     if (fe->ai.ai_addr && fe->fe_hostname) {
       fe->conn.status &= ~(FE_STATUS_WANTED|FE_STATUS_IS_FAST);
     }
@@ -123,7 +118,7 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
   for (wantn = 0; wantn < pkm->want_spare_frontends+1; wantn++) {
     highpri_fe = NULL;
     highpri = 1024000;
-    for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+    PK_TUNNEL_ITER(pkm, fe) {
       /* Is tunnel really a front-end? */
       if ((fe->fe_hostname == NULL) || (fe->ai.ai_addr == NULL)) continue;
 
@@ -148,7 +143,7 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
   }
 
   wanted = 0;
-  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     /* Is tunnel really a front-end? */
     if ((fe->fe_hostname == NULL) || (fe->ai.ai_addr == NULL)) continue;
 
@@ -185,7 +180,7 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
   if (wanted) return;
 
   /* None wanted?  Uh oh, best accept anything non-broken at this point... */
-  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     if ((fe->ai.ai_addr != NULL) &&
         (fe->fe_hostname != NULL) &&
         !(fe->conn.status & (FE_STATUS_REJECTED|FE_STATUS_LAME))) {
@@ -202,7 +197,7 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
   /* Still none? Crazy town. Maybe a good front-end has been marked as
    * being lame because of duplicates and we've somehow forgotten it is
    * in DNS? Let's at least not disconnect. */
-  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     if ((fe->ai.ai_addr != NULL) &&
         (fe->fe_hostname != NULL) &&
         (fe->conn.sockfd > 0)) {
@@ -221,13 +216,12 @@ void pkb_choose_tunnels(struct pk_manager* pkm)
 
 int pkb_check_kites_dns(struct pk_manager* pkm)
 {
-  int i, j, rv;
+  int rv;
   int in_dns = 0;
   int recently_in_dns = 0;
   time_t ddns_window;
   struct pk_tunnel* fe;
   struct pk_tunnel* dns_fe;
-  struct pk_pagekite* kite;
   struct addrinfo hints;
   struct addrinfo *result, *rp;
   char buffer[128];
@@ -242,18 +236,18 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
   /* Walk through kite list, look each up in DNS and update the
    * tunnel flags as appropriate.
    */
-  for (i = 0, kite = pkm->kites; i < pkm->kite_max; i++, kite++) {
+  PK_KITE_ITER(pkm, kite) {
     rv = getaddrinfo(kite->public_domain, NULL, &hints, &result);
     if ((rv == 0) && (result != NULL)) {
       if (!cleared_flags) {
         /* Clear DNS flag everywhere, once we know DNS is responding. */
-        for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
+        PK_TUNNEL_ITER(pkm, fe) {
           fe->conn.status &= ~FE_STATUS_IN_DNS;
         }
         cleared_flags = 1;
       }
       for (rp = result; rp != NULL; rp = rp->ai_next) {
-        for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
+        PK_TUNNEL_ITER(pkm, fe) {
           if (fe->ai.ai_addr && fe->fe_hostname) {
             if (0 == addrcmp(fe->ai.ai_addr, rp->ai_addr)) {
               pk_log(PK_LOG_MANAGER_DEBUG, "In DNS for %s: %s",
@@ -285,7 +279,7 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
    * if they were either last updated within our window.
    */
   dns_fe = NULL;
-  for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     if (fe->ai.ai_addr && fe->fe_hostname) {
       if (fe->last_ddnsup > ddns_window) {
         fe->conn.status |= FE_STATUS_IN_DNS;
@@ -316,7 +310,6 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
 {
   int i, changes, have_nulls;
   time_t obsolete;
-  struct pk_tunnel* fe;
   char* last_fe_hostname;
 
   PK_TRACE_FUNCTION;
@@ -327,7 +320,7 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
   changes = 0;
   have_nulls = 0;
   last_fe_hostname = "";
-  for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     if ((fe->fe_hostname != NULL) &&
         (0 != strcmp(fe->fe_hostname, last_fe_hostname)))
     {
@@ -348,7 +341,7 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
   if (have_nulls)
   {
     obsolete = pk_time() - (pkm->check_world_interval * 4);
-    for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
+    PK_TUNNEL_ITER(pkm, fe) {
       if ((fe->fe_hostname != NULL) &&
           (fe->ai.ai_addr != NULL) &&
           (fe->last_configured < obsolete) &&
@@ -457,15 +450,12 @@ void* pkb_tunnel_ping(void* void_fe) {
 
 void pkb_check_tunnel_pingtimes(struct pk_manager* pkm)
 {
-  int j;
-  struct pk_tunnel* fe;
-
   PK_TRACE_FUNCTION;
 
   int first = 0;
   pthread_t first_pt;
   pthread_t pt;
-  for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     if (fe->ai.ai_addr && fe->fe_hostname) {
       if (0 == pthread_create(&pt, NULL, pkb_tunnel_ping, (void *) fe)) {
         if (first)
@@ -488,11 +478,9 @@ void pkb_check_tunnel_pingtimes(struct pk_manager* pkm)
 
 int pkb_update_dns(struct pk_manager* pkm)
 {
-  int j, len, bogus, rlen;
+  int len, bogus, rlen;
   struct pk_tunnel* fe_list[1024]; /* Magic, bounded by address_list[] below */
   struct pk_tunnel** fes;
-  struct pk_tunnel* fe;
-  struct pk_pagekite* kite;
   char printip[128], get_result[10240], *result, *lastup;
   char address_list[1024], payload[2048], signature[2048], url[2048], *alp;
 
@@ -508,7 +496,7 @@ int pkb_update_dns(struct pk_manager* pkm)
   *fes = NULL;
 
   bogus = 0;
-  for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     if (fe->ai.ai_addr && fe->fe_hostname && (fe->conn.sockfd >= 0)) {
       if (fe->conn.status & FE_STATUS_WANTED) {
         if (NULL != in_ipaddr_to_str(fe->ai.ai_addr, printip, 128)) {
@@ -534,7 +522,7 @@ int pkb_update_dns(struct pk_manager* pkm)
 
   bogus = 0;
   lastup = "";
-  for (j = 0, kite = pkm->kites; j < pkm->kite_max; kite++, j++) {
+  PK_KITE_ITER(pkm, kite) {
     if ((kite->protocol[0] != '\0') &&
         (0 != strcasecmp(lastup, kite->public_domain))) {
       PKS_STATE(pkm->status = PK_STATUS_UPDATING_DNS);
@@ -578,14 +566,13 @@ int pkb_update_dns(struct pk_manager* pkm)
 
 void pkb_log_fe_status(struct pk_manager* pkm)
 {
-  int j, ddnsup_ago;
-  struct pk_tunnel* fe;
+  int ddnsup_ago;
   char printip[128];
   char ddnsinfo[128];
 
   PK_TRACE_FUNCTION;
 
-  for (j = 0, fe = pkm->tunnels; j < pkm->tunnel_max; j++, fe++) {
+  PK_TUNNEL_ITER(pkm, fe) {
     if (fe->ai.ai_addr && fe->fe_hostname) {
       if (NULL != in_addr_to_str(fe->ai.ai_addr, printip, 128)) {
         ddnsinfo[0] = '\0';
