@@ -16,7 +16,6 @@ AC_CANONICAL_HOST
 use_openssl="yes"
 use_libev="yes"
 
-specialssldir=""
 AC_ARG_WITH(openssl,
 	[AS_HELP_STRING([--with-openssl=DIR],
 		[Use optional openssl libs and includes from [DIR]/lib/ and [DIR]/include/openssl/])],
@@ -27,7 +26,6 @@ AC_ARG_WITH(openssl,
     use_openssl="no"
   ;;
   *)
-    specialssldir="$with_openssl"
     LDFLAGS="$LDFLAGS -L$with_openssl/lib"
     CPPFLAGS="-I$with_openssl/include $CPPFLAGS"
   ;;
@@ -139,59 +137,42 @@ AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([clock_gettime dup2 gethostbyname gettimeofday inet_ntoa malloc memmove memset select socket strcasecmp strchr strdup strerror strncasecmp strrchr uname sched_yield pthread_yield pthread_yield_np])
 
-# OpenSSL requires dlopen on some platforms
-AC_SEARCH_LIBS(dlopen, dl)
-
 # If they didn't specify it, we try to find it
-if test "$use_openssl" = "yes" -a -z "$specialssldir" ; then
-	AC_CHECK_HEADER(openssl/ssl.h,,
+if test "$use_openssl" = "yes" ; then
+	# First try pkg-config; fall back to headers/libs check
+	PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.0],
+		[LIBS="$OPENSSL_LIBS $LIBS"],
+		[AC_CHECK_HEADERS([openssl/ssl.h openssl/err.h openssl/rand.h],,
 			[ use_openssl="no"
-        AC_MSG_WARN([Failed to find openssl/ssl.h so OpenSSL will not be used. 
-	If it is installed you can try the --with-openssl=DIR argument]) ])
-
-	if test "$use_openssl" = "yes"; then
-	     AC_CHECK_HEADER(openssl/err.h,,
-	         [ use_openssl="no"
-		     AC_MSG_WARN([Failed to find openssl/err.h so OpenSSL will not be used.
-		      If it is installed you can try the --with-openssl=DIR argument]) ])
-	fi
-
-	if test "$use_openssl" = "yes"; then
-		   AC_CHECK_HEADER(openssl/rand.h,,
-		       [ use_openssl="no"
-		         AC_MSG_WARN([Failed to find openssl/rand.h so OpenSSL will not be used.
-			  If it is installed you can try the --with-openssl=DIR argument]) ])
-	fi
-
-	if test "$use_openssl" = "yes"; then
-	 AC_CHECK_LIB(crypto, BIO_int_ctrl,
-	   [],
-	   [ use_openssl="no"
-	   AC_MSG_WARN([Failed to find libcrypto so OpenSSL will not be used.
-	    If it is installed you can try the --with-openssl=DIR argument]) ])
-	fi
-										     
-	if test "$use_openssl" = "yes"; then
-	   AC_CHECK_LIB(ssl, SSL_new,
-	   [],
-	   [ use_openssl="no"
-	   AC_MSG_WARN([Failed to find libssl so OpenSSL will not be used. 
+        		  AC_MSG_WARN([Failed to find openssl headers so OpenSSL will not be used. 
 If it is installed you can try the --with-openssl=DIR argument]) ])
-	fi
+		 if test "$use_openssl" = "yes"; then
+			AC_CHECK_LIB(crypto, BIO_int_ctrl, [],
+			[ use_openssl="no"
+			  AC_MSG_WARN([Failed to find libcrypto so OpenSSL will not be used.
+If it is installed you can try the --with-openssl=DIR argument]) ])
+		 fi
+		 if test "$use_openssl" = "yes"; then
+			AC_CHECK_LIB(ssl, SSL_new, [],
+			[ use_openssl="no"
+			  AC_MSG_WARN([Failed to find libssl so OpenSSL will not be used.
+If it is installed you can try the --with-openssl=DIR argument]) ])
+		 fi
+		 if test "$use_openssl" = "yes"; then
+			# OpenSSL requires dlopen on some platforms
+			AC_SEARCH_LIBS(dlopen, dl)
+			OPENSSL_LIBS="-lssl -lcrypto"
+		fi])
 fi
 
-OPENSSL_CFLAGS=""
-OPENSSL_LIBS=""
 if test "$use_openssl" = "yes"; then
   AC_DEFINE([HAVE_OPENSSL], [1], [Define to 1 if you have OpenSSL.])
-  OPENSSL_LIBS="-lssl -lcrypto"
   # Define in Makefile also.
   HAVE_OPENSSL=yes
-  AC_SUBST(HAVE_OPENSSL)
 fi
 AC_SUBST([OPENSSL_CFLAGS])
 AC_SUBST([OPENSSL_LIBS])
-
+AC_SUBST([HAVE_OPENSSL])
 
 
 LIBEV_CFLAGS=""
