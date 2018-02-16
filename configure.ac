@@ -34,18 +34,15 @@ AC_ARG_WITH(openssl,[  --with-openssl=DIR    Use optional openssl libs and inclu
 
 AC_ARG_WITH(tests,
 	[AS_HELP_STRING([--with-tests],
-		[Compile libpagekite unit tests])],
-		[with_tests=yes], [])
+		[Compile libpagekite unit tests])])
 
 AC_ARG_WITH(debug-traces,
 	[AS_HELP_STRING([--with-debug-traces],
-		[Compile libpagekite debug function traces])],
-		[with_debug_traces=yes], [])
+		[Compile libpagekite debug function traces])])
 
 AC_ARG_WITH(debug-canaries,
 	[AS_HELP_STRING([--with-debug-canaries],
-		[Compile libpagekite debug memory canaries])],
-		[with_debug_canaries=yes], [])
+		[Compile libpagekite debug memory canaries])])
 
 AC_ARG_WITH(lua,
 	[AS_HELP_STRING([--without-lua],
@@ -55,7 +52,7 @@ AC_ARG_WITH(lua,
 AC_ARG_WITH(os-libev,
 	[AS_HELP_STRING([--without-os-libev],
 		[Use embedded libev, not the OS-provided library])],
-		[use_libev=no], [])
+		[use_libev="$withval"], [])
 
 AC_ARG_WITH(ipv6,
 	[AS_HELP_STRING([--without-ipv6],
@@ -70,12 +67,12 @@ AC_ARG_WITH(java,
 AC_ARG_WITH(agpl-relay,
 	[AS_HELP_STRING([--with-agpl-relay],
 		[Compile libpagekite relay support (AGPLv3 code)])],
-		[with_relay=yes], [with_relay=no])
+		[with_relay="$withval"], [with_relay=no])
 
 AC_ARG_WITH(ds-logfmt,
 	[AS_HELP_STRING([--with-ds-logfmt],
 		[Compile libpagekite with DigitalSTROM log format.])],
-		[with_ds_logfmt=yes], [with_ds_logfmt=no])
+		[with_ds_logfmt="$withval"], [with_ds_logfmt=no])
 
 
 # Checks for programs.
