@@ -17,7 +17,9 @@ use_openssl="yes"
 use_libev="yes"
 
 specialssldir=""
-AC_ARG_WITH(openssl,[  --with-openssl=DIR    Use optional openssl libs and includes from [DIR]/lib/ and [DIR]/include/openssl/],
+AC_ARG_WITH(openssl,
+	[AS_HELP_STRING([--with-openssl=DIR],
+		[Use optional openssl libs and includes from [DIR]/lib/ and [DIR]/include/openssl/])],
 [  case "$with_openssl" in
   yes)
   ;;
