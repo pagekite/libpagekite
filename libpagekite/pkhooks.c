@@ -238,12 +238,9 @@ struct pke_event* pke_await_event(struct pke_events* pke, int timeout)
   pke = (pke != NULL) ? pke : _pke_default_pke;
   struct pke_event* oldest = NULL;
 
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-
   struct timespec deadline;
-  deadline.tv_sec = tv.tv_sec + timeout;
-  deadline.tv_nsec = tv.tv_usec * 1000;
+  pk_gettime(&deadline);
+  deadline.tv_sec += timeout;
 
   do {
     /* Search for an event... */

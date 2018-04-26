@@ -369,7 +369,8 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
 
 void* pkb_tunnel_ping(void* void_fe) {
   struct pk_tunnel* fe = (struct pk_tunnel*) void_fe;
-  struct timeval tv1, tv2, to;
+  struct timespec tp1, tp2;
+  struct timeval to;
   char buffer[1024], printip[1024];
   int sockfd, bytes, want;
 
@@ -382,7 +383,7 @@ void* pkb_tunnel_ping(void* void_fe) {
     fe->priority = 1 + (rand() % 500);
   }
   else {
-    gettimeofday(&tv1, NULL);
+    pk_gettime(&tp1);
     to.tv_sec = pk_state.socket_timeout_s;
     to.tv_usec = 0;
     if ((0 > (sockfd = PKS_socket(fe->ai.ai_family, fe->ai.ai_socktype,
@@ -419,10 +420,10 @@ void* pkb_tunnel_ping(void* void_fe) {
       sleep(2); /* We don't want to return first! */
       return NULL;
     }
-    gettimeofday(&tv2, NULL);
+    pk_gettime(&tp2);
 
-    fe->priority = ((tv2.tv_sec - tv1.tv_sec) * 1000)
-                 + ((tv2.tv_usec - tv1.tv_usec) / 1000)
+    fe->priority = ((tp2.tv_sec - tp1.tv_sec) * 1000)
+                 + ((tp2.tv_nsec - tp1.tv_nsec) / 1000000)
                  + 1;
 
     if (strcasestr(buffer, PK_FRONTEND_OVERLOADED) != NULL) {
