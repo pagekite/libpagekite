@@ -24,7 +24,7 @@ typedef enum {
   PK_HOOK_START_BLOCKER   =  2, /* 0, pk_blocker, pk_manager     => (ignored) */
 
   PK_HOOK_LOG             =  6, /* bytes, log_line, NULL         => log? */
-  PK_HOOK_TICK            =  7, /* time(0), pk_manager, NULL     => (ignored) */
+  PK_HOOK_TICK            =  7, /* pk_time(), pk_manager, NULL   => (ignored) */
   PK_HOOK_CHECK_WORLD     =  8, /* 0=begin, pk_blocker, pk_manager => check? */
                                 /* 1=end, pk_blocker, pk_manager => (ignored) */
   PK_HOOK_CHECK_TUNNELS   =  9, /* 0=begin, pk_blocker, pk_manager => check? */

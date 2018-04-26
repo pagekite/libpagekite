@@ -201,7 +201,7 @@ void pk_dump_conn(char* prefix, struct pk_conn* conn)
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/sockfd: %d", prefix, conn->sockfd);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/activity: %x (%ds ago)", prefix,
                                conn->activity,
-                               time(0) - conn->activity);
+                               pk_time(0) - conn->activity);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_bytes: %d", prefix, conn->read_bytes);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_kb: %d", prefix, conn->read_kb);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/sent_kb: %d", prefix, conn->sent_kb);

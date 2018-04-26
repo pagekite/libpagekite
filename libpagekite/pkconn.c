@@ -46,7 +46,7 @@ void pkc_reset_conn(struct pk_conn* pkc, unsigned int status)
   }
   pkc->status &= ~CONN_STATUS_BITS;
   pkc->status |= status;
-  pkc->activity = time(0);
+  pkc->activity = pk_time();
   pkc->out_buffer_pos = 0;
   pkc->in_buffer_pos = 0;
   pkc->send_window_kb = CONN_WINDOW_SIZE_KB_INITIAL;
@@ -283,7 +283,7 @@ ssize_t pkc_read(struct pk_conn* pkc)
     }
 
     pkc->in_buffer_pos += bytes;
-    pkc->activity = time(0);
+    pkc->activity = pk_time(0);
 
     /* Update KB counter and window... this is a bit messy. */
     pkc->read_bytes += bytes;

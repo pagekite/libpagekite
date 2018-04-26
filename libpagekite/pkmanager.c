@@ -236,7 +236,7 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
       /* Record this ping, even if not initiated by us. This allows us to
        * use pings as a metric of whether a tunnel is in use, to prevent
        * premature disconnections. */
-      fe->last_ping = time(0);
+      fe->last_ping = pk_time();
     }
   }
   else if (NULL != pkb) {
@@ -957,7 +957,7 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
   int i, j, pass, disconnect, disconnected, live, ping_window;
 
   PK_TRACE_FUNCTION;
-  ping_window = time(0) - 4*pkm->housekeeping_interval_min;
+  ping_window = pk_time() - 4*pkm->housekeeping_interval_min;
 
   /* The lock must already be held, or we may have nasty bugs. */
   assert(0 != pkm_reconfig_start(pkm));
@@ -1047,7 +1047,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   struct pk_manager* pkm = (struct pk_manager*) w->data;
   time_t next_tick = pkm->next_tick;
   time_t max_tick;
-  time_t now = time(0);
+  time_t now = pk_time();
   time_t increment = (next_tick / 3);
   time_t inactive = now - pkm->next_tick - increment;
 
@@ -1124,7 +1124,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   pkm_yield_start(pkm);
 
   /* Finally, trigger the tunnel check on the blocking thread. */
-  if (pkm->last_world_update + pkm->check_world_interval < time(0)) {
+  if (pkm->last_world_update + pkm->check_world_interval < pk_time()) {
     pkb_add_job(&(pkm->blocking_jobs), PK_CHECK_WORLD, 0, pkm);
     /* After checking the state of the world, we are a bit more aggressive
      * about following up on things, reset the fallback. */
@@ -1420,7 +1420,7 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
              (ai->ai_addrlen > 0) &&
              (0 == addrcmp(fe->ai.ai_addr, ai->ai_addr)))
     {
-      fe->last_configured = time(0);
+      fe->last_configured = pk_time();
       return NULL;
     }
   }
@@ -1434,7 +1434,7 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
   adding->error_count = 0;
   adding->request_count = 0;
   adding->priority = 0;
-  adding->last_configured = time(0);
+  adding->last_configured = pk_time();
 
   return adding;
 }
@@ -1461,7 +1461,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
    *        gracefully.
    */
 
-  max_age = time(0);
+  max_age = pk_time();
   pkb_oldest = NULL;
   shift = pkm_sid_shift(sid);
   for (i = 0; i < pkm->be_conn_max; i++) {
@@ -1486,7 +1486,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
   /* If we get this far, we found no empty slots. Let's complain to the
    * log and, if so configured, kick out the oldest idle connection. */
   if (NULL != (pkb = pkb_oldest)) {
-    max_age = time(0) - pkb->conn.activity;
+    max_age = pk_time(0) - pkb->conn.activity;
     evicting = (pk_state.conn_eviction_idle_s &&
                (pk_state.conn_eviction_idle_s < max_age));
 

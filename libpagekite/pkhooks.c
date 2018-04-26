@@ -141,7 +141,7 @@ struct pke_event* _pke_unlocked_post_event(
   if (ev == NULL) ev = &(pke->events[1]); 
 
   ev->event_code = (ev->event_code & PK_EV_SLOT_MASK) | event_type;
-  ev->posted = time(0);
+  ev->posted = pk_time();
   if (ev->event_str != NULL) free(ev->event_str);
   if (event_str != NULL) {
     ev->event_str = strdup(event_str);
