@@ -37,6 +37,13 @@ char random_junk[32] = {
   0x7a, 0x18, 0x70, 0xe3, 0xe4, 0xe2, 0xae, 0x83,
   0x04, 0x7d, 0xf5, 0xd5, 0xc0, 0x61, 0x0d, 0x00};
 
+/* The CLOCK_MONOTONIC clock_id may be defined but not actually
+ * supported. This flag will be cleared to zero if we find out at
+ * runtime that CLOCK_MONOTONIC is not actually usable.
+ */
+#ifdef HAVE_CLOCK_MONOTONIC
+static int use_clock_gettime = 1;
+#endif
 
 void better_srand(int allow_updates)
 {
@@ -280,6 +287,40 @@ void sleep_ms(int ms)
   tv.tv_sec = (ms / 1000);
   tv.tv_usec = 1000 * (ms % 1000);
   select(0, NULL, NULL, NULL, &tv);
+}
+
+void pk_gettime(struct timespec *tp)
+{
+#ifdef HAVE_CLOCK_MONOTONIC
+  if (use_clock_gettime) {
+    if (clock_gettime(CLOCK_MONOTONIC, tp) != -1)
+      return;
+    
+    if (errno == EINVAL)
+      use_clock_gettime = 0;
+  }
+#endif
+  {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    tp->tv_sec = tv.tv_sec;
+    tp->tv_nsec = tv.tv_usec * 1000;
+  }
+}
+
+time_t pk_time()
+{
+#ifdef HAVE_CLOCK_MONOTONIC
+  struct timespec tp;
+  if (use_clock_gettime) {
+    if (clock_gettime(CLOCK_MONOTONIC, &tp) != -1)
+      return tp.tv_sec;
+
+    if (errno == EINVAL)
+      use_clock_gettime = 0;
+  }
+#endif
+  return time(0);
 }
 
 int wait_fd(int fd, int timeout_ms)

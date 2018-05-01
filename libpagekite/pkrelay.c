@@ -392,7 +392,7 @@ void pkr_relay_incoming(int result, void* void_data) {
   }
 
   if (result == PARSE_WANT_MORE_DATA) {
-    if (time(NULL) - ics->created > 5) {
+    if (pk_time() - ics->created > 5) {
       /* We don't wait forever for more data; that would make resource
        * exhaustion DOS attacks against the server trivially easy. */
       _pkr_close(ics, 0, "Timed out");
@@ -444,7 +444,7 @@ void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
   ics->hostname = NULL;
   ics->parsed_as = PROTO_UNKNOWN;
   ics->parse_state = PARSE_UNDECIDED;
-  ics->created = time(NULL);
+  ics->created = pk_time();
 
   slen = sizeof(ics->local_addr);
   getsockname(sockfd, (struct sockaddr*) &(ics->local_addr), &slen);

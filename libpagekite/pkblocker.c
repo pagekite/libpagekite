@@ -261,7 +261,7 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
                                            in_ipaddr_to_str(fe->ai.ai_addr,
                                                             buffer, 128));
               fe->conn.status |= FE_STATUS_IN_DNS;
-              fe->last_ddnsup = time(0);
+              fe->last_ddnsup = pk_time();
               in_dns++;
             }
           }
@@ -279,9 +279,9 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
   /* FIXME: We should really get this from the TTL of the DNS record itself,
    *        not from a hard coded magic number.
    */
-  ddns_window = time(0) - PK_DDNS_UPDATE_INTERVAL_MIN;
+  ddns_window = pk_time() - PK_DDNS_UPDATE_INTERVAL_MIN;
 
-  /* Walk through the list of tunnels and rewnew the FE_STATUS_IN_DNS
+  /* Walk through the list of tunnels and renew the FE_STATUS_IN_DNS
    * if they were either last updated within our window.
    */
   dns_fe = NULL;
@@ -347,7 +347,7 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
    */
   if (have_nulls)
   {
-    obsolete = time(0) - (pkm->check_world_interval * 4);
+    obsolete = pk_time() - (pkm->check_world_interval * 4);
     for (i = 0, fe = pkm->tunnels; i < pkm->tunnel_max; i++, fe++) {
       if ((fe->fe_hostname != NULL) &&
           (fe->ai.ai_addr != NULL) &&
@@ -369,7 +369,8 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
 
 void* pkb_tunnel_ping(void* void_fe) {
   struct pk_tunnel* fe = (struct pk_tunnel*) void_fe;
-  struct timeval tv1, tv2, to;
+  struct timespec tp1, tp2;
+  struct timeval to;
   char buffer[1024], printip[1024];
   int sockfd, bytes, want;
 
@@ -382,7 +383,7 @@ void* pkb_tunnel_ping(void* void_fe) {
     fe->priority = 1 + (rand() % 500);
   }
   else {
-    gettimeofday(&tv1, NULL);
+    pk_gettime(&tp1);
     to.tv_sec = pk_state.socket_timeout_s;
     to.tv_usec = 0;
     if ((0 > (sockfd = PKS_socket(fe->ai.ai_family, fe->ai.ai_socktype,
@@ -419,10 +420,10 @@ void* pkb_tunnel_ping(void* void_fe) {
       sleep(2); /* We don't want to return first! */
       return NULL;
     }
-    gettimeofday(&tv2, NULL);
+    pk_gettime(&tp2);
 
-    fe->priority = ((tv2.tv_sec - tv1.tv_sec) * 1000)
-                 + ((tv2.tv_usec - tv1.tv_usec) / 1000)
+    fe->priority = ((tp2.tv_sec - tp1.tv_sec) * 1000)
+                 + ((tp2.tv_nsec - tp1.tv_nsec) / 1000000)
                  + 1;
 
     if (strcasestr(buffer, PK_FRONTEND_OVERLOADED) != NULL) {
@@ -497,7 +498,7 @@ int pkb_update_dns(struct pk_manager* pkm)
 
   PK_TRACE_FUNCTION;
 
-  if (time(0) < pkm->last_dns_update + PK_DDNS_UPDATE_INTERVAL_MIN)
+  if (pk_time() < pkm->last_dns_update + PK_DDNS_UPDATE_INTERVAL_MIN)
     return 0;
 
   address_list[0] = '\0';
@@ -556,7 +557,7 @@ int pkb_update_dns(struct pk_manager* pkm)
           pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update OK, %s=%s",
                                       kite->public_domain, address_list);
           for (fes = fe_list; *fes; fes++) {
-            (*fes)->last_ddnsup = time(0);
+            (*fes)->last_ddnsup = pk_time();
             (*fes)->conn.status |= FE_STATUS_IN_DNS;
           }
         }
@@ -570,7 +571,7 @@ int pkb_update_dns(struct pk_manager* pkm)
     }
   }
 
-  pkm->last_dns_update = time(0);
+  pkm->last_dns_update = pk_time();
   PK_CHECK_MEMORY_CANARIES;
   return bogus;
 }
@@ -589,7 +590,7 @@ void pkb_log_fe_status(struct pk_manager* pkm)
       if (NULL != in_addr_to_str(fe->ai.ai_addr, printip, 128)) {
         ddnsinfo[0] = '\0';
         if (fe->last_ddnsup) {
-          ddnsup_ago = time(0) - fe->last_ddnsup;
+          ddnsup_ago = pk_time() - fe->last_ddnsup;
           sprintf(ddnsinfo, " (in DNS %us ago)", ddnsup_ago);
         }
         pk_log(PK_LOG_MANAGER_DEBUG,
@@ -625,7 +626,7 @@ void pkb_check_world(struct pk_manager* pkm)
   pkb_check_tunnel_pingtimes(pkm);
   pkb_check_kites_dns(pkm);
   pkb_log_fe_status(pkm);
-  pkm->last_world_update = time(0) + pkm->interval_fudge_factor;
+  pkm->last_world_update = pk_time() + pkm->interval_fudge_factor;
   PK_CHECK_MEMORY_CANARIES;
 }
 
@@ -687,7 +688,7 @@ void* pkb_run_blocker(void *void_pkblocker)
   while (1) {
     pkb_get_job(&(pkm->blocking_jobs), &job);
 
-    time_t now = time(0);
+    time_t now = pk_time();
     switch (job.job) {
       case PK_NO_JOB:
         break;
@@ -699,7 +700,7 @@ void* pkb_run_blocker(void *void_pkblocker)
             last_check_tunnels = now;
             pkb_check_world((struct pk_manager*) job.ptr_data);
             pkb_check_tunnels((struct pk_manager*) job.ptr_data);
-            last_check_world = last_check_tunnels = time(0);
+            last_check_world = last_check_tunnels = pk_time();
             PK_HOOK(PK_HOOK_CHECK_WORLD, 1, this, pkm);
           }
           pkm_reconfig_stop((struct pk_manager*) job.ptr_data);
@@ -712,7 +713,7 @@ void* pkb_run_blocker(void *void_pkblocker)
           if (PK_HOOK(PK_HOOK_CHECK_TUNNELS, 0, this, pkm)) {
             last_check_tunnels = now;
             pkb_check_tunnels((struct pk_manager*) job.ptr_data);
-            last_check_tunnels = time(0);
+            last_check_tunnels = pk_time();
             PK_HOOK(PK_HOOK_CHECK_TUNNELS, 1, this, pkm);
           }
           pkm_reconfig_stop((struct pk_manager*) job.ptr_data);

@@ -141,7 +141,7 @@ struct pke_event* _pke_unlocked_post_event(
   if (ev == NULL) ev = &(pke->events[1]); 
 
   ev->event_code = (ev->event_code & PK_EV_SLOT_MASK) | event_type;
-  ev->posted = time(0);
+  ev->posted = pk_time();
   if (ev->event_str != NULL) free(ev->event_str);
   if (event_str != NULL) {
     ev->event_str = strdup(event_str);
@@ -238,12 +238,9 @@ struct pke_event* pke_await_event(struct pke_events* pke, int timeout)
   pke = (pke != NULL) ? pke : _pke_default_pke;
   struct pke_event* oldest = NULL;
 
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-
   struct timespec deadline;
-  deadline.tv_sec = tv.tv_sec + timeout;
-  deadline.tv_nsec = tv.tv_usec * 1000;
+  pk_gettime(&deadline);
+  deadline.tv_sec += timeout;
 
   do {
     /* Search for an event... */

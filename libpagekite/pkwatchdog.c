@@ -39,7 +39,7 @@ time_t pk_global_watchdog_ticker = 0;
 void pkw_pet_watchdog()
 {
    if (pk_global_watchdog_ticker >= 0)
-     pk_global_watchdog_ticker = time(0);
+     pk_global_watchdog_ticker = pk_time();
 }
 
 void* pkw_run_watchdog(void *void_pkm)
