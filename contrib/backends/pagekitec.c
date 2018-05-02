@@ -69,12 +69,7 @@ void usage(int ecode) {
 #endif
   fprintf(stderr, "\t-C\tDisable auto-adding current DNS IP as a front-end\n"
                   "\t-W\tEnable watchdog thread (dumps core if we lock up)\n"
-                  "\t-H\tDo not add X-Forwarded-Proto and X-Forwarded-For\n");
-#ifdef HAVE_LUA
-  fprintf(stderr, "\t-o S=N\tEnable Lua plugin S with argument N\n"
-                  "\t-L\tDisable by default all Lua plugins\n");
-#endif
-  fprintf(stderr, "\n");
+                  "\t-H\tDo not add X-Forwarded-Proto and X-Forwarded-For\n\n");
   exit(ecode);
 }
 
