@@ -66,6 +66,7 @@ outward facing public API methods described above are defined in pagekite.c.
 
 #include "pkcommon.h"
 #include "pkhooks.h"
+#include "pkutils.h"
 
 #define _EV(pke, event_code) \
   (pke->events + ((event_code & PK_EV_SLOT_MASK) >> PK_EV_SLOT_SHIFT))
