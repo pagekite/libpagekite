@@ -84,6 +84,7 @@ struct pke_events* _pke_default_pke = NULL;
 
 void pke_init_events(struct pke_events* pke, unsigned int threads) {
   unsigned int bytes = 0;
+  static pthread_condattr_t shared_condattr;
   pke->event_mask = PK_EV_NONE;
   pke->event_ptr = 0;
   pke->event_max = threads * 12;
@@ -91,20 +92,25 @@ void pke_init_events(struct pke_events* pke, unsigned int threads) {
 
   PK_TRACE_FUNCTION;
 
+  /* Make sure our condition variables are configured to use the same
+   * clock as pk_gettime(). */
+  pthread_condattr_init(&shared_condattr);
+  pk_pthread_condattr_setclock(&shared_condattr);
+
   bytes = sizeof(struct pke_event) * pke->event_max;
   pke->events = malloc(bytes);
   memset(pke->events, 0, bytes);
 
   for (int i = 0; i < pke->event_max; i++) {
     pke->events[i].event_code = (i << PK_EV_SLOT_SHIFT);
-    pthread_cond_init(&(pke->events[i].trigger), NULL);
+    pthread_cond_init(&(pke->events[i].trigger), &shared_condattr);
   }
 
   /* Event 0 is reserved for the NONE event. */
   pke->events[0].event_code = PK_EV_NONE;
 
   pthread_mutex_init(&(pke->lock), NULL);
-  pthread_cond_init(&(pke->trigger), NULL);
+  pthread_cond_init(&(pke->trigger), &shared_condattr);
 
   if (_pke_default_pke == NULL)_pke_default_pke = pke;
 }
@@ -155,7 +161,7 @@ struct pke_event* _pke_unlocked_post_event(
 
   struct pke_event* ev = _pke_get_oldest_event(
     pke, 0, PK_EV_IS_BLOCKING | PK_EV_PROCESSING);
-  if (ev == NULL) ev = &(pke->events[1]); 
+  if (ev == NULL) ev = &(pke->events[1]);
 
   ev->event_code = (ev->event_code & PK_EV_SLOT_MASK) | event_type;
   ev->posted = pk_time();
@@ -282,7 +288,8 @@ struct pke_event* pke_await_event(struct pke_events* pke, int timeout)
 
     /* No event found, block ourselves until someone posts one */
     pthread_mutex_lock(&(pke->lock));
-    if (0 != pthread_cond_timedwait(&(pke->trigger), &(pke->lock), &deadline)) {
+    while (0 != pthread_cond_timedwait(&(pke->trigger), &(pke->lock),
+                                       &deadline)) {
       pthread_mutex_unlock(&(pke->lock));
       return &(pke->events[0]);
     }

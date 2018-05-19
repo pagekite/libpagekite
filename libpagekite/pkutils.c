@@ -314,7 +314,7 @@ void pk_gettime(struct timespec *tp)
   if (use_clock_gettime) {
     if (clock_gettime(CLOCK_MONOTONIC, tp) != -1)
       return;
-    
+
     if (errno == EINVAL)
       use_clock_gettime = 0;
   }
@@ -325,6 +325,18 @@ void pk_gettime(struct timespec *tp)
     tp->tv_sec = tv.tv_sec;
     tp->tv_nsec = tv.tv_usec * 1000;
   }
+}
+
+void pk_pthread_condattr_setclock(pthread_condattr_t* cond_attr) {
+#ifdef HAVE_CLOCK_MONOTONIC
+  /* Check if the monotonic clock works, if it does, configure the
+   * condition variable attributes to use it. */
+  struct timespec unused_ts;
+  pk_gettime(&unused_ts);
+  if (use_clock_gettime) {
+    pthread_condattr_setclock(cond_attr, CLOCK_MONOTONIC);
+  }
+#endif
 }
 
 time_t pk_time()
