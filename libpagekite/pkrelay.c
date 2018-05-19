@@ -91,6 +91,7 @@ struct incoming_conn_state {
   struct pk_backend_conn* pkb;
   struct pk_tunnel* tunnel;
   unsigned char* hostname;
+  unsigned char* unparsed_data;
   int parsed_as;
   int parse_state;
   time_t created;
@@ -203,18 +204,23 @@ static int _pkr_parse_pagekite_request(char* peeked,
                                        char* first_nl,
                                        struct incoming_conn_state* ics)
 {
+  char *end;
   /* Since we know pagekite requests are small and peekable, we
    * can check if it's complete and process if so, otherwise defer.
    */
-  if ((*(first_nl-1) == '\r') ? (strstr(peeked, "\r\n\r\n") != NULL)
-                              : (strstr(peeked, "\n\n") != NULL)) {
-
+  if ((*(first_nl-1) == '\r') ? ((end = strstr(peeked, "\r\n\r\n")) != NULL)
+                              : ((end = strstr(peeked, "\n\n")) != NULL))
+  {
     pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: Complete PageKite request!");
+    /* For now, we punt on actually parsing the incoming data and let
+     * that happen in an external implementation. */
     ics->parsed_as = PROTO_PAGEKITE;
+    ics->unparsed_data = (char*) malloc(end - peeked + 1);
+    memcpy(ics->unparsed_data, peeked, end - peeked);
+    ics->unparsed_data[end - peeked] = '\0';
     return PARSE_MATCH_SLOW;
   }
 
-  pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: Partial PageKite request...");
   return PARSE_WANT_MORE_DATA;
 }
 
@@ -311,6 +317,8 @@ static void _pkr_close(struct incoming_conn_state* ics,
     pkm_free_be_conn(ics->pkb);
   }
   ics->parse_state = PARSE_FAILED; /* A horrible hack */
+
+  if (ics->unparsed_data != NULL) free(ics->unparsed_data);
   free(ics);
 }
 
@@ -408,7 +416,59 @@ void pkr_relay_incoming(int result, void* void_data) {
     /* If we get this far, then the request has been parsed and we have
      * in ics details about what needs to be done. So we do it! :)
      */
-    _pkr_close(ics, 0, "FIXME");
+
+    if (ics->parsed_as == PROTO_PAGEKITE) {
+      char* response = NULL;
+      struct pke_event* ev = pke_post_blocking_event(NULL,
+        PK_EV_TUNNEL_REQUEST, 0, ics->unparsed_data, NULL, &response);
+
+      int rlen = 0;
+      if (response && *response) {
+        rlen = strlen(response);
+        pkc_write(&(ics->pkb->conn), response, rlen);
+      }
+
+      int result_ok = rlen && ev && (ev->response_code & PK_EV_RESPOND_TRUE);
+      if (result_ok) {
+        /* FIXME: Upgrade this connection to a tunnel */
+
+        int flying = 0;
+        struct pk_kite_request* pkr = pk_parse_pagekite_response(
+          response, rlen + 1, NULL, NULL);
+        if (pkr != NULL) {
+          struct pk_kite_request* p;
+          for (p = pkr; p->status != PK_KITE_UNKNOWN; p++) {
+            if (p->status == PK_KITE_FLYING) {
+              /* FIXME: Record kite->tunnel mapping */
+              pk_log(PK_LOG_MANAGER_DEBUG, "Accepted kite: %s://%s:%d",
+                                           p->kite->protocol,
+                                           p->kite->public_domain,
+                                           p->kite->public_port);
+              flying++;
+            }
+            else {
+              pk_log(PK_LOG_MANAGER_DEBUG, "Rejected kite: %s://%s:%d (%d)",
+                                           p->kite->protocol,
+                                           p->kite->public_domain,
+                                           p->kite->public_port,
+                                           p->status);
+            }
+          }
+          free(pkr);
+
+          /* FIXME: Add to event loop */
+        }
+
+        if (!flying) result_ok = 0;
+      }
+
+      if (ev) pke_free_event(NULL, ev->event_code);
+      if (response) free(response);
+      if (!result_ok) _pkr_close(ics, 0, "Rejected");
+    }
+    else {
+      _pkr_close(ics, 0, "FIXME");
+    }
   }
 }
 
@@ -445,6 +505,7 @@ void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
   ics->parsed_as = PROTO_UNKNOWN;
   ics->parse_state = PARSE_UNDECIDED;
   ics->created = pk_time();
+  ics->unparsed_data = NULL;
 
   slen = sizeof(ics->local_addr);
   getsockname(sockfd, (struct sockaddr*) &(ics->local_addr), &slen);
