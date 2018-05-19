@@ -101,6 +101,9 @@ void pk_perror(const char* prefix) {
       pk_log(PK_LOG_ERROR, "%s: Insufficient allocated memory (%d)",
                            prefix, pk_error);
       break;
+    case ERR_NO_IPVX:
+      pk_log(PK_LOG_ERROR, "%s: Both IPv6 and IPv4 are disabled!", prefix);
+      break;
     default:
       pk_log(PK_LOG_ERROR, "%s: pk_error = %d", prefix, pk_error);
   }

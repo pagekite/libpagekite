@@ -551,21 +551,22 @@ int pagekite_add_relay_listener(pagekite_mgr pkm, int port, int flags)
 {
   if (pkm == NULL) return -1;
   struct pk_manager* m = (struct pk_manager*) pkm;
-  int rv = 0;
+
+  if (flags & PK_WITH_DEFAULTS) flags |= (PK_WITH_IPV6 | PK_WITH_IPV4);
 
 #ifdef HAVE_IPV6
   if (flags & PK_WITH_IPV6) {
-    rv = pkm_add_listener(m, "::", port,
-                          (pagekite_callback_t*) &pkr_conn_accepted_cb,
-                          (void*) m);
+    return pkm_add_listener(m, "::", port,
+                            (pagekite_callback2_t*) &pkr_conn_accepted_cb,
+                            (void*) m);
   }
-  else if (flags & PK_WITH_IPV4)
 #endif
-    rv = pkm_add_listener(m, "0.0.0.0", port,
-                          (pagekite_callback_t*) &pkr_conn_accepted_cb,
-                          (void*) m);
-
-  return rv;
+  if (flags & PK_WITH_IPV4) {
+    return pkm_add_listener(m, "0.0.0.0", port,
+                            (pagekite_callback2_t*) &pkr_conn_accepted_cb,
+                            (void*) m);
+  }
+  return (pk_error = ERR_NO_IPVX);
 }
 
 
