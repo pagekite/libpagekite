@@ -788,7 +788,7 @@ Log an error and reset the internal error state.
 
 ## Constants
 
-PageKiteAPI.PK_VERSION = "0.91.171102C"  
+PageKiteAPI.PK_VERSION = "0.91.180519C"  
 PageKiteAPI.PK_STATUS_STARTUP = 10  
 PageKiteAPI.PK_STATUS_CONNECTING = 20  
 PageKiteAPI.PK_STATUS_UPDATING_DNS = 30  

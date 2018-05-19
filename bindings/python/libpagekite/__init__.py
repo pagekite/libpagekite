@@ -4,7 +4,7 @@
 #       * * *   WARNING: This file is auto-generated, do not edit!  * * *
 # 
 ###############################################################################
-# This file is Copyright 2012-2017, The Beanstalks Project ehf.
+# This file is Copyright 2012-2018, The Beanstalks Project ehf.
 # 
 # This program is free software: you can redistribute it and/or modify it under
 # the terms  of the  Apache  License 2.0  as published by the  Apache  Software
@@ -22,7 +22,7 @@
 from ctypes import cdll, c_void_p, c_char_p, c_int
 
 
-PK_VERSION = "0.91.171102C"
+PK_VERSION = "0.91.180519C"
 PK_STATUS_STARTUP = 10
 PK_STATUS_CONNECTING = 20
 PK_STATUS_UPDATING_DNS = 30
