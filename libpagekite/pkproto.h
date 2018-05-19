@@ -64,6 +64,7 @@ Note: For alternate license terms, see the file COPYING.md.
   "Expires: 0\r\n" \
   "Cache-Control: no-store\r\n" \
   "Connection: close\r\n" \
+  "%s" \
   "\r\n" \
   "<html>%.450s<h1>Sorry! (%.2s/%.16s)</h1><p>The %.8s" \
   " <a href='http://pagekite.org/'><i>PageKite</i></a> for <b>%.128s</b>" \
@@ -192,7 +193,7 @@ size_t            pk_format_skb(char*, const char*, int);
 size_t            pk_format_eof(char*, const char*, int);
 size_t            pk_format_pong(char*);
 size_t            pk_format_ping(char*);
-size_t            pk_format_http_rejection(char*, int, const char*,
+size_t            pk_format_http_rejection(char*, const char*, int, const char*,
                                            const char*, const char*);
 
 int               pk_make_salt(char*);

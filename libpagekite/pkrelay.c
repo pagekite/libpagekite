@@ -112,7 +112,7 @@ struct incoming_conn_state {
   struct pk_manager* pkm;
   struct pk_backend_conn* pkb;
   struct pk_tunnel* tunnel;
-  unsigned char* hostname;
+  char* hostname;
   int parsed_as;
   int port;
   pkr_proto_enum proto;
@@ -691,26 +691,18 @@ static void _pkr_close(struct incoming_conn_state* ics,
     else {
       /* Send the HTTP error message by default */
       char hdrs[PK_RESPONSE_MAXSIZE];
-      char pre[PK_RESPONSE_MAXSIZE];
       char rej[PK_RESPONSE_MAXSIZE];
-      char post[PK_RESPONSE_MAXSIZE];
       int bytes;
 
-      rej[0] = hdrs[0] = pre[0] = post[0] = '\0';
-      if (ics->pkm->fancy_pagekite_net_rejection) {
-        sprintf(pre, PK_REJECT_PRE_PAGEKITE,
-                "FE", pk_state.app_id_short, "http", ics->hostname);
-        strcpy(post, PK_REJECT_POST_PAGEKITE);
-      }
-
+      hdrs[0] = '\0';
       if (ics->parse_state == PARSE_UNDECIDED) {
         sprintf(hdrs, "%s Sorry!\r\n", PK_FRONTEND_OVERLOADED);
       }
 
-      bytes = sprintf(rej, "%s%s%s", PK_REJECT_HTTP, PK_RESPONSE_HEADERS, hdrs);
-      bytes += sprintf(rej + bytes, PK_REJECT_BODY,
-                       pre, "fe", pk_state.app_id_short,
-                       "http", ics->hostname, post);
+      bytes = pk_format_http_rejection(rej, hdrs,
+        ics->pkb->conn.sockfd,
+        ics->pkm->fancy_pagekite_net_rejection_url,
+        "http", ics->hostname);
       pkc_write(&(ics->pkb->conn), rej, bytes);
     }
 

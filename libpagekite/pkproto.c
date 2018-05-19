@@ -502,6 +502,7 @@ size_t pk_format_ping(char* buf)
 
 size_t pk_format_http_rejection(
   char* buf,
+  const char* http_headers,
   int frontend_sockfd,
   const char* default_fancy_url,
   const char* request_proto,
@@ -541,7 +542,7 @@ size_t pk_format_http_rejection(
   }
 
   return sprintf(buf, PK_REJECT_FMT,
-                      pre,
+                      http_headers, pre,
                       (frontend_sockfd == PK_REJECT_BACKEND) ? "be" : "fe",
                       pk_state.app_id_short,
                       request_proto, request_host, post);

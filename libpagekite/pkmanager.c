@@ -209,7 +209,7 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
         pkc_write(&(fe->conn), reply, bytes);
       }
       else {
-        bytes = pk_format_http_rejection(rej,
+        bytes = pk_format_http_rejection(rej, "",
           PK_REJECT_BACKEND,
           fe->manager->fancy_pagekite_net_rejection_url,
           chunk->request_proto,
@@ -432,7 +432,7 @@ static int pkm_update_io(
   int eof = 0;
   int flows = 2;
   struct pk_conn* pkc;
-  struct pk_manager* pkm = fe->manager;
+  struct pk_manager* pkm = tun->manager;
   flow_op tunnel_flow_op = FLOW_OP_NONE;
 
   PK_TRACE_FUNCTION;
@@ -588,7 +588,7 @@ static int pkm_update_io(
     pkc->sockfd = -1;
   }
   else if (tunnel_flow_op != FLOW_OP_NONE) {
-    pkm_flow_control_tunnel(fe, tunnel_flow_op, recursion);
+    pkm_flow_control_tunnel(tun, tunnel_flow_op, recursion);
   }
 
   pkm_yield(pkm);
@@ -1496,10 +1496,10 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
   adding->remote.fe.request_count = 0;
   adding->remote.fe.last_configured = time(0);
   adding->remote.fe.priority = 0;
+  adding->remote.fe.request_count = 0;
+  adding->remote.fe.priority = 0;
+  adding->remote.fe.last_configured = pk_time();
   adding->error_count = 0;
-  adding->request_count = 0;
-  adding->priority = 0;
-  adding->last_configured = pk_time();
 
   return adding;
 }
