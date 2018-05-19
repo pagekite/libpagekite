@@ -57,7 +57,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #define ERR_NO_THREAD         -60005
 #define ERR_WSA_STARTUP       -60006
 
-
 #ifdef __GNUC__
 extern __thread int pk_error;
 #else

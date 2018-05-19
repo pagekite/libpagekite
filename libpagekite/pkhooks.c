@@ -279,23 +279,27 @@ struct pke_event* pke_await_event(struct pke_events* pke, int timeout)
     pthread_mutex_lock(&(pke->lock));
 
     oldest = _pke_get_oldest_event(pke, 1, PK_EV_PROCESSING);
-    if ((oldest != NULL) && (0 < oldest->posted))
-      oldest->event_code |= PK_EV_PROCESSING;
+    int found = ((oldest != NULL) && (0 < oldest->posted));
+    if (found) oldest->event_code |= PK_EV_PROCESSING;
 
     pthread_mutex_unlock(&(pke->lock));
 
-    if ((oldest != NULL) && (0 < oldest->posted)) return oldest;
+    if (found) return oldest;
 
     /* No event found, block ourselves until someone posts one */
-    pthread_mutex_lock(&(pke->lock));
-    while (0 != pthread_cond_timedwait(&(pke->trigger), &(pke->lock),
-                                       &deadline)) {
+    if (timeout) {
+      pthread_mutex_lock(&(pke->lock));
+      if (0 != pthread_cond_timedwait(&(pke->trigger), &(pke->lock), &deadline)) {
+        pthread_mutex_unlock(&(pke->lock));
+        return &(pke->events[0]);
+      }
       pthread_mutex_unlock(&(pke->lock));
-      return &(pke->events[0]);
     }
-    pthread_mutex_unlock(&(pke->lock));
 
-  } while (1);
+  } while (timeout);
+
+  /* If all else fails, return the NONE event. */
+  return &(pke->events[0]);
 }
 
 struct pke_event* pke_get_event(struct pke_events* pke, unsigned int event_code) {
@@ -430,4 +434,3 @@ int pke_events_test() {
   _pke_default_pke = NULL;
   return 1;
 }
-

@@ -47,6 +47,9 @@ struct pk_job_pile {
 struct pk_blocker {
   pthread_t          thread;
   struct pk_manager* manager;
+#if HAVE_RELAY
+  int                auth_backend_fd;
+#endif
 };
 
 int   pkb_add_job      (struct pk_job_pile*, pk_job_t, int, void*);

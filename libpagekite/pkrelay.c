@@ -3,6 +3,10 @@ pkrelay.c - Logic specific to front-end relays
 
 *******************************************************************************
 
+   (:   AGPL! AGPL! AGPL! AGPL!   Not Apache!   AGPL! AGPL! AGPL! AGPL!  :)
+
+*******************************************************************************
+
 This file is Copyright 2011-2017, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
@@ -67,44 +71,377 @@ Connections are accepted and identified like so:
 #define PARSE_MATCH_FAST      1
 #define PARSE_MATCH_SLOW      2
 
-#define PROTO_UNKNOWN         0
-#define PROTO_PAGEKITE        1
-#define PROTO_HTTP            2
-#define PROTO_HTTP_CONNECT    3
-#define PROTO_TLS_WITH_SNI    4
-#define PROTO_LEGACY_SSL      5
-static const char* known_protos[] = {
-  "(unknown)",
+static const char* known_protos[PKR_PROTO_MAX] = {
+  "(none)",
   "PageKite",
   "HTTP",
   "HTTP CONNECT",
-  "TLS+SNI",
-  "SSL/TLS"};
+  "RAW TCP/IP",
+  "TLS",
+  "Legacy SSL",
+  "PageKite PING",
+  "(any)"};
 
-#define PEEK_BYTES 512
+static const char* proto_protonames[PKR_PROTO_MAX] = {
+  "none",
+  "pagekite",
+  "http",
+  "raw",
+  "raw",
+  "https",
+  "https",
+  "pagekite-ping",
+  "any"};
+
+#define PEEK_BYTES (16 * 1024)  /* Some HTTP headers are large! */
 #define SSL_CLIENTHELLO 0x80
 #define TLS_CLIENTHELLO 0x16
 
 struct incoming_conn_state {
+  int peeked_bytes;
+  char peeked[PEEK_BYTES+1];
+#ifdef HAVE_IPV6
+  /* This should be strictly larger than sockaddr_in,
+   * so the data will fit either way. Is this a hack? */
+  struct sockaddr_in6 local_addr;
+  struct sockaddr_in6 remote_addr;
+#else
   struct sockaddr_in local_addr;
   struct sockaddr_in remote_addr;
+#endif
   struct pk_manager* pkm;
   struct pk_backend_conn* pkb;
   struct pk_tunnel* tunnel;
   unsigned char* hostname;
-  unsigned char* unparsed_data;
   int parsed_as;
+  int port;
+  pkr_proto_enum proto;
   int parse_state;
   time_t created;
 };
 
 
-static int _find_tunnel(struct incoming_conn_state* ics)
+
+/*****************************************************************************
+ * The data structure of our kite index:
+ *
+ *   pkr->kite_index = A sorted listed of kite info (char **) objects.
+ *  
+ * Each kite info object consists of TWO zero-terminated arrays, one after
+ * the other. The first is an array of chars (a C string) representing the
+ * kite name. The second array is a list of porto/port/tunnel mappings, where
+ * an entry with (proto == PKR_PROTO_NONE) is the end-of-list marker.
+ *
+ *  char kitename[];
+ *  struct pkr_port_proto_pointer[];
+ *
+ * These are malloced together and organized in such a way that searching
+ * and cleanup can be done using standard C functions (strcasecmp, free).
+ ****************************************************************************/
+
+static void _pkr_kite_index_read_start(struct pk_relay_manager* pkrm) {
+  /* If we had a way to ensure the ++ and -- ops were atomic,
+   * we might not need so many locks. Le sigh! */
+  pthread_mutex_lock(&(pkrm->kite_index_readblock));
+  pthread_mutex_lock(&(pkrm->kite_index_readlock));
+  pkrm->kite_index_readers++;
+  pthread_mutex_unlock(&(pkrm->kite_index_readlock));
+  pthread_mutex_unlock(&(pkrm->kite_index_readblock));
+}
+
+static void _pkr_kite_index_read_stop(struct pk_relay_manager* pkrm) {
+  pthread_mutex_lock(&(pkrm->kite_index_readlock));
+  pkrm->kite_index_readers--;
+  pthread_mutex_unlock(&(pkrm->kite_index_readlock));
+}
+
+static size_t _pkr_first_ppp_offset(const char* kite_info)
 {
-  /* FIXME: This is where scalability is important; we need this to
-   *        be sub-linear in connection count. The faster the better.
-   */
-  return 0;
+  size_t ppps = sizeof(struct pkr_port_proto_pointer);
+  return ((strlen(kite_info) / ppps) + 1) * ppps;
+}
+
+static struct pkr_port_proto_pointer* _pkr_first_ppp(const char* kite_info)
+{
+  return ((struct pkr_port_proto_pointer*)
+          (kite_info + _pkr_first_ppp_offset(kite_info)));
+}
+
+static struct pkr_port_proto_pointer* _pkr_find_ppp(
+  const char* kite_info,
+  struct incoming_conn_state* ics)
+{
+  if (kite_info == NULL) return NULL;
+  struct pkr_port_proto_pointer* ppp = _pkr_first_ppp(kite_info);
+  while (ppp->proto != PKR_PROTO_NONE) {
+    if (((ppp->proto == PKR_PROTO_ANY) || (ppp->proto == ics->proto)) &&
+        ((ppp->port < 1)               || (ppp->port == ics->port))) {
+      return ppp;
+    }
+    ppp++;
+  }
+  return NULL;
+}
+
+static char* _pkr_find_kite_info(struct pk_manager* pkm,
+                                 const char* kitename)
+{
+  struct pk_relay_manager* pkrm = PKRM(pkm);
+  if (pkrm->flying_kites < 1) return NULL;
+
+  int slot = strcaseindex(pkrm->kite_index, kitename, pkrm->flying_kites);
+  char** kite_info = pkrm->kite_index + slot;
+  if (0 == strcasecmp(kitename, *kite_info)) {
+    return *kite_info;
+  }
+  return NULL;
+}
+
+static size_t _pkr_kilen(char *kite_info) {
+  size_t kilen = _pkr_first_ppp_offset(kite_info);
+  struct pkr_port_proto_pointer* ppp;
+  ppp = (struct pkr_port_proto_pointer*) (kite_info + kilen);
+
+  kilen += sizeof(struct pkr_port_proto_pointer);
+  while (ppp->proto != PKR_PROTO_NONE) {
+    kilen += sizeof(struct pkr_port_proto_pointer);
+    ppp++;
+  }
+
+  return kilen;
+}
+
+pkr_proto_enum _pkr_parse_proto(const char* protocol)
+{
+  if (0 == strcasecmp(protocol, "https")) return PKR_PROTO_TLS;
+  if (0 == strcasecmp(protocol, "http")) return PKR_PROTO_HTTP;
+  if (0 == strcasecmp(protocol, "raw")) return PKR_PROTO_RAW;
+  return PKR_PROTO_NONE;
+}
+
+static char* _pkr_add_kite_info(struct pk_manager* pkm,
+                                const char* kitename,
+                                pkr_proto_enum proto,
+                                int port,
+                                struct pk_tunnel* tunnel)
+{
+  struct pk_relay_manager* pkrm = PKRM(pkm);
+
+  /* We lock the whole function; we don't want anyone else changing
+   * the size of the index out from under us. There are also fine-grained
+   * locks on critical sections to protect reader integrity. */
+  pthread_mutex_lock(&(pkrm->kite_index_lock));
+
+  struct pkr_port_proto_pointer* ppp0;
+  struct pkr_port_proto_pointer* ppp;
+  size_t kilen;
+  size_t ppp_s = sizeof(struct pkr_port_proto_pointer);
+  char **old_kite_index = NULL;
+  char **new_kite_index = NULL;
+  char *new_kite_info = NULL;
+  char *kite_info = NULL;
+  int flying_kites = pkrm->flying_kites;
+  int slot;
+
+  PK_TRACE_FUNCTION;
+
+  int first_ppp_offset = _pkr_first_ppp_offset(kitename);
+  if (pkrm->flying_kites < 1 || !pkrm->kite_index) {
+    slot = 0;
+    flying_kites = 1;
+    new_kite_index = malloc(sizeof(char**));
+    kilen = first_ppp_offset + ppp_s;
+  }
+  else {
+    slot = strcaseindex(pkrm->kite_index, kitename, pkrm->flying_kites);
+    kite_info = *(pkrm->kite_index + slot);
+    if ((slot < flying_kites) &&
+        (0 == strcasecmp(kite_info, kitename))) {
+      flying_kites = pkrm->flying_kites;
+      new_kite_index = pkrm->kite_index;
+      kilen = _pkr_kilen(kite_info);
+    }
+    else {
+      /* Inserting new entry, copy and resize index */
+      flying_kites = pkrm->flying_kites + 1;
+      old_kite_index = pkrm->kite_index;
+      new_kite_index = malloc(sizeof(char**) * flying_kites);
+      if (new_kite_index != NULL) {
+        if (slot) memcpy(new_kite_index, old_kite_index, slot * sizeof(char**));
+        memcpy(new_kite_index + slot + 1,
+               old_kite_index + slot,
+               (flying_kites - slot - 1) * sizeof(char**));
+        /* New entry: reserve space for the kitename and end-of-list marker. */
+        kilen = first_ppp_offset + ppp_s;
+        kite_info = NULL;
+      }
+    }
+  }
+
+  /* Did the mallocs above fail? */
+  if (new_kite_index == NULL) {
+    pthread_mutex_unlock(&(pkrm->kite_index_lock));
+    return NULL;
+  }
+
+  /* Reserve space for existing data + new PPP entry */
+  new_kite_info = malloc(kilen + ppp_s);
+  if (new_kite_info == NULL) {
+    pthread_mutex_unlock(&(pkrm->kite_index_lock));
+    return NULL;
+  }
+
+  memset(new_kite_info, 0, kilen + ppp_s);
+  if (kite_info) {
+    memcpy(new_kite_info, kite_info, kilen);
+  }
+  else {
+    strcpy(new_kite_info, kitename);
+  }
+
+  /* Bubble-sort our new data into place. Lame, but KISS? */
+  ppp0 = (struct pkr_port_proto_pointer*) (new_kite_info + first_ppp_offset);
+  ppp = (struct pkr_port_proto_pointer*) (new_kite_info + kilen);
+  ppp--;
+  while (ppp > ppp0) {
+    if ((proto > (ppp-1)->proto) ||
+        ((proto == (ppp-1)->proto) && (port < (ppp-1)->port))) break;
+    ppp->tunnel = (ppp-1)->tunnel;
+    ppp->proto = (ppp-1)->proto;
+    ppp->port = (ppp-1)->port;
+    ppp--;
+  }
+  ppp->port = port;
+  ppp->tunnel = tunnel;
+  ppp->proto = proto;
+
+  /* Enter new kite info into index. This may be visible to other
+   * threads, in the case where the index size stayed unchanged, but
+   * as the change is atomic, that should be fine. */
+  *(new_kite_index + slot) = new_kite_info;
+
+  if (kite_info || old_kite_index || (new_kite_index != pkrm->kite_index)) {
+    /* Make sure nobody is reading before making dangerous changes... */
+    pthread_mutex_lock(&(pkrm->kite_index_readblock));
+    while (pkrm->kite_index_readers) pthread_yield();
+
+    /* Swap in our new index, if we actually created a new one. */
+    if (new_kite_index != pkrm->kite_index) {
+      pkrm->kite_index = new_kite_index;
+      pkrm->flying_kites = flying_kites;
+    }
+
+    /* Release old buffers */
+    if (kite_info) free(kite_info);
+    if (old_kite_index) free(old_kite_index);
+
+    /* Unleash the readers... */
+    pthread_mutex_unlock(&(pkrm->kite_index_readblock));
+  }
+
+  /* All done! */
+  pthread_mutex_unlock(&(pkrm->kite_index_lock));
+  return new_kite_info;
+}
+
+static char* _pkr_remove_kite_info(struct pk_manager* pkm,
+                                   const char* kitename,
+                                   struct pk_tunnel* tunnel)
+{
+  struct pk_relay_manager* pkrm = PKRM(pkm);
+
+  /* We lock the whole function; we don't want anyone else changing
+   * the size of the index out from under us. There are also fine-grained
+   * locks on critical sections to protect reader integrity. */
+  pthread_mutex_lock(&(pkrm->kite_index_lock));
+  PK_TRACE_FUNCTION;
+
+  /* Make sure nobody is reading before making dangerous changes... */
+  pthread_mutex_lock(&(pkrm->kite_index_readblock));
+  while (pkrm->kite_index_readers) pthread_yield();
+
+  /* Find the kite info */
+  int slot = strcaseindex(pkrm->kite_index, kitename, pkrm->flying_kites);
+  char* new_kite_info = *(pkrm->kite_index + slot);
+  if ((slot < pkrm->flying_kites) && 
+      (0 == strcasecmp(new_kite_info, kitename))) {
+    int first_ppp_offset = _pkr_first_ppp_offset(new_kite_info);
+
+    /* Walk the list of PPP entries, deleting any that mention the tunnel
+     * we are shutting down. */
+    struct pkr_port_proto_pointer* ppp0;
+    ppp0 = (struct pkr_port_proto_pointer*) (new_kite_info + first_ppp_offset);
+    struct pkr_port_proto_pointer* ppps = ppp0;
+    struct pkr_port_proto_pointer* pppd = ppp0;
+    while (ppps->proto != PKR_PROTO_NONE) {
+      /* Copy source to destination, if they differ and not removing. */
+      if ((ppps != pppd) && (ppps->tunnel != tunnel)) {
+        pppd->tunnel = ppps->tunnel;
+        pppd->proto = ppps->proto;
+        pppd->port = ppps->port;
+      }
+      /* Clear source, if copied or we are removing. */
+      if ((ppps != pppd) || (ppps->tunnel == tunnel)) {
+        ppps->tunnel = NULL;
+        ppps->proto = PKR_PROTO_NONE;
+        ppps->port = -1;
+      }
+      /* Move destination forward if current destination is not clear. */
+      if (pppd->proto != PKR_PROTO_NONE) pppd++;
+      /* Move source forward */
+      ppps++;
+    }
+    if (ppp0->proto == PKR_PROTO_NONE) {
+      /* FIXME: Should we compact the index? Otherwise RAM usage grows without
+       *        bounds. But on the other hand, we know that disconnected kites
+       * are quite likely to be reconnected again very soon, so by leaving the
+       * entry here we can save ourselves a bit of work. Most efficient is
+       * probably to leave intact, but garbage collect now and then.
+       * (The simplest garbage collection would be to restart the app...)
+       */
+    }
+  }
+
+  /* Unleash the readers... */
+  pthread_mutex_unlock(&(pkrm->kite_index_readblock));
+
+  /* All done! */
+  pthread_mutex_unlock(&(pkrm->kite_index_lock));
+  return new_kite_info;
+}
+
+static struct pk_tunnel* pkr_find_tunnel(struct incoming_conn_state* ics)
+{
+  struct pk_relay_manager* pkrm = PKRM(ics->pkm);
+  struct pkr_port_proto_pointer* ppp;
+  char* kite_info;
+
+  PK_TRACE_FUNCTION;
+  _pkr_kite_index_read_start(pkrm);
+
+  /* First: search based on the hostname */
+  if ((ics->hostname) &&
+      (NULL != (kite_info = _pkr_find_kite_info(ics->pkm, ics->hostname))) &&
+      (NULL != (ppp = _pkr_find_ppp(kite_info, ics)))) {
+    ics->tunnel = ppp->tunnel;
+    _pkr_kite_index_read_stop(pkrm);
+    return ics->tunnel;
+  }
+
+#ifdef HAVE_IPV6
+  /* Second: search based on the IPv6 address */
+  char ipaddr[120];
+  in_ipaddr_to_str((struct sockaddr*) &(ics->local_addr), ipaddr, 120);
+  if ((NULL != (kite_info = _pkr_find_kite_info(ics->pkm, ipaddr))) &&
+      (NULL != (ppp = _pkr_find_ppp(kite_info, ics)))) {
+    ics->tunnel = ppp->tunnel;
+    _pkr_kite_index_read_stop(pkrm);
+    return ics->tunnel;
+  }
+#endif
+
+  _pkr_kite_index_read_stop(pkrm);
+  return NULL;
 }
 
 static char* TLS_PARSE_FAILED = "TLS parse failed";
@@ -180,15 +517,14 @@ static int _pkr_parse_ssltls(unsigned char* peeked,
   /* Is this TLS? */
   if (peeked[0] == TLS_CLIENTHELLO) {
     char* tls_sni = _pkr_get_first_tls_sni(peeked, bytes);
-    if (tls_sni == TLS_PARSE_FAILED) return PARSE_FAILED;
+    if (tls_sni == TLS_PARSE_FAILED) return PARSE_WANT_MORE_DATA;
     ics->hostname = tls_sni;
-    ics->parsed_as = tls_sni ? PROTO_TLS_WITH_SNI : PROTO_LEGACY_SSL;
-    return _find_tunnel(ics) ? PARSE_MATCH_FAST : PARSE_MATCH_SLOW;
+    ics->proto = PKR_PROTO_TLS;
+    return pkr_find_tunnel(ics) ? PARSE_MATCH_FAST : PARSE_MATCH_SLOW;
   }
   else if (peeked[0] == SSL_CLIENTHELLO) {
-    ics->parsed_as = PROTO_LEGACY_SSL;
-    pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: Is legacy SSL. Have cert?");
-    return PARSE_MATCH_SLOW;
+    ics->proto = PKR_PROTO_LEGACY_SSL;
+    return pkr_find_tunnel(ics) ? PARSE_MATCH_FAST : PARSE_MATCH_SLOW;
   }
 
   /* -Wall dislikes unused arguments */
@@ -198,9 +534,9 @@ static int _pkr_parse_ssltls(unsigned char* peeked,
 
 
 #define IS_PAGEKITE_REQUEST(p) (strncasecmp(p, PK_HANDSHAKE_CONNECT, \
-                                            strlen(PK_HANDSHAKE_CONNECT) \
+                                            strlen(PK_HANDSHAKE_CONNECT)-2 \
                                             ) == 0)
-static int _pkr_parse_pagekite_request(char* peeked,
+static int _pkr_pagekite_request_ready(char* peeked,
                                        int bytes,
                                        char* first_nl,
                                        struct incoming_conn_state* ics)
@@ -209,19 +545,11 @@ static int _pkr_parse_pagekite_request(char* peeked,
   /* Since we know pagekite requests are small and peekable, we
    * can check if it's complete and process if so, otherwise defer.
    */
-  if ((*(first_nl-1) == '\r') ? ((end = strstr(peeked, "\r\n\r\n")) != NULL)
-                              : ((end = strstr(peeked, "\n\n")) != NULL))
-  {
-    pk_log(PK_LOG_MANAGER_DEBUG, "FIXME: Complete PageKite request!");
-    /* For now, we punt on actually parsing the incoming data and let
-     * that happen in an external implementation. */
-    ics->parsed_as = PROTO_PAGEKITE;
-    ics->unparsed_data = (char*) malloc(end - peeked + 1);
-    memcpy(ics->unparsed_data, peeked, end - peeked);
-    ics->unparsed_data[end - peeked] = '\0';
+  if ((*(first_nl-1) == '\r') ? (strstr(peeked, "\r\n\r\n") != NULL)
+                              : (strstr(peeked, "\n\n") != NULL)) {
+    ics->proto = PKR_PROTO_PAGEKITE;
     return PARSE_MATCH_SLOW;
   }
-
   return PARSE_WANT_MORE_DATA;
 }
 
@@ -247,29 +575,48 @@ static int _pkr_parse_http(char* peeked,
   char* http = strcasestr(peeked, " HTTP/");
   if (http && (sp < http) && (nl > http) && isalpha(peeked[0])) {
 
+    /* - Is it a PageKite PING? */
+    if (strcasecmp(peeked, PK_FRONTEND_PING) == 0) {
+      ics->proto = PKR_PROTO_PAGEKITE_PING;
+      ics->hostname = NULL;
+      return PARSE_MATCH_FAST;
+    }
+
     /* - Is it a PageKite tunnel request? */
     if (IS_PAGEKITE_REQUEST(peeked)) {
-      return _pkr_parse_pagekite_request(peeked, bytes, nl, ics);
+      return _pkr_pagekite_request_ready(peeked, bytes, nl, ics);
     }
 
     /* - Is it an HTTP Proxy request? */
     if (strncasecmp(peeked, "CONNECT ", 8) == 0) {
-      /* HTTP PROXY requests are one-liners. If it's valid, we start
+      /* HTTP PROXY requests are one-liners. However, we need to consume
+       * the data, so we don't parse until we have the full request. */
+      char* crlf2 = strstr(peeked, "\r\n\r\n") + 4;
+      if (crlf2 == (NULL + 4)) crlf2 = strstr(peeked, "\n\n") + 2;
+      if (crlf2 < peeked) return PARSE_WANT_MORE_DATA;
+      ics->peeked_bytes = (crlf2 - peeked);
+
+      /* If it's valid, we start
        * tunneling, if it's not, we close. We complete the handshake
        * on another thread, just in case it blocks. */
       ics->hostname = peeked + 8;
-      ics->parsed_as = PROTO_HTTP_CONNECT;
-      zero_first_whitespace(bytes - 8, ics->hostname);
-      return _find_tunnel(ics) ? PARSE_MATCH_SLOW : PARSE_FAILED;
+      ics->proto = PKR_PROTO_HTTP_CONNECT;
+      int hlen = zero_first_whitespace(bytes - 8, ics->hostname);
+      hlen = zero_nth_char(1, ':', hlen, ics->hostname);
+      if (hlen) sscanf(ics->hostname + hlen, "%d", &(ics->port));
+
+      return pkr_find_tunnel(ics) ? PARSE_MATCH_SLOW : PARSE_FAILED;
     }
 
     /* The other HTTP implementations all prefer the Host: header */
-    ics->parsed_as = PROTO_HTTP;
+    ics->proto = PKR_PROTO_HTTP;
     char* host = strcasestr(peeked, "\nHost: ");
     if (host) {
       host += 7;
-      if (zero_first_whitespace(bytes - (host - peeked), host)) {
+      int hlen = zero_first_whitespace(bytes - (host - peeked), host);
+      if (hlen) {
         ics->hostname = host;
+        zero_nth_char(1, ':', hlen, ics->hostname);
       }
       else {
         host = NULL;
@@ -284,9 +631,7 @@ static int _pkr_parse_http(char* peeked,
       return PARSE_WANT_MORE_DATA;
     }
 
-    if (_find_tunnel(ics)) return PARSE_MATCH_FAST;
-
-    /* FIXME: Is it a connection to an internal HTTPD of some sort? */
+    if (pkr_find_tunnel(ics)) return PARSE_MATCH_FAST;
 
     return PARSE_FAILED;
   }
@@ -294,6 +639,16 @@ static int _pkr_parse_http(char* peeked,
   /* -Wall dislikes unused arguments */
   (void) bytes;
   return PARSE_UNDECIDED;
+}
+
+static void _pkr_consume_peeked(struct incoming_conn_state* ics)
+{
+  char buf[PK_RESPONSE_MAXSIZE];
+  /* Clear the OS buffers */
+  while (ics->peeked_bytes > 0) {
+    int rb = PKS_read(ics->pkb->conn.sockfd, buf, PK_RESPONSE_MAXSIZE);
+    if (rb > 0) ics->peeked_bytes -= rb;
+  }
 }
 
 static void _pkr_close(struct incoming_conn_state* ics,
@@ -304,28 +659,405 @@ static void _pkr_close(struct incoming_conn_state* ics,
   char lbuf[128];
 
   /* FIXME: Log more useful things about the connection. */
-  pk_log(PK_LOG_TUNNEL_CONNS | log_level,
-        "%s; remote=%s; local=%s; hostname=%s; proto=%s; fd=%d",
-        reason,
-        in_addr_to_str((struct sockaddr*) &(ics->remote_addr), rbuf, 128),
-        in_addr_to_str((struct sockaddr*) &(ics->local_addr), lbuf, 128),
-        ics->hostname,
-        known_protos[ics->parsed_as],
-        ics->pkb->conn.sockfd);
+  if (reason != NULL) {
+    pk_log(PK_LOG_TUNNEL_CONNS | log_level,
+           "%s; remote=%s; local=%s; hostname=%s; proto=%s; port=%d; fd=%d",
+           reason,
+           in_addr_to_str((struct sockaddr*) &(ics->remote_addr), rbuf, 128),
+           in_addr_to_str((struct sockaddr*) &(ics->local_addr), lbuf, 128),
+           ics->hostname,
+           known_protos[ics->proto],
+           ics->port,
+           ics->pkb->conn.sockfd);
+  }
 
   if (ics->pkb) {
+    if (ics->proto == PKR_PROTO_PAGEKITE) {
+      /* no-op: the PageKite protocol handler takes care of replying */
+    }
+    else if (0 < PK_HOOK(PK_HOOK_FE_REJECT, 0, ics, NULL)) {
+      /* no-op: Hook implemented a custom reply. */
+    }
+    else if (ics->proto == PKR_PROTO_TLS) {
+      pkc_write(&(ics->pkb->conn), PK_REJECT_TLS_DATA, PK_REJECT_TLS_LEN);
+    }
+    else if (ics->proto == PKR_PROTO_LEGACY_SSL) {
+      pkc_write(&(ics->pkb->conn), PK_REJECT_SSL_DATA, PK_REJECT_SSL_LEN);
+    }
+    else if (ics->proto == PKR_PROTO_HTTP_CONNECT) {
+      pkc_write(&(ics->pkb->conn),
+                PK_REJECT_HTTP_CONNECT, strlen(PK_REJECT_HTTP_CONNECT));
+    }
+    else {
+      /* Send the HTTP error message by default */
+      char hdrs[PK_RESPONSE_MAXSIZE];
+      char pre[PK_RESPONSE_MAXSIZE];
+      char rej[PK_RESPONSE_MAXSIZE];
+      char post[PK_RESPONSE_MAXSIZE];
+      int bytes;
+
+      rej[0] = hdrs[0] = pre[0] = post[0] = '\0';
+      if (ics->pkm->fancy_pagekite_net_rejection) {
+        sprintf(pre, PK_REJECT_PRE_PAGEKITE,
+                "FE", pk_state.app_id_short, "http", ics->hostname);
+        strcpy(post, PK_REJECT_POST_PAGEKITE);
+      }
+
+      if (ics->parse_state == PARSE_UNDECIDED) {
+        sprintf(hdrs, "%s Sorry!\r\n", PK_FRONTEND_OVERLOADED);
+      }
+
+      bytes = sprintf(rej, "%s%s%s", PK_REJECT_HTTP, PK_RESPONSE_HEADERS, hdrs);
+      bytes += sprintf(rej + bytes, PK_REJECT_BODY,
+                       pre, "fe", pk_state.app_id_short,
+                       "http", ics->hostname, post);
+      pkc_write(&(ics->pkb->conn), rej, bytes);
+    }
+
+    ics->pkb->conn.status &= ~CONN_STATUS_CHANGING; /* Change failed */
     pkc_reset_conn(&(ics->pkb->conn), 0);
     pkm_free_be_conn(ics->pkb);
   }
   ics->parse_state = PARSE_FAILED; /* A horrible hack */
 
-  if (ics->unparsed_data != NULL) free(ics->unparsed_data);
+  free_if_outside(ics->hostname, ((char*) ics->peeked), ics->peeked_bytes);
   free(ics);
+}
+
+#define _PKR_CLEN (10 + PK_DOMAIN_LENGTH + PK_PROTOCOL_LENGTH + PK_SALT_LENGTH*3)
+static int _pkr_check_kite_sig(struct pk_manager* pkm,
+                               char* raw_request,
+                               struct pk_kite_request* kite_r)
+{
+  /* First, just parse the request */
+  char* sig;
+  if (NULL == pk_parse_kite_request(kite_r, &sig, raw_request)) {
+    return pk_error;
+  }
+
+  /* FIXME: Are the requested protocols/ports available? */
+
+  /* Is the request signed? Find salt. */
+  unsigned int salt = 0;
+  if (sig && *sig) {
+    sscanf(sig, "%8x", &salt);
+  }
+  else {
+    return (pk_error = ERR_PARSE_UNSIGNED);
+  }
+
+  /* Verify this is a challenge we issued within the last 20 minutes */
+  char buf[_PKR_CLEN];
+  char* secret = PKRM(pkm)->global_secret;
+  char* challenge = raw_request + 11;  /* strlen("X-PageKite:") == 1 */
+  while (isspace(*challenge)) challenge++;
+  pk_prepare_kite_challenge(buf, kite_r, secret, time(0));
+  if (strncmp(buf, challenge, strlen(buf)) != 0) {
+    pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "E: %s", buf);
+    pk_prepare_kite_challenge(buf, kite_r, secret, time(0) - 600);
+    if (strncmp(buf, challenge, strlen(buf)) != 0) {
+      pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "E: %s", buf);
+      pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "I: %s", challenge);
+      pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "Bad FSALT");
+      return (pk_error = ERR_PARSE_BAD_FSALT);
+    }
+  }
+
+  /* FIXME: Check if the request matches a known kite. */
+
+  /* The challenge looks OK, let plugins have a say (for remote auth). */
+  int hook_rv = pke_post_blocking_event(&(pkm->events),
+                                        PK_EV_FE_AUTH, 0, challenge, 0, NULL);
+  if (hook_rv == PK_EV_RESPOND_ACCEPT) return 0;
+  if (hook_rv & PK_EV_RESPOND_FALSE) return (pk_error = ERR_PARSE_BAD_SIG);
+
+  /* Assuming a kite was found, check if the secret matches. */
+  int bytes = pk_sign_kite_request(buf, kite_r, salt);
+  if ((bytes == strlen(raw_request)) &&
+      (0 == strncasecmp(buf, raw_request, _PKR_CLEN))) return 0;
+
+  pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "I: %s", raw_request);
+  pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "E: %s", buf);
+
+  return (pk_error = ERR_PARSE_BAD_SIG);
+}
+
+typedef enum {
+  kite_unknown = 0,
+  kite_unsigned,
+  kite_signed,
+  kite_invalid,
+  kite_duplicate
+} _pkr_rstat;
+
+typedef struct {
+  _pkr_rstat             status;
+  char*                  raw;
+  struct pk_kite_request kite_r;
+  struct pk_pagekite     kite;
+} _pkr_request;
+
+typedef struct {
+  char client_version[PK_HANDSHAKE_VERSION_MAX+1];
+  char client_session[PK_HANDSHAKE_SESSIONID_MAX+1];
+  _pkr_request requests[PK_HANDSHAKE_REQUEST_MAX];
+  int request_count;
+  int request_okay;
+  int request_problems;
+} _pkr_parsed_pagekite_request;
+
+static int _pkr_parse_pagekite_request(struct pk_manager* pkm,
+                                        char* buffer, size_t bytes,
+                                        _pkr_parsed_pagekite_request* ppr)
+{
+  strncpyz(ppr->client_version, "(unknown)", PK_HANDSHAKE_VERSION_MAX);
+  strcpy(ppr->client_session, "");
+  ppr->request_count = 0;
+  ppr->request_okay = 0;
+  ppr->request_problems = 0;
+
+  pk_error = 0;
+  int request_bytes = 0;
+  for (char* p = buffer; p < buffer + bytes; ) {
+    int skip = zero_first_crlf(bytes - (p - buffer), p);
+    request_bytes += skip;
+
+    char* raw_request = p;
+    pk_log(PK_LOG_TUNNEL_DATA, "R: %s", p);
+
+    if (p[0] == '\0') {
+      return request_bytes;
+    }
+                     /* 1234567890 = 10 bytes */
+    else if (strncasecmp(p, "X-PageKite", 10) == 0) {
+      skip -= 10;
+      p += 10;
+
+      if ((p[0] == ':') && (p[1] == ' ')) {
+        if (ppr->request_count < PK_HANDSHAKE_REQUEST_MAX) {
+          _pkr_request* request = &(ppr->requests[ppr->request_count++]);
+          request->raw = raw_request;
+
+          /* Note: checking the kite signature has side effects and may
+           *       result in callbacks & network requests. One of the side
+           *       effects is to populate the request->kite structure.
+           */
+          request->kite_r.kite = &(request->kite);
+          if (0 == _pkr_check_kite_sig(pkm, request->raw, &(request->kite_r))) {
+            request->status = kite_signed;
+            pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "GOOD: %s", p);
+            ppr->request_okay++;
+          }
+          else {
+            if (pk_error == ERR_PARSE_NO_FSALT) {
+              request->status = kite_unsigned;
+              pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_DEBUG, "Unsigned request");
+            }
+            else {
+              request->status = kite_invalid;
+              pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "Request invalid (%x)", pk_error);
+            }
+            ppr->request_problems++;
+          }
+        }
+        else {
+          pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR, "Too many requests!");
+          ppr->request_problems++;
+        }
+      }
+                                 /* 1234567890 = 10 bytes */
+      else if (0 == strncasecmp(p, "-Version: ", 10)) {
+        strncpyz(ppr->client_version, p + 10, PK_HANDSHAKE_VERSION_MAX);
+      }
+                                 /* 1234567890 = 10 bytes */
+      else if (0 == strncasecmp(p, "-Replace: ", 10)) {
+        strncpy(ppr->client_session, p + 10, PK_HANDSHAKE_SESSIONID_MAX);
+        ppr->client_session[PK_HANDSHAKE_SESSIONID_MAX] = '\0';
+      }
+      /* FIXME: Consider the features requested? */
+    }
+
+    else if (!IS_PAGEKITE_REQUEST(p) && *p) {
+      pk_log(PK_LOG_TUNNEL_DATA, "Bogus data in request: %s", p);
+    }
+
+    p += skip;
+    pk_error = 0;
+  }
+  return request_bytes;
+}
+
+void pkr_tunnel_cleanup_cb(int unused, struct pk_tunnel* tunnel)
+{
+  /* FIXME */
+  return;
+}
+
+static void _pkr_describe_connection(struct pk_chunk* chunk,
+                                     struct incoming_conn_state* ics) {
+  pk_chunk_reset_values(chunk);
+  chunk->sid = ics->pkb->sid;
+  chunk->request_host = ics->hostname;
+  chunk->request_port = ics->port;
+  chunk->request_proto = (char*) proto_protonames[ics->proto];
+  //chunk->remote_ip = ics->port;
+  //chunk->remote_port = ics->port;
+  //chunk->remote_tls = ics->port;
+}
+
+static void _pkr_free_description(struct pk_chunk* chunk) {
+}
+
+static void _pkr_do_pagekite_handshake(struct pk_blocker* blocker,
+                                       struct incoming_conn_state* ics)
+{
+  struct pk_relay_manager* pkrm = PKRM(ics->pkm);
+  struct pk_tunnel* tunnel = NULL;
+  struct pk_conn* conn = &(ics->pkb->conn);
+  char rbuf[PK_RESPONSE_MAXSIZE];
+
+  /* we have an entire PageKite request in the buffer, parse it! */
+  _pkr_parsed_pagekite_request ppr;
+  ics->peeked_bytes = _pkr_parse_pagekite_request(ics->pkm, ics->peeked,
+                                                  ics->peeked_bytes, &ppr);
+  _pkr_consume_peeked(ics);
+
+  pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
+         "Client %s requested %d kites: ok=%d, problems=%d, session=%s",
+         ppr.client_version,
+         ppr.request_count,
+         ppr.request_okay,
+         ppr.request_problems,
+         ppr.client_session);
+
+
+  if (ppr.request_okay) {
+    /* This connection should become a tunnel! Make it so. */
+
+    pkm_reconfig_blocking_start(ics->pkm);
+    tunnel = pkm_add_frontend_ai(ics->pkm, NULL, NULL, 0, CONN_STATUS_CHANGING);
+    int failed = (tunnel == NULL);
+    if (!failed) {
+      tunnel->remote_is_be = 1;
+      tunnel->remote.be.cleanup_callback_func = (pagekite_callback_t*) pkr_tunnel_cleanup_cb;
+      strncpyz(tunnel->remote.be.be_version, ppr.client_version, PK_HANDSHAKE_VERSION_MAX);
+      strncpyz(tunnel->session_id, ppr.client_session, PK_HANDSHAKE_SESSIONID_MAX);
+
+      /* Copy the connection data wholesale to our tunnel */
+      int status = tunnel->conn.status;
+      tunnel->conn = ics->pkb->conn;
+      tunnel->conn.status = status;
+      conn = &(tunnel->conn);
+
+      /* Prevent ICS cleanup from killing the connection */
+      ics->pkb->conn.sockfd = -1;
+#ifdef HAVE_OPENSSL
+      ics->pkb->conn.ssl = NULL;
+#endif
+    }
+    pkm_reconfig_stop(ics->pkm);
+
+    for (int i = 0; (!failed) && (i < ppr.request_count); i++) {
+      if (ppr.requests[i].status == kite_signed) {
+        struct pk_pagekite* kite = &(ppr.requests[i].kite);
+        failed = (NULL == _pkr_add_kite_info(ics->pkm,
+                                             kite->public_domain,
+                                             _pkr_parse_proto(kite->protocol),
+                                             kite->public_port,
+                                             tunnel));
+        /* FIXME: Detect duplicates? */
+        /* FIXME: Force-disconnect obsolete sessions? */
+      }
+    }
+
+    if (failed) {
+      /* FIXME: Is this a helpful enough error for the backend? */
+      pkc_write(conn, rbuf, sprintf(rbuf,
+        "%s Sorry!\r\n\r\n", PK_FRONTEND_OVERLOADED));
+      _pkr_close(ics, 0, "PageKite tunnel allocation failed");
+
+      /* Mark the tunnel as broken, to trigger cleanup. */
+      if (tunnel) {
+        tunnel->conn.status |= CONN_STATUS_BROKEN;
+        pkm_start_tunnel_io(ics->pkm, tunnel);
+        tunnel->conn.status &= ~CONN_STATUS_CHANGING;
+      }
+
+      return;
+    }
+  }
+
+  /* Report back to the client/backend how things went. */
+
+  pkc_write(conn, rbuf, sprintf(rbuf,
+    ("%s"
+     "Transfer-Encoding: chunked\r\n"
+     "X-PageKite-Protos: http,https,raw\r\n"),
+    PK_ACCEPT_HTTP));
+
+  /* FIXME: Make the list of protocols dynamic */
+  /* FIXME: Report X-PageKite-Ports and X-PageKite-IPv6-Ports */
+  /* FIXME: Implement the UUID thing? What's it for? */
+  /* FIXME: We have no features, boo! */
+
+  for (int i = 0; i < ppr.request_count; i++) {
+    char* request_data = ppr.requests[i].raw + strlen("X-PageKite: ");
+    if (ppr.requests[i].status == kite_signed) {
+      pkc_write(conn, rbuf, sprintf(rbuf, "X-PageKite-OK: %s\r\n", request_data));
+      /* FIXME: Report SSL-OK ? */
+    }
+    else if ((!ppr.request_okay) && (ppr.requests[i].status == kite_unsigned)) {
+      /* No OK requests, signature needed! */
+      char np[_PKR_CLEN];
+      pk_prepare_kite_challenge(np, &(ppr.requests[i].kite_r),
+                                pkrm->global_secret, time(0));
+      pkc_write(conn, rbuf, sprintf(rbuf, "X-PageKite-SignThis: %s\r\n", np));
+    }
+    else {
+      /* If some of the requests were OK, we don't prompt the other end
+       * to sign (again), we just send an invalid. */
+      pkc_write(conn, rbuf, sprintf(rbuf,
+        ("X-PageKite-Invalid: %s\r\n"
+         "X-PageKite-Invalid-Why: %s;%s\r\n"),
+        request_data, request_data, "wtf"));  /* FIXME: why oh why? */
+    }
+  }
+  pkc_write(conn, "\r\n", 2);
+
+  if (tunnel) {
+    pkm_start_tunnel_io(ics->pkm, tunnel);
+    tunnel->conn.status &= ~CONN_STATUS_CHANGING;
+  }
+  else _pkr_close(ics, 0, "PageKite request");
+}
+
+static void _pkr_connect_tunnel(struct incoming_conn_state* ics) {
+  assert(ics->tunnel != NULL);
+
+  ics->pkb->conn.status |= CONN_STATUS_CHANGING;
+  if (0 > pkm_configure_sockfd(ics->pkb->conn.sockfd)) {
+    _pkr_close(ics, 0, "Failed to configure sockfd");
+    return;
+  }
+
+  /* Tell the remote end what was requested and who requested it. */
+  struct pk_chunk chunk;
+  _pkr_describe_connection(&chunk, ics);
+
+  ics->pkb->tunnel = ics->tunnel;
+  pkm_write_chunk(ics->tunnel, &chunk);
+  pkm_start_be_conn_io(ics->pkm, ics->pkb);
+
+  ics->pkb->conn.status &= ~CONN_STATUS_CHANGING;
+  ics->pkb = NULL;
+
+  _pkr_free_description(&chunk);
+  _pkr_close(ics, 0, NULL);
 }
 
 static int _pkr_process_readable(struct incoming_conn_state* ics)
 {
-  char peeked[PEEK_BYTES+1];
+  char* peeked = ics->peeked;
   int bytes;
   int result = PARSE_UNDECIDED;
 
@@ -336,6 +1068,7 @@ static int _pkr_process_readable(struct incoming_conn_state* ics)
   if (bytes == 0) {
     /* Connection closed already */
     result = PARSE_FAILED;
+    ics->peeked_bytes = 0;
   }
   else if (bytes < 0) {
     pk_log(PK_LOG_MANAGER_DEBUG,
@@ -347,17 +1080,25 @@ static int _pkr_process_readable(struct incoming_conn_state* ics)
     else {
       result = PARSE_FAILED;
     }
+    ics->peeked_bytes = 0;
   }
   else {
     peeked[bytes] = '\0';
+    ics->peeked_bytes = bytes;
   }
 
   if (!result) result = _pkr_parse_ssltls(peeked, bytes, ics);
   if (!result) result = _pkr_parse_http(peeked, bytes, ics);
 
+  /* We always run this, in case the hook wants to modify or suppress
+   * the above results. */
+  int hook_rv = PK_HOOK(PK_HOOK_FE_PARSE, bytes, peeked, ics);
+  if (hook_rv != -1) result = (hook_rv / 10);
+
   /* No result yet? Do we have enough data? */
   if (!result) {
-    if (bytes > 4) {
+    if (bytes > 7) {
+      /* FIXME: Magic number. Is it even a good one? */
       result = PARSE_FAILED;
     }
     else {
@@ -366,22 +1107,21 @@ static int _pkr_process_readable(struct incoming_conn_state* ics)
   }
 
   ics->parse_state = result;
-  pk_log(PK_LOG_MANAGER_DEBUG,
-         "_pkr_process_readable(%d): result=%d, bytes=%d",
-         ics->pkb->conn.sockfd, result, bytes);
 
   if ((result == PARSE_WANT_MORE_DATA) || (result == PARSE_MATCH_SLOW)) {
-    /* Parsers found something or we still need more data.
-     * Punt to another thread for further processing. */
+    /* Parsers found something or we still need more data. Punt to another
+     * thread for further processing. Punting when we need more data is done
+     * to avoid spinning the CPU too badly, which is what would otherwise
+     * happen with libev+peeking. */
     pkb_add_job(&(ics->pkm->blocking_jobs), PK_RELAY_INCOMING, result, ics);
   }
   else if (result == PARSE_MATCH_FAST) {
     /* Parsers found something. Process now. */
-    pkr_relay_incoming(result, ics);
+    pkr_relay_incoming(NULL, result, ics);
   }
   else {
     /* result == PARSE_FAILED */
-    _pkr_close(ics, 0, "No tunnel found");
+    _pkr_close(ics, 0, "Parse failed or no tunnel found");
   }
 
   PK_CHECK_MEMORY_CANARIES;
@@ -389,20 +1129,28 @@ static int _pkr_process_readable(struct incoming_conn_state* ics)
   return result;
 }
 
-void pkr_relay_incoming(int result, void* void_data) {
+/* This function is invoked by pkblocker.c for the PK_RELAY_INCOMING job,
+ * or directly by _pkr_process_readable() for "fast" processing.
+ */
+void pkr_relay_incoming(struct pk_blocker* blocker, int result, void* void_data) {
   struct incoming_conn_state* ics = (struct incoming_conn_state*) void_data;
 
   PK_TRACE_FUNCTION;
 
-  if (ics->parse_state == PARSE_FAILED) {
+  if (ics->parse_state == PARSE_FAILED)
+  {
     pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
            "pkr_relay_incoming() invoked for dead ics");
     return; /* Should never happen */
   }
-
-  if (result == PARSE_WANT_MORE_DATA) {
+  else if (result == PARSE_WANT_MORE_DATA)
+  {
+    /* This happens when we've punted a connection to a blocker thread
+     * instead of handling it on the main event loop.
+     */
     if (pk_time() - ics->created > 5) {
-      /* We don't wait forever for more data; that would make resource
+      /* FIXME: Magic number
+       * We don't wait forever for more data; that would make resource
        * exhaustion DOS attacks against the server trivially easy. */
       _pkr_close(ics, 0, "Timed out");
     }
@@ -410,65 +1158,40 @@ void pkr_relay_incoming(int result, void* void_data) {
       /* Slow down a tiny bit, unless there are jobs in the queue waiting
        * for us to finish. */
       if (ics->pkm->blocking_jobs.count < 1) sleep_ms(100);
+
+      /* Note: This will not exhaust the stack because PARSE_WANT_MORE_DATA
+       * always goes through the job queue and runs on a blocking thread.
+       */
       _pkr_process_readable(ics);
     }
   }
-  else {
-    /* If we get this far, then the request has been parsed and we have
-     * in ics details about what needs to be done. So we do it! :)
+  else
+  {
+    /* If we get this far, then the request has (probably) been parsed and
+     * we have in ics details about what needs to be done. So we do it! :)
      */
-
-    if (ics->parsed_as == PROTO_PAGEKITE) {
-      char* response = NULL;
-      struct pke_event* ev = pke_post_blocking_event(NULL,
-        PK_EV_TUNNEL_REQUEST, 0, ics->unparsed_data, NULL, &response);
-
-      int rlen = 0;
-      if (response && *response) {
-        rlen = strlen(response);
-        pkc_write(&(ics->pkb->conn), response, rlen);
-      }
-
-      int result_ok = rlen && ev && (ev->response_code & PK_EV_RESPOND_TRUE);
-      if (result_ok) {
-        /* FIXME: Upgrade this connection to a tunnel */
-
-        int flying = 0;
-        struct pk_kite_request* pkr = pk_parse_pagekite_response(
-          response, rlen + 1, NULL, NULL);
-        if (pkr != NULL) {
-          struct pk_kite_request* p;
-          for (p = pkr; p->status != PK_KITE_UNKNOWN; p++) {
-            if (p->status == PK_KITE_FLYING) {
-              /* FIXME: Record kite->tunnel mapping */
-              pk_log(PK_LOG_MANAGER_DEBUG, "Accepted kite: %s://%s:%d",
-                                           p->kite->protocol,
-                                           p->kite->public_domain,
-                                           p->kite->public_port);
-              flying++;
-            }
-            else {
-              pk_log(PK_LOG_MANAGER_DEBUG, "Rejected kite: %s://%s:%d (%d)",
-                                           p->kite->protocol,
-                                           p->kite->public_domain,
-                                           p->kite->public_port,
-                                           p->status);
-            }
-          }
-          free(pkr);
-
-          /* FIXME: Add to event loop */
+    if (result == PARSE_MATCH_FAST || result == PARSE_MATCH_SLOW)
+    {
+      if (ics->tunnel) {
+        if (ics->proto == PKR_PROTO_HTTP_CONNECT) {
+          pkc_write(&(ics->pkb->conn),
+                    PK_ACCEPT_HTTP_CONNECT, strlen(PK_ACCEPT_HTTP_CONNECT));
+          _pkr_consume_peeked(ics);
         }
-
-        if (!flying) result_ok = 0;
+        _pkr_connect_tunnel(ics);
       }
-
-      if (ev) pke_free_event(NULL, ev->event_code);
-      if (response) free(response);
-      if (!result_ok) _pkr_close(ics, 0, "Rejected");
+      else if (ics->proto == PKR_PROTO_PAGEKITE) {
+        _pkr_do_pagekite_handshake(blocker, ics);
+      }
+      else if (ics->proto == PKR_PROTO_PAGEKITE_PING) {
+        _pkr_close(ics, 0, NULL);
+      }
+      else {
+        _pkr_close(ics, 0, "No tunnel found");
+      }
     }
     else {
-      _pkr_close(ics, 0, "FIXME");
+      _pkr_close(ics, 0, "No tunnel found");
     }
   }
 }
@@ -487,8 +1210,9 @@ void pkr_new_conn_readable_cb(EV_P_ ev_io* w, int revents)
   (void) revents;
 }
 
-void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
+void pkr_conn_accepted_cb(int sockfd, int ralen, void* void_ra, void* void_pkm)
 {
+  static int sid_counter = 0;  /* Note: Not thread-safe, but still OK. */
   struct incoming_conn_state* ics;
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
   struct pk_backend_conn* pkb;
@@ -503,27 +1227,49 @@ void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
   ics->pkb = NULL;
   ics->tunnel = NULL;
   ics->hostname = NULL;
-  ics->parsed_as = PROTO_UNKNOWN;
+  ics->proto = PKR_PROTO_NONE;
   ics->parse_state = PARSE_UNDECIDED;
   ics->created = pk_time();
-  ics->unparsed_data = NULL;
 
   slen = sizeof(ics->local_addr);
   getsockname(sockfd, (struct sockaddr*) &(ics->local_addr), &slen);
-
-  slen = sizeof(ics->remote_addr);
-  getpeername(sockfd, (struct sockaddr*) &(ics->remote_addr), &slen);
+#ifdef HAVE_IPV6
+  ics->port = ntohs(
+    (((struct sockaddr*) &(ics->local_addr))->sa_family == AF_INET)
+      ? ((struct sockaddr_in*) &(ics->local_addr))->sin_port
+      : ics->local_addr.sin6_port);
+#else
+  ics->port = ntohs(ics->local_addr.sin_port);
+#endif
+  memcpy(&(ics->remote_addr), void_ra, ralen);
 
   pk_log(PK_LOG_TUNNEL_DATA,
-         "Accepted; remote=%s; local=%s; fd=%d",
+         "Accepted; remote=%s; local=%s; port=%d; fd=%d",
          in_addr_to_str((struct sockaddr*) &(ics->remote_addr), rbuf, 128),
          in_addr_to_str((struct sockaddr*) &(ics->local_addr), lbuf, 128),
-         sockfd);
+         ics->port, sockfd);
+
+  /* Generate a stream ID; it is OK for these to repeat, but we need to
+   * be sure that they are unique at any given time. Using the sockfd
+   * should accomplish that easily while also keeping the SIDs short as
+   * long as load is moderate. This all falls apart if we start working
+   * with over a million sockets or the OS stops assigning the numbers
+   * linearly... */
+  assert(PK_MAX_SID_SIZE >= 8);
+  if (sockfd > 0xffffff) {
+    pk_log(PK_LOG_TUNNEL_DATA|PK_LOG_ERROR,
+           "SIDs would overlap (sockfd %d > %d)", sockfd, 0xffffff);
+    _pkr_close(ics, PK_LOG_ERROR, "BE alloc failed");
+    /* We need to close the socket manually, since ics->pkb is unset */
+    PKS_close(sockfd);
+    return;
+  }
+  sprintf(lbuf, "%x%.2X", sockfd, (sid_counter++ & 0xff));
 
   /* Allocate a connection for this request or die... */
-  sprintf(lbuf, "!NEW:%d", ics->remote_addr.sin_port);
   if (NULL == (pkb = pkm_alloc_be_conn(pkm, NULL, lbuf))) {
     _pkr_close(ics, PK_LOG_ERROR, "BE alloc failed");
+    /* We need to close the socket manually, since ics->pkb is unset */
     PKS_close(sockfd);
     return;
   }

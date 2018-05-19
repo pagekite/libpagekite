@@ -48,8 +48,8 @@ Note: For alternate license terms, see the file COPYING.md.
 static void pkm_yield(struct pk_manager *pkm);
 static void pkm_interrupt_cb(EV_P_ ev_async *w, int revents);
 static void pkm_interrupt(struct pk_manager *pkm);
-static void pkm_block(struct pk_manager *pkm);
-static void pkm_unblock(struct pk_manager *pkm);
+static void pkm_block(struct pk_manager*);
+static void pkm_unblock(struct pk_manager*);
 static void pkm_quit_cb(EV_P_ ev_async *w, int revents);
 static void pkm_quit(struct pk_manager* pkm);
 static void pkm_chunk_cb(struct pk_tunnel*, struct pk_chunk*);
@@ -166,6 +166,16 @@ static void pkm_quit(struct pk_manager* pkm)
   ev_async_send(pkm->loop, &(pkm->quit));
 }
 
+int pkm_write_chunk(struct pk_tunnel* fe, struct pk_chunk* chunk)
+{
+  char buffer[4096];
+  ssize_t bytes = pk_format_chunk(buffer, 4096, chunk);
+  if (bytes <= 0) return bytes;
+
+  pkm_block(fe->manager);
+  pkc_write(&(fe->conn), buffer, bytes);
+  pkm_unblock(fe->manager);
+}
 
 static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
 {
@@ -184,8 +194,8 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
         (NULL != (pkb = pkm_connect_be(fe, chunk)))) {
       /* We are happy, pkb should be a valid connection. */
       pkm_yield_start(fe->manager);
-      /* Zero the chunk chunk request-host to suppress log spam, it was
-       * usd in pkm_connect_be above and we don't need it anymore. */
+      /* Zero the chunk request-host to suppress log spam, it was used
+       * in pkm_connect_be above and we don't need it anymore. */
       chunk->request_host = NULL;
     }
     else {
@@ -280,6 +290,16 @@ static void pkm_chunk_cb(struct pk_tunnel* fe, struct pk_chunk *chunk)
   }
 }
 
+int pkm_configure_sockfd(int sockfd) {
+  struct timeval to;
+  to.tv_sec = pk_state.socket_timeout_s;
+  to.tv_usec = 0;
+  return (
+    PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *) &to, sizeof(to))) ||
+    PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *) &to, sizeof(to))) ||
+    (0 > set_non_blocking(sockfd)));
+}
+
 struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
                                        struct pk_chunk* chunk)
 {
@@ -334,17 +354,12 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
   }
 
   /* Try to connect and set non-blocking. */
-  struct timeval to;
-  to.tv_sec = pk_state.socket_timeout_s;
-  to.tv_usec = 0;
   errno = 0;
   sockfd = -1;
   if ((NULL == addr) ||
       (0 > (sockfd = PKS_socket(AF_INET, SOCK_STREAM, 0))) ||
       PKS_fail(PKS_connect(sockfd, (struct sockaddr*) addr, sizeof(*addr))) ||
-      PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *) &to, sizeof(to))) ||
-      PKS_fail(PKS_setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (char *) &to, sizeof(to))) ||
-      (0 > set_non_blocking(sockfd)))
+      (0 > pkm_configure_sockfd(sockfd)))
   {
     if ((errno != EINPROGRESS) || /* See comment below */
         (sockfd < 0))             /* (NULL == addr) or PKS_socket() failed */
@@ -376,17 +391,8 @@ struct pk_backend_conn* pkm_connect_be(struct pk_tunnel* fe,
   chunk->first_chunk = 1;
   pkb->kite = kite;
   pkb->conn.sockfd = sockfd;
-
-  int ev_sock = PKS_EV_FD(sockfd);
-  ev_io_init(&(pkb->conn.watch_r), pkm_be_conn_readable_cb, ev_sock, EV_READ);
-  ev_io_init(&(pkb->conn.watch_w), pkm_be_conn_writable_cb, ev_sock, EV_WRITE);
-
-  pkb->conn.watch_r.data = pkb->conn.watch_w.data = (void *) pkb;
-  ev_io_start(fe->manager->loop, &(pkb->conn.watch_r));
-  ev_io_start(fe->manager->loop, &(pkb->conn.watch_w));
-
+  pkm_start_be_conn_io(fe->manager, pkb);
   pkb->conn.status &= ~CONN_STATUS_CHANGING;  /* Change complete */
-  PKS_STATE(pk_state.live_streams += 1);
 
   return pkb;
 }
@@ -415,7 +421,7 @@ static ssize_t pkm_write_chunked(struct pk_tunnel* fe,
 }
 
 static int pkm_update_io(
-  struct pk_tunnel* fe,
+  struct pk_tunnel* tun,
   struct pk_backend_conn* pkb,
   int recursion)
 {
@@ -442,7 +448,7 @@ static int pkm_update_io(
     loglevel = loglevelclose = PK_LOG_BE_DATA;
   }
   else {
-    pkc = &(fe->conn);
+    pkc = &(tun->conn);
     loglevel = PK_LOG_TUNNEL_DATA;
     loglevelclose =  PK_LOG_TUNNEL_DATA | PK_LOG_MANAGER_INFO;
   }
@@ -529,19 +535,19 @@ static int pkm_update_io(
     if (pkb != NULL) {
       /* This is a backend conn, forcibly send EOF over tunnel. */
       bytes = pk_format_eof(buffer, pkb->sid, eof);
-      pkc_write(&(fe->conn), buffer, bytes);
-      pkc_flush(&(fe->conn), NULL, 0, BLOCKING_FLUSH, "tunnel");
+      pkc_write(&(tun->conn), buffer, bytes);
+      pkc_flush(&(tun->conn), NULL, 0, BLOCKING_FLUSH, "tunnel");
       pk_log(loglevel, "%d: Sent and flushed EOF (0x%x)", pkc->sockfd, eof);
     }
     else {
       /* This is a tunnel, send EOF to all backends, mark for reconnection. */
-      /* FIXME: This is O(n), but rare.  Maybe OK? */
+      /* FIXME: This is O(n). Replace with a linked list please! */
       pk_log(loglevel, "%d: Shutting down tunnel.", pkc->sockfd);
       for (i = 0; i < pkm->be_conn_max; i++) {
         pkb = (pkm->be_conns+i);
-        if ((pkb->tunnel == fe) && (pkb->conn.status != CONN_STATUS_UNKNOWN)) {
+        if ((pkb->tunnel == tun) && (pkb->conn.status != CONN_STATUS_UNKNOWN)) {
           pkb->conn.status |= (CONN_STATUS_END_WRITE|CONN_STATUS_END_READ);
-          pkm_update_io(fe, pkb, recursion);
+          pkm_update_io(tun, pkb, recursion);
         }
       }
       tunnel_flow_op = FLOW_OP_NONE;
@@ -563,11 +569,20 @@ static int pkm_update_io(
       /* FIXME: Is this the right way to clean up dead tunnels? */
       PKS_STATE(pk_state.live_tunnels -= 1;
                 pkm->status = PK_STATUS_PROBLEMS);
-      pkc_reset_conn(&(fe->conn), CONN_STATUS_ALLOCATED);
-      fe->request_count = 0;
+#if HAVE_RELAY
+      if (tun->remote_is_be) {
+        if (tun->remote.be.cleanup_callback_func != NULL)
+          (tun->remote.be.cleanup_callback_func)(0, tun);
+      }
+#endif
+      if (!tun->remote_is_be) {
+        /* FIXME: What about the request data itself? */
+        tun->remote.fe.request_count = 0;
+      }
       if (pk_state.live_tunnels < 1) {
         pkm->next_tick = 1 + pkm->housekeeping_interval_min;
       }
+      pkc_reset_conn(&(tun->conn), CONN_STATUS_ALLOCATED);
       pkm_tick(pkm);
     }
     pkc->sockfd = -1;
@@ -676,6 +691,7 @@ static void pkm_tunnel_readable_cb(EV_P_ ev_io *w, int revents)
 
   fe->conn.status &= ~CONN_STATUS_WANT_READ;
   do {
+    if (fe->conn.status & CONN_STATUS_BROKEN) break;
     if (0 < (read_bytes = pkc_read(&(fe->conn)))) {
       if (0 > (rv = pk_parser_parse(fe->parser,
                                     fe->conn.in_buffer_pos,
@@ -710,13 +726,15 @@ static void pkm_tunnel_writable_cb(EV_P_ ev_io* w, int revents)
 {
   struct pk_tunnel* fe = (struct pk_tunnel*) w->data;
 
-  /* This is necessary for SSL handshakes and the like. */
-  if (fe->conn.status & CONN_STATUS_WANT_WRITE) {
-    fe->conn.status &= ~CONN_STATUS_WANT_WRITE;
-    if (0 == fe->conn.out_buffer_pos)
-      pkc_raw_write(&(fe->conn), NULL, 0);
+  if (!(fe->conn.status & CONN_STATUS_BROKEN)) {
+    /* This is necessary for SSL handshakes and the like. */
+    if (fe->conn.status & CONN_STATUS_WANT_WRITE) {
+      fe->conn.status &= ~CONN_STATUS_WANT_WRITE;
+      if (0 == fe->conn.out_buffer_pos)
+        pkc_raw_write(&(fe->conn), NULL, 0);
+    }
+    pkc_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
   }
-  pkc_flush(&(fe->conn), NULL, 0, NON_BLOCKING_FLUSH, "tunnel");
   PK_CHECK_MEMORY_CANARIES;
 
   pkm_update_io(fe, NULL, 0);
@@ -798,8 +816,12 @@ static void pkm_listener_cb(EV_P_ ev_io* w, int revents)
   while (0 <= (client_fd = PKS_accept(pkl->conn.sockfd,
                                       (struct sockaddr*) &client_addr,
                                       &client_len))) {
-    if (pkl->callback_func != NULL) {
-      (pkl->callback_func)(client_fd, pkl->callback_data);
+    PK_TRACE_LOOP("accept");
+    if (pkl->accept_callback_func != NULL) {
+      (pkl->accept_callback_func)(client_fd,
+                                  client_len,
+                                  &client_addr,
+                                  pkl->accept_callback_data);
     }
     else {
       PKS_close(client_fd);
@@ -811,9 +833,44 @@ static void pkm_listener_cb(EV_P_ ev_io* w, int revents)
   (void) revents;
 }
 
+void pkm_start_be_conn_io(struct pk_manager* pkm, struct pk_backend_conn* pkb) {
+  pkm_block(pkm); {
+
+    int ev_sock = PKS_EV_FD(pkb->conn.sockfd);
+    ev_io_init(&(pkb->conn.watch_r), pkm_be_conn_readable_cb, ev_sock, EV_READ);
+    ev_io_init(&(pkb->conn.watch_w), pkm_be_conn_writable_cb, ev_sock, EV_WRITE);
+
+    pkb->conn.watch_r.data = pkb->conn.watch_w.data = (void *) pkb;
+    ev_io_start(pkm->loop, &(pkb->conn.watch_r));
+    ev_io_start(pkm->loop, &(pkb->conn.watch_w));
+
+    PKS_STATE(pk_state.live_streams += 1);
+
+  } pkm_unblock(pkm);
+}
+
+void pkm_start_tunnel_io(struct pk_manager* pkm, struct pk_tunnel* tun) {
+  pk_parser_reset(tun->parser);
+  if (0 >= set_non_blocking(tun->conn.sockfd)) {
+    tun->conn.status |= CONN_STATUS_BROKEN;
+  }
+  tun->error_count = 0;
+  pkm_block(pkm); {
+
+    int ev_sock = PKS_EV_FD(tun->conn.sockfd);
+    ev_io_init(&(tun->conn.watch_r), pkm_tunnel_readable_cb, ev_sock, EV_READ);
+    ev_io_init(&(tun->conn.watch_w), pkm_tunnel_writable_cb, ev_sock, EV_WRITE);
+
+    tun->conn.watch_r.data = tun->conn.watch_w.data = (void *) tun;
+    ev_io_start(pkm->loop, &(tun->conn.watch_r));
+
+    PKS_STATE(pk_state.live_tunnels += 1);
+
+  } pkm_unblock(pkm);
+}
+
 int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
   struct pk_kite_request *kite_r;
-  unsigned int status;
   int i, j, reconnect, tried, connected;
 
   PK_TRACE_FUNCTION;
@@ -826,18 +883,21 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
    *   - if missing a desired front-end, tear down tunnels and reconnect.
    */
   pkm_block(pkm);
-  PK_TUNNEL_ITER(pkm, fe) {
+  PK_TUNNEL_ITER(pkm, tun) {
     PK_ADD_MEMORY_CANARY(fe);
 
-    if (fe->fe_hostname == NULL || fe->ai.ai_addr == NULL) continue;
-    if (!(fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS))) continue;
+    if (tun->remote_is_be) continue;
+    struct pk_tunnel_fe* fe = &(tun->remote.fe);
+
+    if (fe->hostname == NULL || fe->ai.ai_addr == NULL) continue;
+    if (!(tun->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS))) continue;
 
     /* Ignore tunnels that are changing state, but log that we did so since
      * tunnels stuck in a long-running change may indicate other problems. */
-    if (fe->conn.status & CONN_STATUS_CHANGING) {
+    if (tun->conn.status & CONN_STATUS_CHANGING) {
       pk_log(PK_LOG_MANAGER_DEBUG,
              "%d: pkm_reconnect_all: Ignored, changes still in flight",
-             fe->conn.sockfd);
+             tun->conn.sockfd);
       continue;
     }
 
@@ -846,7 +906,7 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
     }
     else {
       if ((fe->request_count != pkm->kite_max) ||
-          (fe->conn.sockfd < 0)) {
+          (tun->conn.sockfd < 0)) {
         /* Reset the list of kites we will request from this relay. */
         fe->request_count = pkm->kite_max;
         memset(fe->requests, 0, pkm->kite_max * sizeof(struct pk_kite_request));
@@ -865,50 +925,39 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
     if (reconnect) {
       tried++;
       PKS_STATE(pkm->status = PK_STATUS_CONNECTING);
-      if (0 <= fe->conn.sockfd) {
-        ev_io_stop(pkm->loop, &(fe->conn.watch_r));
-        ev_io_stop(pkm->loop, &(fe->conn.watch_w));
-        PKS_close(fe->conn.sockfd);
-        fe->conn.sockfd = -1;
+      if (0 <= tun->conn.sockfd) {
+        ev_io_stop(pkm->loop, &(tun->conn.watch_r));
+        ev_io_stop(pkm->loop, &(tun->conn.watch_w));
+        PKS_close(tun->conn.sockfd);
+        tun->conn.sockfd = -1;
       }
-      status = fe->conn.status;
-      pkc_reset_conn(&(fe->conn), 0);
+
+      unsigned int status = tun->conn.status;
+      pkc_reset_conn(&(tun->conn), 0);
       /* Note: Do not set CONN_STATUS_CHANGING in pkc_reset_conn, that
        *       could suppress errors. */
-      fe->conn.status = (CONN_STATUS_CHANGING |
-                         CONN_STATUS_ALLOCATED |
-                         (status & FE_STATUS_BITS));
+      tun->conn.status = (CONN_STATUS_CHANGING |
+                          CONN_STATUS_ALLOCATED |
+                          (status & FE_STATUS_BITS));
 
       /* Unblock the event loop and blockers while we attempt to connect. */
       pkm_reconfig_stop(pkm);
       pkm_unblock(pkm);
 
-      if ((0 <= pk_connect_ai(&(fe->conn), &(fe->ai), 0,
-                              fe->request_count, fe->requests,
-                              (fe->fe_session), fe->manager->ssl_ctx,
-                              fe->fe_hostname)) &&
-          (0 < set_non_blocking(fe->conn.sockfd))) {
-        pk_log(PK_LOG_MANAGER_INFO, "%d: Connected!", fe->conn.sockfd);
+      if (0 <= pk_connect_ai(&(tun->conn), &(fe->ai), 0,
+                             fe->request_count, fe->requests,
+                             tun->session_id, tun->manager->ssl_ctx,
+                             fe->hostname)) {
+        pk_log(PK_LOG_MANAGER_INFO, "%d: Connected!", tun->conn.sockfd);
 
         /* Note: order matters here, otherwise we can end up deadlocked
          *       due to the pkm_block() at the top of this function. */
         pkm_reconfig_blocking_start(pkm);
-        pkm_block(pkm);
 
-        pk_parser_reset(fe->parser);
+        /* This internally blocks/unblocks pkm */
+        pkm_start_tunnel_io(pkm, tun);
 
-        int ev_sock = PKS_EV_FD(fe->conn.sockfd);
-        ev_io_init(&(fe->conn.watch_r),
-                   pkm_tunnel_readable_cb, ev_sock, EV_READ);
-        ev_io_init(&(fe->conn.watch_w),
-                   pkm_tunnel_writable_cb, ev_sock, EV_WRITE);
-
-        fe->conn.watch_r.data = fe->conn.watch_w.data = (void *) fe;
-        ev_io_start(pkm->loop, &(fe->conn.watch_r));
-
-        PKS_STATE(pk_state.live_tunnels += 1);
-        fe->conn.status &= ~CONN_STATUS_CHANGING;  /* Change complete */
-        fe->error_count = 0;
+        tun->conn.status &= ~CONN_STATUS_CHANGING;  /* Change complete */
         connected++;
       }
       else {
@@ -918,13 +967,12 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
         pkm_block(pkm);
 
         /* FIXME: Is this the right behavior? */
-        pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", fe->conn.sockfd);
+        pk_log(PK_LOG_MANAGER_INFO, "Connect failed: %d", tun->conn.sockfd);
         fe->request_count = 0;
 
-        if (!ignore_errors && fe->error_count < 999)
-          fe->error_count += 1;
+        if (!ignore_errors && tun->error_count < 999) tun->error_count += 1;
 
-        status = fe->conn.status;
+        status = tun->conn.status;
         if (pk_error == ERR_CONNECT_REJECTED) {
           status |= FE_STATUS_REJECTED;
           PKS_STATE(pkm->status = PK_STATUS_REJECTED);
@@ -933,9 +981,9 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
           status |= FE_STATUS_LAME;
           tried -= 1;
         }
-        fe->conn.status &= ~CONN_STATUS_CHANGING;  /* Change failed */
-        pkc_reset_conn(&(fe->conn), 0);
-        fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
+        tun->conn.status &= ~CONN_STATUS_CHANGING;  /* Change failed */
+        pkc_reset_conn(&(tun->conn), 0);
+        tun->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
 
         pk_perror("pkmanager.c");
       }
@@ -965,28 +1013,31 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
   pkm_block(pkm);
   for (pass = 1; pass <= 2; pass++) {
     live = disconnect = disconnected = 0;
-    PK_TUNNEL_ITER(pkm, fe) {
-      if (fe->fe_hostname == NULL) continue;
+    PK_TUNNEL_ITER(pkm, tun) {
+      if (tun->remote_is_be) continue;
+
+      struct pk_tunnel_fe* fe = &(tun->remote.fe);
+      if (fe->hostname == NULL) continue;
 
       /* Check this before incrementing the live count, as we're not sure
        * this is actually live. */
-      if (fe->conn.status & CONN_STATUS_CHANGING) continue;
-      if (fe->conn.sockfd <= 0) continue;
+      if (tun->conn.status & CONN_STATUS_CHANGING) continue;
+      if (tun->conn.sockfd <= 0) continue;
       live += 1;
 
-      if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) continue;
+      if (tun->conn.status & (FE_STATUS_WANTED|FE_STATUS_IN_DNS)) continue;
 
       /* If we haven't been sending/seeing pings, then that means there
        * is recent traffic, so disconnecting would be bad. Note, we cannot
        * check conn.activity directly because pings reset that! */
-      if (fe->last_ping < ping_window) continue;
+      if (tun->last_ping < ping_window) continue;
 
       /* Ignore tunnels that are changing state, but log that we did so since
        * tunnels stuck in a long-running change may indicate other problems. */
-      if (fe->conn.status & CONN_STATUS_CHANGING) {
+      if (tun->conn.status & CONN_STATUS_CHANGING) {
         pk_log(PK_LOG_MANAGER_DEBUG,
                "%d: pkm_disconnect_unused: Ignored, changes still in flight",
-               fe->conn.sockfd);
+               tun->conn.sockfd);
         continue;
       }
 
@@ -994,7 +1045,7 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
       disconnect++;
       for (j = 0; j < pkm->be_conn_max; j++) {
         pkb = (pkm->be_conns + j);
-        if (pkb->conn.sockfd > 0 && pkb->tunnel == fe) {
+        if (pkb->conn.sockfd > 0 && pkb->tunnel == tun) {
           disconnect--;
           break;
         }
@@ -1004,15 +1055,15 @@ int pkm_disconnect_unused(struct pk_manager* pkm) {
         pk_log(PK_LOG_MANAGER_INFO, "Disconnecting: %s",
                                     in_addr_to_str(fe->ai.ai_addr, buffer, 1024));
 
-        ev_io_stop(pkm->loop, &(fe->conn.watch_r));
-        ev_io_stop(pkm->loop, &(fe->conn.watch_w));
-        PKS_close(fe->conn.sockfd);
-        fe->conn.sockfd = -1;
+        ev_io_stop(pkm->loop, &(tun->conn.watch_r));
+        ev_io_stop(pkm->loop, &(tun->conn.watch_w));
+        PKS_close(tun->conn.sockfd);
+        tun->conn.sockfd = -1;
         disconnected += 1;
 
-        status = fe->conn.status;
-        pkc_reset_conn(&(fe->conn), 0);
-        fe->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
+        status = tun->conn.status;
+        pkc_reset_conn(&(tun->conn), 0);
+        tun->conn.status = (CONN_STATUS_ALLOCATED | (status & FE_STATUS_BITS));
         fe->request_count = 0;
 
         disconnect = 0; /* Reset, to prevent cascading. */
@@ -1267,8 +1318,8 @@ struct pk_pagekite* pkm_add_kite(struct pk_manager* pkm,
 int pkm_add_listener(struct pk_manager* pkm,
                      const char* hostname,
                      int port,
-                     pagekite_callback_t callback_func,
-                     void* callback_data)
+                     pagekite_callback2_t accept_callback_func,
+                     void* accept_callback_data)
 {
   int ok, errors, lport;
   struct addrinfo hints;
@@ -1313,8 +1364,8 @@ int pkm_add_listener(struct pk_manager* pkm,
         int ev_sock = PKS_EV_FD(pkl->conn.sockfd);
         ev_io_init(&(pkl->conn.watch_r), pkm_listener_cb, ev_sock, EV_READ);
         pkl->conn.watch_r.data = (void *) pkl;
-        pkl->callback_func = callback_func;
-        pkl->callback_data = callback_data;
+        pkl->accept_callback_func = accept_callback_func;
+        pkl->accept_callback_data = accept_callback_data;
         ev_io_start(pkm->loop, &(pkl->conn.watch_r));
         pk_log(PK_LOG_MANAGER_INFO,
                "Listening on %s (port %d, sockfd %d)",
@@ -1394,35 +1445,57 @@ struct pk_tunnel* pkm_add_frontend_ai(struct pk_manager* pkm,
                                       const char* hostname, int port,
                                       int conn_status_flags)
 {
+  int which;
+  struct pk_tunnel* tun;
   struct pk_tunnel* adding = NULL;
 
   PK_TRACE_FUNCTION;
 
   /* Scan the front-end list to see if we already have this IP or,
    * if not, find an available slot.
-   *
-   * FIXME: Start searching from a random spot?
    */
-  PK_TUNNEL_ITER(pkm, fe) {
-    if (fe->fe_hostname == NULL) {
-      if (adding == NULL) adding = fe;
+  unsigned int shift = (rand() % pkm->tunnel_max);
+  /* FIXME: Create a shifted PK_TUNNEL_ITER and use here? */
+  for (which = 0; which < pkm->tunnel_max; which++) {
+    tun = (pkm->tunnels + ((which + shift) % pkm->tunnel_max));
+    if (tun->remote_is_be) continue;
+    if (tun->remote.fe.hostname == NULL) {
+      if (adding == NULL) {
+        adding = tun;
+        if (ai == NULL) break;
+      }
     }
     else if ((ai != NULL) &&
-             (fe->ai.ai_addr != NULL) &&
+             (tun->remote.fe.ai.ai_addr != NULL) &&
              (ai->ai_addrlen > 0) &&
-             (0 == addrcmp(fe->ai.ai_addr, ai->ai_addr)))
+             (0 == addrcmp(tun->remote.fe.ai.ai_addr, ai->ai_addr)))
     {
-      fe->last_configured = pk_time();
+      tun->remote.fe.last_configured = pk_time();
       return NULL;
     }
   }
-  if (adding == NULL) return pk_err_null(ERR_NO_MORE_FRONTENDS);
+
+#if HAVE_RELAY
+  if (adding == NULL) {
+    adding = pkr_allocate_more_tunnels(pkm);
+  }
+  if (adding != NULL) {
+    adding->remote.be.cleanup_callback_func = NULL;
+  }
+#endif
+
+  if (adding == NULL) {
+    return pk_err_null(ERR_NO_MORE_FRONTENDS);
+  }
 
   adding->conn.status = (conn_status_flags | CONN_STATUS_ALLOCATED);
-  copy_addrinfo_data(&(adding->ai), ai);
-  adding->fe_port = port;
-  adding->fe_hostname = strdup(hostname);
-  adding->last_ddnsup = 0;
+  copy_addrinfo_data(&(adding->remote.fe.ai), ai);
+  adding->remote.fe.port = port;
+  adding->remote.fe.hostname = (hostname) ? strdup(hostname) : NULL;
+  adding->remote.fe.last_ddnsup = 0;
+  adding->remote.fe.request_count = 0;
+  adding->remote.fe.last_configured = time(0);
+  adding->remote.fe.priority = 0;
   adding->error_count = 0;
   adding->request_count = 0;
   adding->priority = 0;
@@ -1618,13 +1691,18 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->tunnels = (struct pk_tunnel *) pkm->buffer;
   pkm->tunnel_max = tunnels;
   pkm->buffer += sizeof(struct pk_tunnel) * tunnels;
-  PK_TUNNEL_ITER(pkm, fe) {
-    fe->fe_hostname = NULL;
-    fe->ai.ai_addr = NULL;
-    fe->ai.ai_canonname = NULL;
-    fe->requests = (struct pk_kite_request*) pkm->buffer;
+  PK_TUNNEL_ITER(pkm, tun) {
+    tun->remote_is_be = 0;
+    tun->first_pkb = NULL;
+#ifdef HAVE_RELAY
+    tun->remote.be.cleanup_callback_func = NULL;
+#endif
+    tun->remote.fe.hostname = NULL;
+    tun->remote.fe.ai.ai_addr = NULL;
+    tun->remote.fe.ai.ai_canonname = NULL;
+    tun->remote.fe.requests = (struct pk_kite_request*) pkm->buffer;
 #ifdef HAVE_OPENSSL
-    fe->conn.ssl = NULL;
+    tun->conn.ssl = NULL;
 #endif
     pkm->buffer += (sizeof(struct pk_kite_request) * kites);
   }
@@ -1676,6 +1754,10 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
     pkm->buffer += parse_buffer_bytes;
     pkm->buffer_bytes_free -= parse_buffer_bytes;
   }
+
+#if HAVE_RELAY
+  pkr_relay_manager_init(pkm);
+#endif
 
   pkm->fancy_pagekite_net_rejection_url = PK_REJECT_FANCY_URL;
   pkm->enable_watchdog = 0;
@@ -1743,9 +1825,15 @@ void pkm_manager_free(struct pk_manager* pkm)
     free(pkm->dynamic_dns_url);
   }
 
-  PK_TUNNEL_ITER(pkm, fe) {
-    if (fe->fe_hostname != NULL) free(fe->fe_hostname);
-    free_addrinfo_data(&fe->ai);
+#if HAVE_RELAY
+  pkr_relay_manager_free(pkm);
+#endif
+
+  PK_TUNNEL_ITER(pkm, tun) {
+    if (!tun->remote_is_be) {
+      if (tun->remote.fe.hostname != NULL) free(tun->remote.fe.hostname);
+      free_addrinfo_data(&tun->remote.fe.ai);
+    }
   }
 
   if (pkm->was_malloced) {

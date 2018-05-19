@@ -24,6 +24,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pkcommon.h"
 #include "pkutils.h"
 #include "pkconn.h"
+#include "pkhooks.h"
 #include "pkproto.h"
 #include "pkstate.h"
 #include "pktunnel.h"
@@ -32,6 +33,60 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pklogging.h"
 #include "pkerror.h"
 
+
+void pkt_remove_pkb(struct pk_tunnel* tun, struct pk_backend_conn* pkb)
+{
+  struct pk_backend_conn** p = &(((tun) ? tun : pkb->tunnel)->first_pkb);
+  while (*p != NULL) {
+    if (*p == pkb) {
+      *p = pkb->next_pkb;
+      return;
+    }
+    p = &((*p)->next_pkb);
+  }
+}
+
+void pkt_add_pkb(struct pk_tunnel* tun, struct pk_backend_conn* pkb)
+{
+  pkb->next_pkb = tun->first_pkb;
+  tun->first_pkb = pkb;
+}
+
+void pkt_cleanup(struct pk_tunnel* tun)
+{
+  if (tun->remote_is_be) {
+    tun->remote.be.cleanup_callback_func = NULL;
+  }
+  else {
+    if (tun->remote.fe.hostname) free(tun->remote.fe.hostname);
+    tun->remote.fe.hostname = NULL;
+  }
+}
+
+void pkt_set_remote_is_be(struct pk_tunnel* tun, int become_be)
+{
+  if (become_be == tun->remote_is_be) return;
+  pkt_cleanup(tun);
+  if (become_be) {
+    tun->remote_is_be = 1;
+    tun->remote.be.cleanup_callback_func = NULL;
+  }
+  else {
+    tun->remote_is_be = 0;
+    tun->remote.fe.hostname = NULL;
+  }
+  assert(become_be == tun->remote_is_be);
+}
+
+int pkt_setup_tunnel(struct pk_manager* pkm,
+                     struct pk_tunnel* tun,
+                     struct pk_backend_conn* pkb)
+{
+  /* FIXME: Configure tunnel from pkb if necessary */
+
+  pkm_start_tunnel_io(pkm, tun);
+  return 0;
+}
 
 
 /* *** Tests *************************************************************** */

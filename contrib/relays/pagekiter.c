@@ -203,6 +203,21 @@ int main(int argc, char **argv) {
     safe_exit(EXIT_ERR_START_THREAD);
   }
 
+  pagekite_set_event_mask(m, PK_EV_MASK_MISC);
+  unsigned int event_code;
+  while (PK_EV_SHUTDOWN != (
+    (event_code = pagekite_await_event(m, 1)) & PK_EV_TYPE_MASK))
+  {
+    fprintf(stderr, "[Event: 0x%8.8x]\n", event_code);
+    switch (event_code & PK_EV_TYPE_MASK) {
+      case PK_EV_FE_AUTH:
+        fprintf(stderr, "*** Auth! %s ***\n", pagekite_get_event_str(m, event_code));
+        pagekite_event_respond(m, event_code, PK_EV_RESPOND_ACCEPT);
+        break;
+      default:
+        pagekite_event_respond(m, event_code, PK_EV_RESPOND_DEFAULT);
+    }
+  }
   pagekite_thread_wait(m);
   pagekite_free(m);
 

@@ -111,6 +111,7 @@ WARNING: This file is processed automatically to generate the JNI and API
 #define PK_EV_COUNTER         (0x00000003 | PK_EV_MASK_STATS)
 #define PK_EV_CFG_FANCY_URL   (0x00000004 | PK_EV_MASK_MISC)
 #define PK_EV_TUNNEL_REQUEST  (0x00000005 | PK_EV_MASK_MISC)
+#define PK_EV_FE_AUTH         (0x00001000 | PK_EV_MASK_MISC)
 
 #define PK_EV_RESPOND_DEFAULT  0x00000000
 #define PK_EV_RESPOND_TRUE     0x000000ff

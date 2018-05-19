@@ -38,6 +38,8 @@ typedef enum {
   PK_HOOK_FE_CONN_OPENED  = 18,
   PK_HOOK_FE_CONN_CLOSED  = 19,
   PK_HOOK_FE_DISCONNECT   = 20,
+  PK_HOOK_FE_PARSE        = 21, /* bytes, data, pk_new_conn_state => result */
+  PK_HOOK_FE_REJECT       = 22, /* 0, pk_new_conn_state => send rejection? */
 
   PK_HOOK_CHUNK_INCOMING  = 28, /* 0, pk_chunk, pk_backend_conn => (ignored) */
   PK_HOOK_CHUNK_OUTGOING  = 29,

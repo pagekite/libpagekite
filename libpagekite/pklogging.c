@@ -127,11 +127,12 @@ void pk_log_raw_data(int level, char* prefix, int fd, void* data, size_t bytes) 
   }
 }
 
-int pk_log_chunk(struct pk_tunnel* fe, struct pk_chunk* chnk) {
+int pk_log_chunk(struct pk_tunnel* tun, struct pk_chunk* chnk) {
   int i;
   int r = 0;
   char fe_ip[1024];
-  if (fe != NULL && fe->ai.ai_addr != NULL) {
+  struct pk_tunnel_fe* fe = &(tun->remote.fe);
+  if ((!tun->remote_is_be) && (fe != NULL) && (fe->ai.ai_addr != NULL)) {
     in_addr_to_str(fe->ai.ai_addr, fe_ip, 1024);
   }
   else {
@@ -213,23 +214,24 @@ void pk_dump_conn(char* prefix, struct pk_conn* conn)
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/out_buffer_pos: %d", prefix, conn->out_buffer_pos);
 }
 
-void pk_dump_tunnel(char* prefix, struct pk_tunnel* fe)
+void pk_dump_tunnel(char* prefix, struct pk_tunnel* tun)
 {
+  struct pk_tunnel_fe* fe = tun->remote_is_be ? NULL : &(tun->remote.fe);
   char tmp[1024];
-  if (NULL == fe->ai.ai_addr) return;
+  if ((NULL == fe) || (NULL == fe->ai.ai_addr)) return;
 
-  pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_hostname: %s", prefix, fe->fe_hostname);
-  pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_port: %d", prefix, fe->fe_port);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_hostname: %s", prefix, fe->hostname);
+  pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_port: %d", prefix, fe->port);
 
-  if (0 <= fe->conn.sockfd) {
-    pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_session: %s", prefix, fe->fe_session);
+  if (0 <= tun->conn.sockfd) {
+    pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_session: %s", prefix, tun->session_id);
     pk_log(PK_LOG_MANAGER_DEBUG, "%s/request_count: %d", prefix, fe->request_count);
     in_addr_to_str(fe->ai.ai_addr, tmp, 1024);
     pk_log(PK_LOG_MANAGER_DEBUG, "%s/fe_ai: %s", prefix, tmp);
     sprintf(tmp, "%s/conn", prefix);
-    pk_dump_conn(tmp, &(fe->conn));
+    pk_dump_conn(tmp, &(tun->conn));
     sprintf(tmp, "%s/parser", prefix);
-    pk_dump_parser(tmp, fe->parser);
+    pk_dump_parser(tmp, tun->parser);
   }
 }
 
@@ -239,8 +241,8 @@ void pk_dump_be_conn(char* prefix, struct pk_backend_conn* bec)
   if (!bec) return;
 
   #define LL PK_LOG_MANAGER_DEBUG
-  if (bec->tunnel)
-    pk_log(LL, "%s/fe: %s", prefix, bec->tunnel->fe_hostname);
+  if (bec->tunnel && (!bec->tunnel->remote_is_be))
+    pk_log(LL, "%s/fe: %s", prefix, bec->tunnel->remote.fe.hostname);
 
   if (bec->kite)
     pk_log(LL, "%s/kite: %d <- %s://%s", prefix, bec->kite->local_port,

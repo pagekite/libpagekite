@@ -586,6 +586,21 @@ jint Java_net_pagekite_lib_PageKiteAPI_perror(
   if (jprefix != NULL) (*env)->ReleaseStringUTFChars(env, jprefix, prefix);
   return rv;
 }
+
+jint Java_net_pagekite_lib_PageKiteAPI_addRelayListener(
+  JNIEnv* env, jclass unused_class
+, jint jport
+, jint jflags
+){
+  if (pagekite_manager_global == NULL) return -1;
+
+  int port = jport;
+  int flags = jflags;
+
+  jint rv = pagekite_add_relay_listener(pagekite_manager_global, port, flags);
+
+  return rv;
+}
 #else
 #  warning Java not found, not building JNI.
 #endif

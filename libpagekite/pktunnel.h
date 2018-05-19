@@ -32,30 +32,44 @@ struct pk_manager;
 #define FE_STATUS_LAME      0x10000000  /* Front-end is going offline      */
 #define FE_STATUS_IS_FAST   0x20000000  /* This is a fast front-end        */
 #define BE_VERSION_MAXLEN   12
-struct pk_tunnel {
-  PK_MEMORY_CANARY
-  /* These apply to frontend connections only (on the backend) */
-  char*                   fe_hostname;
-  int                     fe_port;
-  time_t                  last_ddnsup;
-  int                     priority;
-#if HAVE_RELAY
-  /* These apply to backend connections only (on the frontend) */
-  char                    be_version[PK_HANDSHAKE_VERSION_MAX+1];
-#endif
-  /* These apply to all tunnels (frontend or backend) */
+struct pk_tunnel_fe {
+  /* These apply to connections to a frontend (on the backend) */
+  char*                   hostname;
+  int                     port;
   struct addrinfo         ai;
-  struct pk_conn          conn;
-  int                     error_count;
-  char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX+1];
-  time_t                  last_ping;
+  int                     priority;
+  time_t                  last_ddnsup;
   time_t                  last_configured;
-  struct pk_manager*      manager;
-  struct pk_parser*       parser;
   int                     request_count;
   struct pk_kite_request* requests;
-  pagekite_callback_t*    callback_func;
-  void*                   callback_data;
+};
+#if HAVE_RELAY
+struct pk_tunnel_be {
+  /* These apply to connections to a backend (on the frontend relay) */
+  char                    be_version[PK_HANDSHAKE_VERSION_MAX+1];
+  pagekite_callback_t*    cleanup_callback_func;
+};
+#endif
+struct pk_tunnel {
+  PK_MEMORY_CANARY
+  /* These apply to all tunnels (frontend or backend) */
+  struct pk_manager*      manager;
+  struct pk_parser*       parser;
+  struct pk_backend_conn* first_pkb;
+  struct pk_conn          conn;
+  time_t                  last_ping;
+  char                    session_id[PK_HANDSHAKE_SESSIONID_MAX+1];
+  int                     error_count:32;
+  int                     remote_is_be:1;
+  /* These are the per-role data. We use a union to save bytes. */
+  union {
+    struct pk_tunnel_fe   fe;
+#if HAVE_RELAY
+    struct pk_tunnel_be   be;
+#endif
+  }                       remote;
+  /* This has to be outside the union, because it's allocated up front */
+  struct pk_kite_request* requests;
 };
 
 /* These are also written to the conn.status field, using the third byte. */
@@ -65,13 +79,17 @@ struct pk_tunnel {
 #define BE_STATUS_EOF_THROTTLED  0x00040000
 struct pk_backend_conn {
   PK_MEMORY_CANARY
-  char                 sid[PK_MAX_SID_SIZE+1];
-  struct pk_tunnel*    tunnel;
-  struct pk_pagekite*  kite;
-  struct pk_conn       conn;
-  pagekite_callback_t* callback_func;
-  void*                callback_data;
+  char                    sid[PK_MAX_SID_SIZE+1];
+  struct pk_tunnel*       tunnel;
+  struct pk_pagekite*     kite;
+  struct pk_conn          conn;
+  struct pk_backend_conn* next_pkb;
+  pagekite_callback2_t*   accept_callback_func;
+  void*                   accept_callback_data;
 };
 
 
+int pkt_setup_tunnel(struct pk_manager*,
+                     struct pk_tunnel*,
+                     struct pk_backend_conn*);
 int pktunnel_test(void);

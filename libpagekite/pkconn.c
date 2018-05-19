@@ -98,6 +98,7 @@ int pkc_listen(struct pk_conn* pkc, struct addrinfo* ai, int backlog)
   int fd;
   struct sockaddr_in sin;
   socklen_t len = sizeof(sin);
+  int reuse = 1;
 
   pkc_reset_conn(pkc, CONN_STATUS_CHANGING |
                       CONN_STATUS_ALLOCATED |
@@ -105,6 +106,7 @@ int pkc_listen(struct pk_conn* pkc, struct addrinfo* ai, int backlog)
   if ((0 > (fd = PKS_socket(ai->ai_family, ai->ai_socktype,
                             ai->ai_protocol))) ||
       PKS_fail(PKS_bind(fd, ai->ai_addr, ai->ai_addrlen)) ||
+      PKS_fail(PKS_setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse))) ||
       PKS_fail(PKS_listen(fd, backlog))) {
     pkc->sockfd = -1;
     if (fd >= 0) PKS_close(fd);
