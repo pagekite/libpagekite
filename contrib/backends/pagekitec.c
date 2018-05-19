@@ -262,7 +262,7 @@ int main(int argc, char **argv) {
   if (rejection_url != NULL) pagekite_set_rejection_url(m, rejection_url);
 
   /* Move the logging to the event API, mostly for testing. */
-  if (0 == (flags & PK_WITH_SYSLOG)) {
+  if ((verbosity < 4) && (0 == (flags & PK_WITH_SYSLOG))) {
     pagekite_set_log_destination(m, PK_LOG_DEST_NONE);
     pagekite_set_event_mask(m, PK_EV_MASK_LOGGING | PK_EV_MASK_MISC);
   }
