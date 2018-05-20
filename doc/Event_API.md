@@ -25,9 +25,10 @@ of date. When in doubt, check the code!)
 
 ## Python Interface (high level)
 
-This class provides an object-oriented method for defining and handling
-events; you subclass `libpagekite.events.BaseEventHandler` and override
-the methods representing the callbacks you are interested in.
+[This class](../bindings/python/libpagekite/events.py) provides an
+object-oriented method for defining and handling events; you subclass
+`libpagekite.events.BaseEventHandler` and override the methods
+representing the callbacks you are interested in.
 
 See: `cd bindings/python; pydoc libpagekite/events.py`.
 
@@ -83,11 +84,11 @@ See also API.md for details on individual API calls:
    * [`pagekite_event_respond               `](API.md#pgktvntrspnd)
    * [`pagekite_event_respond_with_data     `](API.md#pgktvntrspndwthdt)
 
-See `pagekite.h` or [API.md](API.md) for the full list of defined
-`PK_EV_...` constants.
+See [`pagekite.h`](../include/pagekite.h) or [API.md](API.md) for the full
+list of defined `PK_EV_...` constants.
 
-The Python `events.py` module contains a readable example of how to
-use the Events API.
+The Python [`events.py`](../bindings/python/libpagekite/events.py) module
+contains a readable example of how to use the Events API.
 
 
 <a                                                   name="internal"><hr></a>

@@ -603,6 +603,8 @@ DECLSPEC_DLL int pagekite_free(
  *    the mask have already been posted (but not handled) they will not be
  *    not function.
  *
+ *    See also: doc/Event_API.md
+ *
  * Returns: Always returns 0.
  */
 DECLSPEC_DLL int pagekite_set_event_mask(
@@ -615,6 +617,8 @@ DECLSPEC_DLL int pagekite_set_event_mask(
  *
  *    This function blocks until one of the libpagekite worker threads
  *    posts an API event.
+ *
+ *    See also: doc/Event_API.md
  *
  * Returns: An integer code identifying the event.
  */
@@ -629,6 +633,8 @@ DECLSPEC_DLL unsigned int pagekite_await_event(
  *    This function returns the integer data associated with a given API
  *    event.
  *
+ *    See also: doc/Event_API.md
+ *
  * Returns: An integer.
  */
 DECLSPEC_DLL int pagekite_get_event_int(
@@ -642,6 +648,8 @@ DECLSPEC_DLL int pagekite_get_event_int(
  *    This function returns a pointer to the data associated with a
  *    given API event.
  *
+ *    See also: doc/Event_API.md
+ *
  * Returns: A pointer to a string.
  */
 DECLSPEC_DLL const char* pagekite_get_event_str(
@@ -653,6 +661,8 @@ DECLSPEC_DLL const char* pagekite_get_event_str(
 /* Lifecycle: Respond to a pagekite event.
  *
  *    Post a response to an API event. 
+ *
+ *    See also: doc/Event_API.md
  *
  * Returns: Always returns 0.
  */
@@ -666,6 +676,8 @@ DECLSPEC_DLL int pagekite_event_respond(
 /* Lifecycle: Respond to a pagekite event.
  *
  *    Post a response (with data) to an API event. 
+ *
+ *    See also: doc/Event_API.md
  *
  * Returns: Always returns 0.
  */

@@ -589,6 +589,8 @@ posting of API events. This can be called at any time, but if
 events outside the mask have already been posted (but not handled)
 they will not be not function.
 
+See also: doc/Event_API.md
+
 **Arguments**:
 
    * `pagekite_mgr`: A reference to the PageKite manager object
@@ -605,6 +607,8 @@ Wait for a libpagekite event.
 
 This function blocks until one of the libpagekite worker threads
 posts an API event.
+
+See also: doc/Event_API.md
 
 **Arguments**:
 
@@ -623,6 +627,8 @@ Get event data (integer).
 This function returns the integer data associated with a given
 API event.
 
+See also: doc/Event_API.md
+
 **Arguments**:
 
    * `pagekite_mgr`: A reference to the PageKite manager object
@@ -640,6 +646,8 @@ Get event data (string).
 This function returns a pointer to the data associated with a
 given API event.
 
+See also: doc/Event_API.md
+
 **Arguments**:
 
    * `pagekite_mgr`: A reference to the PageKite manager object
@@ -655,6 +663,8 @@ given API event.
 Respond to a pagekite event.
 
 Post a response to an API event.
+
+ See also: doc/Event_API.md
 
 **Arguments**:
 
@@ -672,6 +682,8 @@ Post a response to an API event.
 Respond to a pagekite event.
 
 Post a response (with data) to an API event.
+
+ See also: doc/Event_API.md
 
 **Arguments**:
 

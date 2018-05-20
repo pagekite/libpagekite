@@ -694,6 +694,8 @@ class PageKite(object):
         disable posting of API events. This can be called at any
         time, but if events outside the mask have already been
         posted (but not handled) they will not be not function.
+        
+        See also: doc/Event_API.md
     
         Args:
            * `unsigned int mask`: A bitmask describing which events we want
@@ -710,6 +712,8 @@ class PageKite(object):
         
         This function blocks until one of the libpagekite worker
         threads posts an API event.
+        
+        See also: doc/Event_API.md
     
         Args:
            * `int timeout`: Max seconds to wait for an event
@@ -726,6 +730,8 @@ class PageKite(object):
         
         This function returns the integer data associated with
         a given API event.
+        
+        See also: doc/Event_API.md
     
         Args:
            * `unsigned int event_code`: The code identifying the event
@@ -742,6 +748,8 @@ class PageKite(object):
         
         This function returns a pointer to the data associated
         with a given API event.
+        
+        See also: doc/Event_API.md
     
         Args:
            * `unsigned int event_code`: The code identifying the event
@@ -757,6 +765,8 @@ class PageKite(object):
         Respond to a pagekite event.
         
         Post a response to an API event.
+        
+         See also: doc/Event_API.md
     
         Args:
            * `unsigned int event_code`: The event code
@@ -773,6 +783,8 @@ class PageKite(object):
         Respond to a pagekite event.
         
         Post a response (with data) to an API event.
+        
+         See also: doc/Event_API.md
     
         Args:
            * `unsigned int event_code`: The event code
