@@ -20,6 +20,8 @@ Note: For alternate license terms, see the file COPYING.md.
 
 HOW IT WORKS:
 
+See also: doc/Event_API.md
+
 We use a queue of events as a coordination point between threads, so
 consumers of the API don't need to understand our internal threading and so
 we don't need to care how many threads are active on the consumer's side.

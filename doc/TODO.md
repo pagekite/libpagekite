@@ -12,6 +12,24 @@ These are Things TO DO for libpagekite.
 
 ## Milestones ##
 
+### Ahead / In progress ###
+
+L/M/H: Low/medium/high priority.
+
+   * [H] pkproto.c: add SSL support - finish cert checking code
+   * [L] pkproto.c: add ZChunk support
+   * [L] pkmanager.c: SOCKS and HTTP proxy support for outgoing connections
+   * [M] pagekite.c: An API method for shutting down a live tunnel
+   * [M] pagekite.c: An API method for configuring a tunnel w/o restart
+   * [-] pkhooks.c & events.py: Add more useful events
+      * [H] Generic: Non-blocking gathering of statistics
+      * [H] Front-end: authentication of incoming kite requests
+      * [M] Front-end: ACLs , quota checks
+      * [L] Back-end: traffic introspection
+      * [L] Back-end: traffic injection / modification?
+   * [M] swarm.py: Implement a front-end relay using pagekite.py configs
+
+
 ### Reached ###
 
    * pkproto.c: parse pagekite proto, emitting a callback for each chunk
@@ -32,24 +50,6 @@ These are Things TO DO for libpagekite.
    * pkmanager.c: add listeners, for built in web UI and relays
    * pkmanager.c: make update/reconnect schedule tweakable
    * bindings: auto-generate JNI bindings and API documentation
-
-### Ahead / In progress ###
-
-   * pkmanager.c: add callbacks for watching/influencing data flow
-   * pkproto.c: add SSL support - finish cert checking code
-
-   * pklua.c: make libpagekite extensible with lua code
-   * pkwebui.c: built-in web server (lua?)
-   * pkconfig.c: parse pagekite.py-style config files
-
-   * pkproto.c: add ZChunk support
-   * pkmanager.c: SOCKS and HTTP proxy support for outgoing connections
-   * pagekitec.c: truly non-blocking pagekite proxy, suitable for front-end
-   * Python wrapper (libpagekite.py)
-
-### External ###
-
-   * pagekite.py: only very rarely, if ever, pings mobile devices.
-   * pagekite.py: block certain requests server side to save traffic.
-   * Maybe: pagekite.py, queue incoming requests in case of reconnect?
-
+   * bindings: auto-generate Python bindings and API documentation
+   * pkhooks.c: Message-based callback API
+   * bindings/python/libpagekite/events.py: Higher level API for callbacks
