@@ -162,6 +162,7 @@ int main(int argc, char **argv) {
       case 'r':
         gotargs++;
         rejection_url = strdup(optarg);
+        break;
       case 'R':
         use_fake_ping = 1;
         break;

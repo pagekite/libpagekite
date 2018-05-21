@@ -255,7 +255,7 @@ char* collapse_whitespace(char* data)
   while (*r) {
     if (isspace(*r)) {
       *w = ' ';
-      *r++;
+      r++;
       if (!isspace(*r)) w++;
     }
     else {
