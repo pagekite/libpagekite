@@ -117,7 +117,7 @@ void pke_init_events(struct pke_events* pke, unsigned int threads) {
   if (_pke_default_pke == NULL)_pke_default_pke = pke;
 }
 
-int _pke_unlocked_free_event(struct pke_events* pke, unsigned int event_code)
+void _pke_unlocked_free_event(struct pke_events* pke, unsigned int event_code)
 {
   PK_TRACE_FUNCTION;
 
