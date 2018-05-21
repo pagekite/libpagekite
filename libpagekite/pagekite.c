@@ -343,7 +343,9 @@ int pagekite_add_service_frontends(pagekite_mgr pkm, int flags) {
 
 int pagekite_free(pagekite_mgr pkm) {
   if (pkm == NULL) return -1;
+#ifdef HAVE_OPENSSL
   if (PK_MANAGER(pkm)->ssl_ctx != NULL) SSL_CTX_free(PK_MANAGER(pkm)->ssl_ctx);
+#endif
   pkm_manager_free(PK_MANAGER(pkm));
   pks_free_ssl_cert_names();
 #ifdef _MSC_VER

@@ -118,6 +118,21 @@ int pkc_listen(struct pk_conn* pkc, struct addrinfo* ai, int backlog)
   return 1;
 }
 
+static void pkc_reset_error_state()
+{
+#ifdef HAVE_OPENSSL
+  unsigned long ssl_errno;
+  char message[257];
+  while (0 != (ssl_errno = ERR_get_error())) {
+    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
+           "Cleared queued SSL ERROR=%ld: %s",
+           ssl_errno, ERR_error_string(ssl_errno, message));
+  }
+  ERR_clear_error();
+#endif
+  errno = 0;
+}
+
 #ifdef HAVE_OPENSSL
 static void pkc_start_handshake(struct pk_conn* pkc, int err)
 {
@@ -145,21 +160,6 @@ static void pkc_end_handshake(struct pk_conn *pkc)
 
   pkc->status &= ~(CONN_STATUS_WANT_WRITE|CONN_STATUS_WANT_READ);
   pkc->state = CONN_SSL_DATA;
-}
-
-static void pkc_reset_error_state()
-{
-#ifdef HAVE_OPENSSL
-  unsigned long ssl_errno;
-  char message[257];
-  while (0 != (ssl_errno = ERR_get_error())) {
-    pk_log(PK_LOG_BE_DATA|PK_LOG_TUNNEL_DATA,
-           "Cleared queued SSL ERROR=%ld: %s",
-           ssl_errno, ERR_error_string(ssl_errno, message));
-  }
-  ERR_clear_error();
-#endif
-  errno = 0;
 }
 
 static void pkc_do_handshake(struct pk_conn *pkc)
