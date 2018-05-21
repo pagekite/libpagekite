@@ -328,7 +328,7 @@ void pk_gettime(struct timespec *tp)
 }
 
 void pk_pthread_condattr_setclock(pthread_condattr_t* cond_attr) {
-#ifdef HAVE_CLOCK_MONOTONIC
+#if defined(HAVE_CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
   /* Check if the monotonic clock works, if it does, configure the
    * condition variable attributes to use it. */
   struct timespec unused_ts;
