@@ -26,7 +26,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_TRACE_LOOP(msg)
 #endif
 
-FILE* PK_DISABLE_LOGGING;
+extern FILE* PK_DISABLE_LOGGING;
 
 int pk_log(int, const char *fmt, ...);
 int pk_log_chunk(struct pk_tunnel*, struct pk_chunk*);

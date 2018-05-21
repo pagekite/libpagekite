@@ -40,8 +40,10 @@ char random_junk[32] = {
 /* The CLOCK_MONOTONIC clock_id may be defined but not actually
  * supported. This flag will be cleared to zero if we find out at
  * runtime that CLOCK_MONOTONIC is not actually usable.
+ *
+ * Note we also need pthread_condattr_setclock atm.
  */
-#ifdef HAVE_CLOCK_MONOTONIC
+#if defined(HAVE_CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
 static int use_clock_gettime = 1;
 #endif
 
@@ -310,7 +312,7 @@ void sleep_ms(int ms)
 
 void pk_gettime(struct timespec *tp)
 {
-#ifdef HAVE_CLOCK_MONOTONIC
+#if defined(HAVE_CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
   if (use_clock_gettime) {
     if (clock_gettime(CLOCK_MONOTONIC, tp) != -1)
       return;
@@ -328,7 +330,7 @@ void pk_gettime(struct timespec *tp)
 }
 
 void pk_pthread_condattr_setclock(pthread_condattr_t* cond_attr) {
-#ifdef HAVE_CLOCK_MONOTONIC
+#if defined(HAVE_CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
   /* Check if the monotonic clock works, if it does, configure the
    * condition variable attributes to use it. */
   struct timespec unused_ts;
@@ -341,7 +343,7 @@ void pk_pthread_condattr_setclock(pthread_condattr_t* cond_attr) {
 
 time_t pk_time()
 {
-#ifdef HAVE_CLOCK_MONOTONIC
+#if defined(HAVE_CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
   struct timespec tp;
   if (use_clock_gettime) {
     if (clock_gettime(CLOCK_MONOTONIC, &tp) != -1)

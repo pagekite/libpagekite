@@ -138,7 +138,7 @@ AC_TYPE_UINT8_T
 # Checks for library functions.
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([dup2 gethostbyname gettimeofday inet_ntoa malloc memmove memset select socket strcasecmp strchr strdup strerror strncasecmp strrchr uname sched_yield pthread_yield pthread_yield_np])
+AC_CHECK_FUNCS([dup2 gethostbyname gettimeofday inet_ntoa malloc memmove memset select socket strcasecmp strchr strdup strerror strncasecmp strrchr uname sched_yield pthread_yield pthread_yield_np pthread_condattr_setclock])
 
 # Check for clock_gettime + CLOCK_MONOTONIC
 AC_SEARCH_LIBS(clock_gettime, rt,
