@@ -1076,7 +1076,8 @@ int pk_http_forwarding_headers_hook(struct pk_chunk* chunk,
   if (chunk->first_chunk &&
       chunk->request_proto &&
       chunk->remote_ip &&
-      (0 == strcasecmp(chunk->request_proto, "http")) &&
+      ((0 == strcasecmp(chunk->request_proto, "http")) ||
+       (0 == strcasecmp(chunk->request_proto, "websocket"))) &&
       (strlen(chunk->remote_ip) < 128) &&
       (chunk->length < PARSER_BYTES_MAX))
   {
