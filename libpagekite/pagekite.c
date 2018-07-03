@@ -608,6 +608,19 @@ char* pagekite_get_log(pagekite_mgr pkm) {
   return buffer;
 }
 
+char* pagekite_get_log_threadsafe(pagekite_mgr pkm) {
+  char *buffer;
+  if (pkm == NULL) {
+    buffer = strdup(buffer, "Not running.");
+  }
+  else {
+    char tmp[PKS_LOG_DATA_MAX+1];
+    pks_copylog(tmp);
+    buffer = strdup(tmp);
+  }
+  return buffer;
+}
+
 int pagekite_dump_state_to_log(pagekite_mgr pkm)
 {
   pk_dump_state(PK_MANAGER(pkm));

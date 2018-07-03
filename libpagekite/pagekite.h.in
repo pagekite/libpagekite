@@ -715,6 +715,18 @@ DECLSPEC_DLL char* pagekite_get_log(
 );
 
 
+/* Lifecycle: Fetch the in-memory log buffer.
+ *
+ *   This function is like pagekite_get_log, but is reentrant and threadsafe.
+ *
+ * Returns: a snapshot of the current log status; the buffer returned should be
+ * subsequently freed.
+ */
+DECLSPEC_DLL char* char* pagekite_get_log_threadsafe(
+    pagekite_mgr        /* A reference to the PageKite manager object */
+);
+
+
 /* Lifecycle: Dump summary of internal state to log.
  *
  *    This function can be called at any time.

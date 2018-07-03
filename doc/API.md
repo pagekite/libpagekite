@@ -34,6 +34,7 @@
       * [`pagekite_event_respond_with_data            `](#pgktvntrspndwthdt)
       * [`pagekite_get_status                         `](#pgktgtstts)
       * [`pagekite_get_log                            `](#pgktgtlg)
+      * [`pagekite_get_log_threadsafe                 `](#pgktgtlgts)
       * [`pagekite_dump_state_to_log                  `](#pgktdmpstttlg)
       * [`pagekite_poll                               `](#pgktpll)
       * [`pagekite_tick                               `](#pgkttck)
@@ -720,6 +721,8 @@ Fetch the in-memory log buffer.
 Note that the C-API version returns a pointer to a static buffer.
 Subsequent calls will overwrite with new data.
 
+This function is not threadsafe or reentrant, for that, use `pagekite_get_log_threadsafe`.
+
 This function can be called at any time.
 
 **Arguments**:
@@ -728,6 +731,22 @@ This function can be called at any time.
 
 **Returns**: A snapshot of the current log status.
 
+
+<a                                                     name="pgktgtlgts"><hr></a>
+
+#### `char *pagekite_get_log_threadsafe(...)`
+
+Fetch the in-memory log buffer.
+
+This function can be called at any time.
+
+**Arguments**:
+
+   * `pagekite_mgr`: A reference to the PageKite manager object
+
+This function is like `pagekite_get_log`, but is reentrant and threadsafe.
+
+**Returns**: A snapshot of the current log status; the buffer returned should be subsequently freed.
 
 <a                                                name="pgktdmpstttlg"><hr></a>
 
@@ -893,4 +912,4 @@ PK_EV_RESPOND_OK = 0x00000001
 PK_EV_RESPOND_ACCEPT = 0x00000002  
 PK_EV_RESPOND_FALSE = 0x0000ff00  
 PK_EV_RESPOND_ABORT = 0x00000100  
-PK_EV_RESPOND_REJECT = 0x00000200  
+PK_EV_RESPOND_REJECT = 0x00000200
