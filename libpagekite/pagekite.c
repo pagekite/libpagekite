@@ -616,6 +616,7 @@ char* pagekite_get_log_threadsafe(pagekite_mgr pkm) {
   else {
     char tmp[PKS_LOG_DATA_MAX+1];
     pks_copylog(tmp);
+    tmp[PKS_LOG_DATA_MAX] = '\0';
     buffer = strdup(tmp);
   }
   return buffer;
