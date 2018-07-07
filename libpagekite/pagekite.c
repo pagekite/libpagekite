@@ -447,6 +447,8 @@ int pagekite_set_conn_eviction_idle_s(pagekite_mgr pkm, int seconds)
 int pagekite_set_openssl_ciphers(pagekite_mgr pkm, const char* ciphers)
 {
   (void) pkm;
+  if(pk_state.ssl_ciphers != NULL && pk_state.ssl_ciphers != PKS_DEFAULT_CIPHERS)
+    free(pk_state.ssl_ciphers);
   pk_state.ssl_ciphers = strdup(ciphers);
   return 0;
 }
