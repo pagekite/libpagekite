@@ -72,9 +72,9 @@ static void pk_ssl_locking_function(int mode, int n, const char *file, int line)
     MUTEX_UNLOCK(pk_ssl_mutex_buf[n]);
 }
 
-static unsigned long pk_ssl_id_function(void)
+static void pk_ssl_id_function(CRYPTO_THREADID *id)
 {
-  return ((unsigned long)THREAD_ID);
+  CRYPTO_THREADID_set_numeric(id, (unsigned long)THREAD_ID);
 }
 #endif
 
@@ -87,7 +87,7 @@ int pk_ssl_thread_setup(void)
     return 0;
   for(i = 0;  i < CRYPTO_num_locks();  i++)
     MUTEX_SETUP(pk_ssl_mutex_buf[i]);
-  CRYPTO_set_id_callback(pk_ssl_id_function);
+  CRYPTO_THREADID_set_callback(pk_ssl_id_function);
   CRYPTO_set_locking_callback(pk_ssl_locking_function);
 #endif
   return 1;
@@ -99,7 +99,7 @@ int pk_ssl_thread_cleanup(void)
   int i;
   if(!mutex_buf)
     return 0;
-  CRYPTO_set_id_callback(NULL);
+  CRYPTO_THREADID_set_callback(NULL);
   CRYPTO_set_locking_callback(NULL);
   for(i = 0;  i < CRYPTO_num_locks();  i++)
     MUTEX_CLEANUP(pk_ssl_mutex_buf[i]);
