@@ -578,7 +578,7 @@ void pkb_log_fe_status(struct pk_manager* pkm)
         ddnsinfo[0] = '\0';
         if (fe->last_ddnsup) {
           ddnsup_ago = pk_time() - fe->last_ddnsup;
-          sprintf(ddnsinfo, " (in DNS %us ago)", ddnsup_ago);
+          sprintf(ddnsinfo, " (in DNS %ds ago)", ddnsup_ago);
         }
         pk_log(PK_LOG_MANAGER_DEBUG,
                "Relay; status=0x%8.8x; errors=%d; info=%s%s%s%s%s%s%s%s%s",

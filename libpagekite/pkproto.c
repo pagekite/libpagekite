@@ -388,7 +388,7 @@ size_t pk_format_frame(char* buf, const char* sid,
   size_t hlen;
   if (!sid) sid = "";
   hlen = strlen(sid) + strlen(headers) - 2;
-  hlen = sprintf(buf, "%lx\r\n", hlen + bytes);
+  hlen = sprintf(buf, "%zx\r\n", hlen + bytes);
   return hlen + sprintf(buf + hlen, headers, sid);
 }
 
@@ -1282,10 +1282,10 @@ static int pkproto_test_alloc(unsigned int buf_len, char *buffer,
       (f_offs + p->buffer_bytes_left != buf_len))
   {
     printf("Offsets within buffer:\n");
-    printf(" Parser     %2.2d (size: %zd)\n", p_offs, sizeof(struct pk_parser));
-    printf(" Chunk      %2.2d (size: %zd)\n", c_offs, sizeof(struct pk_chunk));
-    printf(" Frame data %2.2d\n", f_offs);
-    printf(" Space left %2d/%d\n", p->buffer_bytes_left, buf_len);
+    printf(" Parser     %2.2u (size: %zu)\n", p_offs, sizeof(struct pk_parser));
+    printf(" Chunk      %2.2u (size: %zu)\n", c_offs, sizeof(struct pk_chunk));
+    printf(" Frame data %2.2u\n", f_offs);
+    printf(" Space left %2d/%u\n", p->buffer_bytes_left, buf_len);
     return 0;
   }
   return 1;
