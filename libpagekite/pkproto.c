@@ -577,7 +577,7 @@ int pk_make_salt(char* salt) {
 char* pk_sign(const char* token, const char* secret, time_t ts,
               const char* payload, int length, char *buffer)
 {
-  char tbuffer[128], tsbuf[12], scratch[10240];
+  char tbuffer[128], tsbuf[16], scratch[10240];
 
   PK_TRACE_FUNCTION;
 

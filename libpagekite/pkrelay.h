@@ -24,7 +24,5 @@ struct pk_listener {
   int lport;
 };
 
-struct pk_listener* pkr_add_listener(struct pk_manager*, int);
-struct pk_listener* pkr_add_listener_v6(struct pk_manager*, int);
 void pkr_relay_incoming(int, void*);
 int pkrelay_test(void);

@@ -486,7 +486,7 @@ void pkr_new_conn_readable_cb(EV_P_ ev_io* w, int revents)
   (void) revents;
 }
 
-void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
+int pkr_conn_accepted_cb(int sockfd, void* void_pkm)
 {
   struct incoming_conn_state* ics;
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
@@ -524,7 +524,7 @@ void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
   if (NULL == (pkb = pkm_alloc_be_conn(pkm, NULL, lbuf))) {
     _pkr_close(ics, PK_LOG_ERROR, "BE alloc failed");
     PKS_close(sockfd);
-    return;
+    return -1;
   }
 
   pkb->kite = NULL;
@@ -539,6 +539,7 @@ void pkr_conn_accepted_cb(int sockfd, void* void_pkm)
              EV_READ);
   pkb->conn.watch_r.data = (void *) ics;
   ev_io_start(pkm->loop, &(pkb->conn.watch_r));
+  return 0;
 }
 
 
@@ -557,13 +558,13 @@ int pagekite_add_relay_listener(pagekite_mgr pkm, int port, int flags)
 #ifdef HAVE_IPV6
   if (flags & PK_WITH_IPV6) {
     return pkm_add_listener(m, "::", port,
-                            (pagekite_callback2_t*) &pkr_conn_accepted_cb,
+                            (pagekite_callback_t*) &pkr_conn_accepted_cb,
                             (void*) m);
   }
 #endif
   if (flags & PK_WITH_IPV4) {
     return pkm_add_listener(m, "0.0.0.0", port,
-                            (pagekite_callback2_t*) &pkr_conn_accepted_cb,
+                            (pagekite_callback_t*) &pkr_conn_accepted_cb,
                             (void*) m);
   }
   return (pk_error = ERR_NO_IPVX);
