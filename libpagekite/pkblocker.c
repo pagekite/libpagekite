@@ -420,8 +420,13 @@ void* pkb_tunnel_ping(void* void_fe) {
                  + 1;
 
     if (strcasestr(buffer, PK_FRONTEND_OVERLOADED) != NULL) {
-      fe->priority += 1000;
-      sleep(2); /* We don't want to return first! */
+      if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST)) {
+        fe->priority += 50;
+      }
+      else {
+        fe->priority += 250;
+      }
+      sleep(1); /* We don't want to return first! */
     }
   }
 
