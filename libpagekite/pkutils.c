@@ -314,8 +314,10 @@ void pk_gettime(struct timespec *tp)
 {
 #if defined(HAVE_CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
   if (use_clock_gettime) {
-    if (clock_gettime(CLOCK_MONOTONIC, tp) != -1)
+    if (clock_gettime(CLOCK_MONOTONIC, tp) != -1) {
+      tp->tv_sec += 1;  /* The +1 avoids ever returning zero */
       return;
+    }
 
     if (errno == EINVAL)
       use_clock_gettime = 0;
@@ -347,7 +349,7 @@ time_t pk_time()
   struct timespec tp;
   if (use_clock_gettime) {
     if (clock_gettime(CLOCK_MONOTONIC, &tp) != -1)
-      return tp.tv_sec;
+      return (tp.tv_sec + 1); /* The +1 avoids ever returning zero */
 
     if (errno == EINVAL)
       use_clock_gettime = 0;
