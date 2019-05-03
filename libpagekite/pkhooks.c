@@ -114,7 +114,7 @@ void pke_init_events(struct pke_events* pke, unsigned int threads) {
   pthread_mutex_init(&(pke->lock), NULL);
   pthread_cond_init(&(pke->trigger), &shared_condattr);
 
-  if (_pke_default_pke == NULL)_pke_default_pke = pke;
+  _pke_default_pke = pke;
 }
 
 void _pke_unlocked_free_event(struct pke_events* pke, unsigned int event_code)
