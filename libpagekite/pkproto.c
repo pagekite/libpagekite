@@ -708,7 +708,7 @@ char *pk_parse_kite_request(
   copy = malloc(llen+1);
   strcpy(copy, line);
 
-  char* end = copy + llen + 1;
+  char* end = copy + llen;
   *end = '\0';
 
   /* Parse the string... */
