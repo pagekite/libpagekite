@@ -230,6 +230,7 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
   PK_TRACE_FUNCTION;
 
   memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_flags = AI_ADDRCONFIG;
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
 
@@ -262,6 +263,11 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
         }
       }
       freeaddrinfo(result);
+    }
+    else if (rv != 0) {
+      pk_log(PK_LOG_MANAGER_DEBUG,
+             "pkb_check_kites_dns: getaddrinfo(%s) failed:",
+             kite->public_domain, gai_strerror(rv));
     }
   }
 

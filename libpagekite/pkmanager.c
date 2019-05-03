@@ -1261,7 +1261,7 @@ int pkm_add_listener(struct pk_manager* pkm,
                      pagekite_callback_t callback_func,
                      void* callback_data)
 {
-  int ok, errors, lport;
+  int ok, errors, lport, rv;
   struct addrinfo hints;
   struct addrinfo* result;
   struct addrinfo* rp;
@@ -1271,14 +1271,16 @@ int pkm_add_listener(struct pk_manager* pkm,
   PK_TRACE_FUNCTION;
 
   memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_flags = AI_ADDRCONFIG;
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   sprintf(sport, "%d", port);
 
   lport = ok = errors = 0;
-  if (0 != getaddrinfo(hostname, sport, &hints, &result)) {
+  if (0 != (rv = getaddrinfo(hostname, sport, &hints, &result))) {
     pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
-           "pkm_add_listener: getaddrinfo() failed for %s", hostname);
+           "pkm_add_listener: getaddrinfo(%s, %s) failed:",
+           hostname, sport, gai_strerror(rv));
     errors++;
   }
   else {
@@ -1346,6 +1348,7 @@ int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
   if (port < 1) port = 443;
 
   memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_flags = AI_ADDRCONFIG;
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   sprintf(sport, "%d", port);
@@ -1366,6 +1369,11 @@ int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
       }
     }
     freeaddrinfo(result);
+  }
+  else {
+    pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
+           "pkm_lookup_and_add_frontend: getaddrinfo(%s, %s) failed:",
+           hostname, sport, gai_strerror(rv));
   }
 
   if (!count && add_null_record) {

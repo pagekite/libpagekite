@@ -531,6 +531,7 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
 
   total_bytes = 0;
   memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_flags = AI_ADDRCONFIG;
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   if (0 == getaddrinfo(hostname, port, &hints, &result)) {

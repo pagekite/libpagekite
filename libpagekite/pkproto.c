@@ -1045,10 +1045,11 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
                               frontend, port, n, requests);
 
   memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_flags = AI_ADDRCONFIG;
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   sprintf(ports, "%d", port);
-  if (0 == getaddrinfo(frontend, ports, &hints, &result)) {
+  if (0 == (rv = getaddrinfo(frontend, ports, &hints, &result))) {
     for (rp = result; rp != NULL; rp = rp->ai_next) {
       rv = pk_connect_ai(pkc, rp, 0, n, requests, session_id, ctx, frontend);
       if ((rv >= 0) ||
@@ -1060,6 +1061,9 @@ int pk_connect(struct pk_conn* pkc, char *frontend, int port,
     freeaddrinfo(result);
   }
   else {
+    pk_log(PK_LOG_TUNNEL_CONNS|PK_LOG_ERROR,
+           "pk_connect: getaddrinfo(%s, %s) failed:",
+           frontend, ports, gai_strerror(rv));
     return (pk_error = ERR_CONNECT_LOOKUP);
   }
   return (pk_error = ERR_CONNECT_CONNECT);
