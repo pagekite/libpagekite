@@ -281,7 +281,7 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
   dns_fe = NULL;
   PK_TUNNEL_ITER(pkm, fe) {
     if (fe->ai.ai_addr && fe->fe_hostname) {
-      if (fe->last_ddnsup > ddns_window) {
+      if ((fe->last_ddnsup > 0) && (fe->last_ddnsup > ddns_window)) {
         fe->conn.status |= FE_STATUS_IN_DNS;
         in_dns++;
       }
@@ -581,7 +581,7 @@ void pkb_log_fe_status(struct pk_manager* pkm)
     if (fe->ai.ai_addr && fe->fe_hostname) {
       if (NULL != in_addr_to_str(fe->ai.ai_addr, printip, 128)) {
         ddnsinfo[0] = '\0';
-        if (fe->last_ddnsup) {
+        if (fe->last_ddnsup > 0) {
           ddnsup_ago = pk_time() - fe->last_ddnsup;
           sprintf(ddnsinfo, " (in DNS %us ago)", ddnsup_ago);
         }
