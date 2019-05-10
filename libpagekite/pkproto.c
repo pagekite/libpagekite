@@ -852,6 +852,7 @@ struct pk_kite_request* pk_parse_pagekite_response(
       else if (strncasecmp(p+11, "Invalid-Why:", 12) == 0) {
         /* FIXME: Parse the reason out of the response */
         /* FIXME: Backtrack rp to avoid duplicate entries response? */
+        pk_log(PK_LOG_TUNNEL_DATA, "Why: %s", p+11+13);
       }
                                /* 123456789 = 9 bytes */
       else if (strncasecmp(p+11, "SignThis:", 9) == 0) {
