@@ -548,7 +548,7 @@ int http_get(const char* url, char* result_buffer, size_t maxlen)
         total_bytes = 0;
         bp = result_buffer;
         do {
-          bytes = timed_read(sockfd, bp, maxlen-(1+total_bytes), 1000);
+          bytes = timed_read(sockfd, bp, maxlen-(1+total_bytes), 5000);
           if (bytes > 0) {
             bp += bytes;
             total_bytes += bytes;
