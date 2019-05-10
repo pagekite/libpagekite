@@ -880,7 +880,10 @@ struct pk_kite_request* pk_parse_pagekite_response(
       }
 
       if (rp->status != PK_KITE_UNKNOWN) {
-        if (NULL != pk_parse_kite_request(rp, NULL, p)) rp++;
+        if ((NULL != pk_parse_kite_request(rp, NULL, p)) ||
+            (rp->status != PK_KITE_FLYING)) {
+          rp++;
+        }
       }
     }
 
@@ -988,8 +991,9 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
         case PK_KITE_INVALID:
           pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
           free(rkites);
-          return ((pkr->status == PK_KITE_DUPLICATE) ? ERR_CONNECT_DUPLICATE
-                                                     : ERR_CONNECT_REJECTED);
+          return (pk_error = (
+            (pkr->status == PK_KITE_DUPLICATE) ? ERR_CONNECT_DUPLICATE
+                                               : ERR_CONNECT_REJECTED));
         case PK_KITE_WANTSIG:
           for (j = 0; j < n; j++) {
             if ((requests[j].kite->protocol[0] != '\0') &&
@@ -1008,6 +1012,11 @@ int pk_connect_ai(struct pk_conn* pkc, struct addrinfo* ai, int reconnecting,
       }
     }
     free(rkites);
+  }
+  else {
+    pkc_reset_conn(pkc, CONN_STATUS_CHANGING|CONN_STATUS_ALLOCATED);
+    pk_log(PK_LOG_TUNNEL_DATA, "No response parsed, treating as rejection.");
+    return (pk_error = ERR_CONNECT_REJECTED);
   }
 
   if (i) {
