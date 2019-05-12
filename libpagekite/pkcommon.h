@@ -85,6 +85,7 @@
 #  define SHUT_RDWR 2
 typedef SSIZE_T ssize_t;
 #endif
+#include <ctype.h>
 
 #ifndef ANDROID
 typedef signed char               int8_t;

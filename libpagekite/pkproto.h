@@ -29,6 +29,7 @@ Note: For alternate license terms, see the file COPYING.md.
 
 #define PK_FRONTEND_PING "GET /ping HTTP/1.1\r\nHost: ping.pagekite\r\n\r\n"
 #define PK_FRONTEND_PONG "HTTP/1.1 503 Unavailable"
+#define PK_FRONTEND_UUID "X-PageKite-UUID:"
 #define PK_FRONTEND_OVERLOADED "X-PageKite-Overloaded:"
 
 #define PK_HANDSHAKE_CONNECT "CONNECT PageKite:1 HTTP/1.0\r\n"

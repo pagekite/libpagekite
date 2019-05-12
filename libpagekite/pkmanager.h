@@ -47,6 +47,7 @@ struct pk_tunnel {
   int                     fe_port;
   time_t                  last_ddnsup;
   int                     priority;
+  char*                   fe_uuid;
   /* These apply to all tunnels (frontend or backend) */
   struct addrinfo         ai;
   struct pk_conn          conn;

@@ -355,9 +355,10 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
           (fe->last_ping < obsolete) &&
           (fe->conn.sockfd <= 0))
       {
-        free(fe->fe_hostname);
+        if (fe->fe_uuid != NULL) free(fe->fe_uuid);
+        if (fe->fe_hostname != NULL) free(fe->fe_hostname);
         free_addrinfo_data(&fe->ai);
-        fe->fe_hostname = NULL;
+        fe->fe_hostname = fe->fe_uuid = NULL;
       }
     }
   }
@@ -371,7 +372,7 @@ void* pkb_tunnel_ping(void* void_fe) {
   struct pk_tunnel* fe = (struct pk_tunnel*) void_fe;
   struct timespec tp1, tp2;
   struct timeval to;
-  char buffer[1024], printip[1024];
+  char buffer[1024], printip[1024], *uuid, *overload;
   int sockfd, bytes, want;
 
   PK_TRACE_FUNCTION;
@@ -403,11 +404,11 @@ void* pkb_tunnel_ping(void* void_fe) {
       return NULL;
     }
 
-    /* Magic number: 116 bytes is the shortest response we expect. It is
-     * still long enough to contain the X-PageKite-Overloaded marker, if
-     * present at all. */
-    bytes = timed_read(sockfd, buffer, 116, 1000);
-    buffer[116] = '\0';
+    /* Magic number: 120 bytes is ~the shortest response we expect. It is
+     * still long enough to contain the X-PageKite-Overloaded and UUID
+     * marker, if present at all. */
+    bytes = timed_read(sockfd, buffer, 120, 1000);
+    buffer[120] = '\0';
 
     PKS_close(sockfd);
 
@@ -426,34 +427,72 @@ void* pkb_tunnel_ping(void* void_fe) {
                  + ((tp2.tv_nsec - tp1.tv_nsec) / 1000000)
                  + 1;
 
-    if (strcasestr(buffer, PK_FRONTEND_OVERLOADED) != NULL) {
+    if ((overload = strcasestr(buffer, PK_FRONTEND_OVERLOADED)) != NULL) {
       if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST)) {
         fe->priority += 50;
       }
       else {
         fe->priority += 250;
       }
-      sleep(1); /* We don't want to return first! */
+    }
+
+    if (NULL == fe->fe_uuid) {
+      if ((uuid = strcasestr(buffer, PK_FRONTEND_UUID)) != NULL) {
+        uuid += strlen(PK_FRONTEND_UUID);
+        while (isspace(*uuid)) uuid++;
+        zero_first_crlf(116, uuid);
+        fe->fe_uuid = strdup(uuid);
+      }
+    }
+
+    if (overload != NULL) sleep(1); /* We don't want to return first! */
+  }
+
+  if (fe->fe_uuid) {
+    /* If we have a UUID, check if this server has already pinged under a
+     * different IP: if so, we compare priorities and bow out if the other
+     * is already preferred. Normally, if they have a priority, that means
+     * their ping returned before us, so that route *is* faster. We're
+     * lowering our priority mostly so other relays get consideration in
+     * the case where we're connecting to multiples.
+     */
+    PK_TUNNEL_ITER(fe->manager, other_fe) {
+      if ((fe != other_fe) &&
+          (other_fe->fe_uuid != NULL) &&
+          (other_fe->priority > 0) &&
+          (0 == strcmp(fe->fe_uuid, other_fe->fe_uuid)) &&
+          (other_fe->priority < fe->priority)) {
+        fe->priority += 10000;
+        pk_log(PK_LOG_MANAGER_DEBUG,
+               "Ping %s: %dms (fake/dup, UUID=%s)",
+               printip, fe->priority, fe->fe_uuid);
+      }
     }
   }
 
-  if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST))
+  if (fe->priority > 10000) {
+    /* This is very high, just ignore it. */
+  }
+  else if (fe->conn.status & (FE_STATUS_WANTED|FE_STATUS_IS_FAST))
   {
     /* Bias ping time to make old decisions a bit more sticky. We ignore
      * DNS though, to allow a bit of churn to spread the load around and
-     * make sure new tunnels don't stay ignored forever. */
-    fe->priority /= 10;
+     * make sure new relays don't stay ignored forever. */
     fe->priority *= 9;
+    fe->priority /= 10;
     if (fe->priority < 1) fe->priority = 1;
     pk_log(PK_LOG_MANAGER_DEBUG,
-           "Ping %s: %dms (biased)", printip, fe->priority);
+           "Ping %s: %dms (biased, uuid=%s)",
+           printip, fe->priority, fe->fe_uuid);
   }
   else {
     /* Add artificial +/-5% jitter to ping results */
     fe->priority *= ((rand() % 11) + 95);
     fe->priority /= 100;
     if (fe->priority < 1) fe->priority = 1;
-    pk_log(PK_LOG_MANAGER_DEBUG, "Ping %s: %dms", printip, fe->priority);
+    pk_log(PK_LOG_MANAGER_DEBUG,
+           "Ping %s: %dms (uuid=%s)",
+           printip, fe->priority, fe->fe_uuid);
   }
 
   PK_CHECK_MEMORY_CANARIES;

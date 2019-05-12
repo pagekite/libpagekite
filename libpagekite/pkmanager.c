@@ -1744,8 +1744,10 @@ void pkm_manager_free(struct pk_manager* pkm)
   }
 
   PK_TUNNEL_ITER(pkm, fe) {
+    if (fe->fe_uuid != NULL) free(fe->fe_uuid);
     if (fe->fe_hostname != NULL) free(fe->fe_hostname);
     free_addrinfo_data(&fe->ai);
+    fe->fe_uuid = fe->fe_hostname = NULL;
   }
 
   if (pkm->was_malloced) {
