@@ -44,6 +44,8 @@ public class PageKiteAPI extends Object
     public static final int PK_WITH_SRAND_RESEED = 0x0080;
     public static final int PK_AS_FRONTEND_RELAY = 0x0100;
     public static final int PK_WITH_SYSLOG = 0x0200;
+    public static final int PK_WITH_IPV4_DNS = 0x0400;
+    public static final int PK_WITH_IPV6_DNS = 0x0800;
     public static final int PK_LOG_TUNNEL_DATA = 0x000100;
     public static final int PK_LOG_TUNNEL_HEADERS = 0x000200;
     public static final int PK_LOG_TUNNEL_CONNS = 0x000400;

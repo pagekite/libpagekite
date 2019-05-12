@@ -53,6 +53,8 @@ struct pk_global_state {
 #ifdef HAVE_IPV6
   unsigned int    use_ipv6:1;
 #endif
+  unsigned int    ddns_request_public_ipv4:1;
+  unsigned int    ddns_request_public_ipv6:1;
 
   /* Global program state */
   unsigned int    live_streams;

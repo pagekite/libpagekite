@@ -62,6 +62,8 @@ WARNING: This file is processed automatically to generate the JNI and API
 #define PK_WITH_SRAND_RESEED         0x0080
 #define PK_AS_FRONTEND_RELAY         0x0100
 #define PK_WITH_SYSLOG               0x0200
+#define PK_WITH_IPV4_DNS             0x0400
+#define PK_WITH_IPV6_DNS             0x0800
 
 /* Constants: PageKite logging constants */
 #define PK_LOG_TUNNEL_DATA     0x000100

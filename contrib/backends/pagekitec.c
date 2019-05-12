@@ -64,6 +64,7 @@ void usage(int ecode) {
                   "\t-P x\tUse x (a port number) as frontend port\n"
                   "\t-R\tChoose frontends at random, instead of pinging\n"
                   "\t-N\tDisable DNS-based updates of available frontends\n"
+                  "\t-V 46\tRequest DNS visibility on IPv6 and/or IPv4\n"
                   "\t-4\tDisable IPv4 frontends\n");
 #ifdef HAVE_IPV6
   fprintf(stderr, "\t-6\tDisable IPv6 frontends\n");
@@ -127,7 +128,7 @@ int main(int argc, char **argv) {
   flags |= PK_WITH_IPV6;
 #endif
 
-  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIl:Nn:qr:RsSvWw:Z"))) {
+  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIl:Nn:qr:RsSvV:Ww:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -137,6 +138,11 @@ int main(int argc, char **argv) {
         flags &= ~PK_WITH_IPV6;
         break;
 #endif
+      case 'V':
+        gotargs++;
+        if (strchr(optarg, '4') != NULL) flags |= PK_WITH_IPV4_DNS;
+        if (strchr(optarg, '6') != NULL) flags |= PK_WITH_IPV6_DNS;
+        break;
       case 'a':
         gotargs++;
         app_name = strdup(optarg);

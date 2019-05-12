@@ -88,6 +88,8 @@ pagekite_mgr pagekite_init(
 #ifdef HAVE_IPV6
   pk_state.use_ipv6 = (0 != (flags & PK_WITH_IPV6));
 #endif
+  pk_state.ddns_request_public_ipv4 = (0 != (flags & PK_WITH_IPV4_DNS));
+  pk_state.ddns_request_public_ipv6 = (0 != (flags & PK_WITH_IPV6_DNS));
 
   if (flags & PK_WITH_SSL) {
     PKS_SSL_INIT(ssl_ctx);

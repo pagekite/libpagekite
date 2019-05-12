@@ -338,7 +338,8 @@ int pkb_check_frontend_dns(struct pk_manager* pkm)
       have_nulls += 1;
     }
   }
-  pk_log(PK_LOG_MANAGER_DEBUG, "Found %d new IPs", changes);
+  pk_log(changes ? PK_LOG_MANAGER_INFO : PK_LOG_MANAGER_DEBUG,
+         "Found %d new frontend IPs", changes);
 
   /* 2nd pass: walk through list and remove obsolete entries
    * We only do this if we have null records which will let us re-discover
@@ -542,6 +543,11 @@ int pkb_update_dns(struct pk_manager* pkm)
 
       sprintf(url, pkm->dynamic_dns_url,
               kite->public_domain, address_list, signature);
+      if (pk_state.ddns_request_public_ipv4 || pk_state.ddns_request_public_ipv6) {
+        strcat(url, "&ipv=");
+        if (pk_state.ddns_request_public_ipv4) strcat(url, "4");
+        if (pk_state.ddns_request_public_ipv6) strcat(url, "6");
+      }
       rlen = http_get(url, get_result, 10240);
 
       if (rlen < 1) {
@@ -553,8 +559,8 @@ int pkb_update_dns(struct pk_manager* pkm)
         result = skip_http_header(rlen, get_result);
         if ((strncasecmp(result, "nochg", 5) == 0) ||
             (strncasecmp(result, "good", 4) == 0)) {
-          pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update OK, %s=%s",
-                                      kite->public_domain, address_list);
+          pk_log(PK_LOG_MANAGER_INFO, "DDNS: Update OK, %s=%s via %s",
+                                      kite->public_domain, address_list, url);
           for (fes = fe_list; *fes; fes++) {
             (*fes)->last_ddnsup = pk_time();
             (*fes)->conn.status |= FE_STATUS_IN_DNS;
