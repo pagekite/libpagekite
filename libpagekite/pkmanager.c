@@ -837,6 +837,26 @@ int pkm_reconnect_all(struct pk_manager* pkm, int ignore_errors) {
       continue;
     }
 
+    /* Ignore this relay if we already have a live connection to the same
+     * one using a different IP (recognized by identical UUIDs).
+     */
+    if (fe->fe_uuid != NULL) {
+      struct pk_tunnel* live = NULL;
+      PK_TUNNEL_ITER(pkm, other_fe) {
+        if ((fe != other_fe) &&
+            (other_fe->fe_uuid != NULL) &&
+            (other_fe->conn.sockfd > -1) &&
+            (0 == strcmp(other_fe->fe_uuid, fe->fe_uuid)))
+          live = other_fe;
+      }
+      if (live != NULL) {
+        pk_log(PK_LOG_MANAGER_DEBUG,
+               "Not making second connection to %s, %d is live.",
+               fe->fe_uuid, live->conn.sockfd);
+        continue;
+      }
+    }
+
     if ((fe->requests == NULL) ||
         (fe->request_count != pkm->kite_max) ||
         (fe->conn.sockfd < 0)) {
