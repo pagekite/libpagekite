@@ -440,7 +440,9 @@ void* pkb_tunnel_ping(void* void_fe) {
       if ((uuid = strcasestr(buffer, PK_FRONTEND_UUID)) != NULL) {
         uuid += strlen(PK_FRONTEND_UUID);
         while (isspace(*uuid)) uuid++;
-        zero_first_crlf(116, uuid);
+        zero_first_crlf(120, uuid);  /* Magic number matches the above. We know
+                                       this is safe because len(buffer) == 1024
+                                      and 120+len(PK_FRONTEND_UUID) << 1024. */
         fe->fe_uuid = strdup(uuid);
       }
     }
