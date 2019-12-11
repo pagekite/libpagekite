@@ -194,6 +194,7 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx, const char* hostname)
   long mode;
 
   mode = SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER;
+  mode |= SSL_MODE_AUTO_RETRY;
   mode |= SSL_MODE_ENABLE_PARTIAL_WRITE;
 #ifdef SSL_MODE_RELEASE_BUFFERS
   mode |= SSL_MODE_RELEASE_BUFFERS;
@@ -212,18 +213,22 @@ int pkc_start_ssl(struct pk_conn* pkc, SSL_CTX* ctx, const char* hostname)
       hostname = NULL;
     }
 
+  long sm, sa, sc, sf, st;
+  sm = sa = sc = sf = st = -1;
   if ((NULL == (pkc->ssl = SSL_new(ctx))) ||
-      (mode != SSL_set_mode(pkc->ssl, mode)) ||
-      (1 != SSL_set_app_data(pkc->ssl, pkc)) ||
-      (1 != SSL_set_cipher_list(pkc->ssl, pk_state.ssl_ciphers)) ||
-      (1 != SSL_set_fd(pkc->ssl, PKS(pkc->sockfd))) ||
+      (mode != (mode & (sm = SSL_set_mode(pkc->ssl, mode)))) ||
+      (1 != (sa = SSL_set_app_data(pkc->ssl, pkc))) ||
+      (1 != (sc = SSL_set_cipher_list(pkc->ssl, pk_state.ssl_ciphers))) ||
+      (1 != (sf = SSL_set_fd(pkc->ssl, PKS(pkc->sockfd)))) ||
       /* FIXME: This should be the certificate name we will validate against */
-      (1 != ((hostname == NULL) ? 1 : SSL_set_tlsext_host_name(pkc->ssl, hostname))))
+      (1 != (st = ((hostname == NULL) ? 1 : SSL_set_tlsext_host_name(pkc->ssl, hostname)))))
   {
     if (pkc->ssl != NULL) SSL_free(pkc->ssl);
     pkc->ssl = NULL;
     pk_log(PK_LOG_BE_CONNS | PK_LOG_TUNNEL_CONNS | PK_LOG_ERROR,
-           "%d[pkc_start_ssl]: Failed to prepare SSL object!", pkc->sockfd);
+           "%d[pkc_start_ssl]: Failed to prepare SSL object!"
+           " (ssl=%p, sm=%ld, sa=%ld, sc=%ld, sf=%ld, st=%ld)",
+           pkc->sockfd, pkc->ssl, sm, sa, sc, sf, st);
     return -1;
   }
 
