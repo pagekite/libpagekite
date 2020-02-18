@@ -1,7 +1,7 @@
 /******************************************************************************
 opensslthreadlock.h - Helper functions for OpenSSL thread safety
 
-This file is Copyright 2011-2019, The Beanstalks Project ehf.
+This file is Copyright 2011-2020, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software
