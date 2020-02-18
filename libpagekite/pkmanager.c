@@ -1054,7 +1054,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   time_t max_tick;
   time_t now = pk_time();
   time_t increment = (next_tick / 3);
-  time_t inactive = now - pkm->next_tick - increment;
+  time_t inactive = now - PK_HOUSEKEEPING_INTERVAL_MAX_MIN;
 
   PK_TRACE_FUNCTION;
   pkw_pet_watchdog();
@@ -1069,9 +1069,10 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   {
     pkm->timer.repeat = pkm->next_tick;
     ev_timer_again(pkm->loop, &(pkm->timer));
-    pk_log(PK_LOG_MANAGER_INFO, "Tick!  [repeating=%s, next=%d, tunnels=%d, v=%s]",
+    pk_log(PK_LOG_MANAGER_INFO,
+           "Tick!  [repeating=%s, next=%d, status=%d, tunnels=%d, v=%s]",
            pkm->enable_timer ? "yes" : "no", pkm->next_tick,
-           pk_state.live_tunnels, PK_VERSION);
+           pkm->status, pk_state.live_tunnels, PK_VERSION);
 
     /* We slow down exponentially by default... */
     next_tick += increment;
@@ -1095,8 +1096,9 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   }
   else {
     ev_timer_stop(pkm->loop, &(pkm->timer));
-    pk_log(PK_LOG_MANAGER_INFO, "Tick!  [repeating=%s, stopped, v=%s]",
-           pkm->enable_timer ? "yes" : "no", PK_VERSION);
+    pk_log(PK_LOG_MANAGER_INFO,
+           "Tick!  [repeating=%s, stopped, status=%d, v=%s]",
+           pkm->enable_timer ? "yes" : "no", pkm->status, PK_VERSION);
     /* Reset interval. */
     next_tick = 1 + pkm->housekeeping_interval_min;
   }
@@ -1119,7 +1121,9 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
           if (pingsize == 0) pingsize = pk_format_ping(ping);
           fe->last_ping = now;
           pkc_write(&(fe->conn), ping, pingsize);
-          pk_log(PK_LOG_TUNNEL_DATA, "%d: Sent PING.", fe->conn.sockfd);
+          pk_log(PK_LOG_TUNNEL_DATA,
+              "%d: Sent PING (idle=%ds>%ds)",
+              fe->conn.sockfd, now - fe->conn.activity, now - inactive);
           next_tick = 1 + pkm->housekeeping_interval_min;
         }
       }
