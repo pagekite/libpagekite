@@ -55,16 +55,25 @@ int pk_log(int level, const char* fmt, ...)
 #else
     struct timeval t;
     char tsbuf[30];
+# ifdef HAVE_DS_LOG_FORMAT
     gettimeofday(&t, NULL);
     strftime(tsbuf, sizeof(tsbuf), "%Y-%m-%d %H:%M:%S", localtime(&t.tv_sec));
-# ifdef HAVE_DS_LOG_FORMAT
     len = snprintf(output, 4000, "[%s.%03d][%x] ",
                            tsbuf, (int)t.tv_usec / 1000, (int) pthread_self());
 # else
-    len = sprintf(output, "t=%s.%03d; ts=%x; tid=%x; ll=%x; msg=",
-                          tsbuf, (int)t.tv_usec / 1000,
-                          (int) time(0), (int) pthread_self(),
-                          logged_lines++);
+    if (log_file != NULL) {
+      gettimeofday(&t, NULL);
+      strftime(tsbuf, sizeof(tsbuf), "%Y-%m-%d %H:%M:%S", localtime(&t.tv_sec));
+      len = sprintf(output, "t=%s.%03d; ts=%x; tid=%x; ll=%x; msg=",
+                            tsbuf, (int)t.tv_usec / 1000,
+                            (int) time(0), (int) pthread_self(),
+                            logged_lines++);
+    }
+    else {
+      /* For syslog, we omit the times, syslog handles that. */
+      len = sprintf(output, "tid=%x; ll=%x; msg=",
+                            (int) pthread_self(), logged_lines++);
+    }
 # endif
 #endif
     va_start(args, fmt);
