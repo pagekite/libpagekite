@@ -1396,7 +1396,7 @@ int pkm_lookup_and_add_frontend(struct pk_manager* pkm,
   }
   else {
     pk_log(PK_LOG_BE_CONNS|PK_LOG_ERROR,
-           "pkm_lookup_and_add_frontend: getaddrinfo(%s, %s) failed:",
+           "pkm_lookup_and_add_frontend: getaddrinfo(%s, %s) failed: %s",
            hostname, sport, gai_strerror(rv));
   }
 
