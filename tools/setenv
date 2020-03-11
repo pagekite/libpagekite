@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# This will output the environment variable settings needed to use
+# libpagekite and the Python bindings. Usage (in shell): $($0)
+#
+(
+  cd $(dirname $0)/../lib
+  echo export LD_LIBRARY_PATH=$(pwd)
+  cd ../bindings/python
+  echo export PYTHONPATH=$(pwd)
+)
