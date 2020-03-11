@@ -3,7 +3,7 @@ pagekite.h - The public library interface of libpagekite
 
 *******************************************************************************
 
-This file is Copyright 2012-2018, The Beanstalks Project ehf.
+This file is Copyright 2012-2020, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software
@@ -31,12 +31,12 @@ WARNING: This file is processed automatically to generate the JNI and API
 
 /* Constants: Libpagekite version */
 #ifdef ANDROID
-#define PK_VERSION "0.91.200218A" /* Note: Update frontend DNS on changes! */
+#define PK_VERSION "0.91.200311A" /* Note: Update frontend DNS on changes! */
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.91.200218W"
+#define PK_VERSION "0.91.200311W"
 #else
-#define PK_VERSION "0.91.200218C"
+#define PK_VERSION "0.91.200311C"
 #endif
 #endif
 
