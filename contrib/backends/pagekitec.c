@@ -31,12 +31,6 @@ Note: For alternate license terms, see the file COPYING.md.
 #include <unistd.h>
 #include <sys/types.h>
 
-/* When the app is idle and status is unchanged, this is the maximum
- * frequency for (minimum interval between) "no-op" changes to the status
- * summary file (-Y). Actual update frequency is driven by libpagekite's
- * internal housekeeping timers. */
-#define MIN_STATUS_INTERVAL 240
-
 #define EXIT_ERR_MANAGER_INIT 1
 #define EXIT_ERR_USAGE 2
 #define EXIT_ERR_ADD_KITE 3
@@ -45,6 +39,30 @@ Note: For alternate license terms, see the file COPYING.md.
 #define EXIT_ERR_ADD_LISTENER 6
 #define EXIT_ERR_STATUS_FILE 7
 #define MAX_PLUGIN_ARGS 128
+
+/* When the app is idle and status is unchanged, this is the maximum
+ * frequency for (minimum interval between) "no-op" changes to the status
+ * summary file (-Y). Actual update frequency is driven by libpagekite's
+ * internal housekeeping timers. The value is seconds. */
+#define STATUS_MIN_INTERVAL 240
+
+/* Enable this format using -Y json:/path/to/file/ */
+#define STATUS_FORMAT_JSON (\
+        "{\n" \
+        "  \"pagekitec_version\": \"%s\",\n" \
+        "  \"pagekitec_status\": \"%s\",\n"  \
+        "  \"pagekitec_status_code\": %d,\n" \
+        "  \"pagekitec_pid\": %d,\n"         \
+        "  \"pagekitec_update_ts\": %ld\n"   \
+        "}\n")
+
+/* Enable this format using -Y text:/path/to/file/ */
+#define STATUS_FORMAT_TEXT (\
+        "pagekitec_version: %s\n" \
+        "pagekitec_status: %s\n"  \
+        "pagekitec_status_code: %d\n" \
+        "pagekitec_pid: %d\n"         \
+        "pagekitec_update_ts: %ld\n")
 
 
 pagekite_mgr m;
@@ -59,7 +77,7 @@ void usage(int ecode, char* message) {
                   "\t-v\tIncrease verbosity (more log output)\n"
                   "\t-a x\tSet app name to x for logging\n"
                   "\t-s\tLog to syslog instead of to stderr\n"
-                  "\t-Y f\tPeriodically summarize status to file f\n");
+                  "\t-Y f\tPeriodically summarize status to file f (JSON)\n");
 #ifdef HAVE_OPENSSL
   fprintf(stderr, "\t-I\tConnect insecurely, without SSL.\n");
 #endif
@@ -107,13 +125,13 @@ void safe_exit(int code) {
   exit(code);
 }
 
-void summarize_status(FILE* fd, char *status_msg) {
+void summarize_status(FILE* fd, char* format, char *status_msg) {
   static time_t last_update = 0;
   static int last_status = 0;
   if (fd) {
     time_t now = time(0);
     int status = pagekite_get_status(m);
-    if ((now - last_update > MIN_STATUS_INTERVAL) || (last_status != status)) {
+    if ((now - last_update > STATUS_MIN_INTERVAL) || (last_status != status)) {
       fseek(fd, 0, SEEK_SET);
       switch (status) {
         case PK_STATUS_STARTUP:      status_msg = "startup"; break;
@@ -124,12 +142,10 @@ void summarize_status(FILE* fd, char *status_msg) {
         case PK_STATUS_REJECTED:     status_msg = "rejected"; break;
         case PK_STATUS_NO_NETWORK:   status_msg = "no_network"; break;
       }
-      fprintf(fd, "pagekitec_version: %s\n", PK_VERSION);
-      fprintf(fd, "pagekitec_status: %s\n", status_msg);
-      fprintf(fd, "pagekitec_status_code: %d\n", status);
-      fprintf(fd, "pagekitec_pid: %d\n", getpid());
-      fprintf(fd, "pagekitec_update_ts: %ld\n", now);
+
+      fprintf(fd, format, PK_VERSION, status_msg, status, getpid(), now);
       if (0 == ftruncate(fileno(fd), ftell(fd))) fflush(fd);
+
       last_update = now;
       last_status = status;
     }
@@ -147,6 +163,7 @@ int main(int argc, char **argv) {
   char* localhost = "localhost";
   char* rejection_url = NULL;
   char* status_summary_path = NULL;
+  char* status_summary_fmt = NULL;
   FILE* status_summary_fd = NULL;
   int gotargs = 0;
   int verbosity = 0;
@@ -197,9 +214,20 @@ int main(int argc, char **argv) {
       case 'Y':
         gotargs++;
         status_summary_path = strdup(optarg);
+        if (strncasecmp(status_summary_path, "json:", 5) == 0) {
+          status_summary_fmt = STATUS_FORMAT_JSON;
+          status_summary_path += 5;
+        }
+        else if (strncasecmp(status_summary_path, "text:", 5) == 0) {
+          status_summary_fmt = STATUS_FORMAT_TEXT;
+          status_summary_path += 5;
+        }
+        else {
+          status_summary_fmt = STATUS_FORMAT_JSON;
+        }
         status_summary_fd = fopen(status_summary_path, "w+");
         if (!status_summary_fd) usage(EXIT_ERR_STATUS_FILE, strerror(errno));
-        summarize_status(status_summary_fd, "startup");
+        summarize_status(status_summary_fd, status_summary_fmt, "startup");
         break;
       case 'N':
         flags &= ~PK_WITH_DYNAMIC_FE_LIST;
@@ -379,7 +407,7 @@ int main(int argc, char **argv) {
     pagekite_free(m);
     safe_exit(EXIT_ERR_START_THREAD);
   }
-  summarize_status(status_summary_fd, "unknown");
+  summarize_status(status_summary_fd, status_summary_fmt, "unknown");
 
   unsigned int eid;
   while (PK_EV_SHUTDOWN != (
@@ -393,7 +421,7 @@ int main(int argc, char **argv) {
         if (verbosity > 2) fprintf(stderr, "[Got event 0x%8.8x]\n", eid);
     }
     pagekite_event_respond(m, eid, PK_EV_RESPOND_DEFAULT);
-    summarize_status(status_summary_fd, "unknown");
+    summarize_status(status_summary_fd, status_summary_fmt, "unknown");
   }
   pagekite_thread_wait(m);
   pagekite_free(m);
