@@ -28,19 +28,29 @@ Note: For alternate license terms, see the file COPYING.md.
 #include <pagekite.h>
 #include <pkcommon.h>
 
+#include <unistd.h>
+#include <sys/types.h>
+
+/* When the app is idle and status is unchanged, this is the maximum
+ * frequency for (minimum interval between) "no-op" changes to the status
+ * summary file (-Y). Actual update frequency is driven by libpagekite's
+ * internal housekeeping timers. */
+#define MIN_STATUS_INTERVAL 240
+
 #define EXIT_ERR_MANAGER_INIT 1
 #define EXIT_ERR_USAGE 2
 #define EXIT_ERR_ADD_KITE 3
 #define EXIT_ERR_FRONTENDS 4
 #define EXIT_ERR_START_THREAD 5
 #define EXIT_ERR_ADD_LISTENER 6
+#define EXIT_ERR_STATUS_FILE 7
 #define MAX_PLUGIN_ARGS 128
 
 
 pagekite_mgr m;
 
 
-void usage(int ecode) {
+void usage(int ecode, char* message) {
   fprintf(stderr, "This is pagekitec.c from libpagekite %s.\n\n", PK_VERSION);
   fprintf(stderr, "Usage:\tpagekitec [options] LPORT PROTO"
                   " NAME.pagekite.me PPORT SECRET ...\n"
@@ -48,7 +58,8 @@ void usage(int ecode) {
                   "\t-q\tDecrease verbosity (less log output)\n"
                   "\t-v\tIncrease verbosity (more log output)\n"
                   "\t-a x\tSet app name to x for logging\n"
-                  "\t-s\tLog to syslog instead of to stderr\n");                  
+                  "\t-s\tLog to syslog instead of to stderr\n"
+                  "\t-Y f\tPeriodically summarize status to file f\n");
 #ifdef HAVE_OPENSSL
   fprintf(stderr, "\t-I\tConnect insecurely, without SSL.\n");
 #endif
@@ -72,6 +83,7 @@ void usage(int ecode) {
   fprintf(stderr, "\t-C\tDisable auto-adding current DNS IP as a front-end\n"
                   "\t-W\tEnable watchdog thread (dumps core if we lock up)\n"
                   "\t-H\tDo not add X-Forwarded-Proto and X-Forwarded-For\n\n");
+  if (message) fprintf(stderr, "\nError: %s\n", message);
   exit(ecode);
 }
 
@@ -95,6 +107,35 @@ void safe_exit(int code) {
   exit(code);
 }
 
+void summarize_status(FILE* fd, char *status_msg) {
+  static time_t last_update = 0;
+  static int last_status = 0;
+  if (fd) {
+    time_t now = time(0);
+    int status = pagekite_get_status(m);
+    if ((now - last_update > MIN_STATUS_INTERVAL) || (last_status != status)) {
+      fseek(fd, 0, SEEK_SET);
+      switch (status) {
+        case PK_STATUS_STARTUP:      status_msg = "startup"; break;
+        case PK_STATUS_CONNECTING:   status_msg = "connecting"; break;
+        case PK_STATUS_UPDATING_DNS: status_msg = "updating_dns"; break;
+        case PK_STATUS_FLYING:       status_msg = "flying"; break;
+        case PK_STATUS_PROBLEMS:     status_msg = "problems"; break;
+        case PK_STATUS_REJECTED:     status_msg = "rejected"; break;
+        case PK_STATUS_NO_NETWORK:   status_msg = "no_network"; break;
+      }
+      fprintf(fd, "pagekitec_version: %s\n", PK_VERSION);
+      fprintf(fd, "pagekitec_status: %s\n", status_msg);
+      fprintf(fd, "pagekitec_status_code: %d\n", status);
+      fprintf(fd, "pagekitec_pid: %d\n", getpid());
+      fprintf(fd, "pagekitec_update_ts: %ld\n", now);
+      if (0 == ftruncate(fileno(fd), ftell(fd))) fflush(fd);
+      last_update = now;
+      last_status = status;
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   unsigned int bail_on_errors = 0;
   unsigned int conn_eviction_idle_s = 0;
@@ -105,6 +146,8 @@ int main(int argc, char **argv) {
   char* app_name = "pagekitec";
   char* localhost = "localhost";
   char* rejection_url = NULL;
+  char* status_summary_path = NULL;
+  FILE* status_summary_fd = NULL;
   int gotargs = 0;
   int verbosity = 0;
   int use_current = 1;
@@ -128,7 +171,8 @@ int main(int argc, char **argv) {
   flags |= PK_WITH_IPV6;
 #endif
 
-  while (-1 != (ac = getopt(argc, argv, "46a:B:c:CE:F:P:HIl:Nn:qr:RsSvV:Ww:Z"))) {
+  while (-1 != (ac = getopt(argc, argv,
+                            "46a:B:c:CE:F:P:HIl:Nn:qr:RsSvV:Ww:Y:Z"))) {
     switch (ac) {
       case '4':
         flags &= ~PK_WITH_IPV4;
@@ -149,6 +193,13 @@ int main(int argc, char **argv) {
         break;
       case 's':
         flags |= PK_WITH_SYSLOG;
+        break;
+      case 'Y':
+        gotargs++;
+        status_summary_path = strdup(optarg);
+        status_summary_fd = fopen(status_summary_path, "w+");
+        if (!status_summary_fd) usage(EXIT_ERR_STATUS_FILE, strerror(errno));
+        summarize_status(status_summary_fd, "startup");
         break;
       case 'N':
         flags &= ~PK_WITH_DYNAMIC_FE_LIST;
@@ -197,31 +248,32 @@ int main(int argc, char **argv) {
       case 'P':
         gotargs++;
         if (1 == sscanf(optarg, "%d", &fe_port)) break;
-        usage(EXIT_ERR_USAGE);
+        usage(EXIT_ERR_USAGE, "Invalid argument to -P");
       case 'B':
         gotargs++;
         if (1 == sscanf(optarg, "%u", &bail_on_errors)) break;
-        usage(EXIT_ERR_USAGE);
+        usage(EXIT_ERR_USAGE, "Invalid argument to -B");
       case 'c':
         gotargs++;
         if (1 == sscanf(optarg, "%d", &max_conns)) break;
-        usage(EXIT_ERR_USAGE);
+        usage(EXIT_ERR_USAGE, "Invalid argument to -c");
       case 'E':
         gotargs++;
         if (1 == sscanf(optarg, "%u", &conn_eviction_idle_s)) break;
-        usage(EXIT_ERR_USAGE);
+        usage(EXIT_ERR_USAGE, "Invalid argument to -E");
       case 'n':
         gotargs++;
         if (1 == sscanf(optarg, "%d", &spare_frontends)) break;
-        usage(EXIT_ERR_USAGE);
+        usage(EXIT_ERR_USAGE, "Invalid argument to -n");
       default:
-        usage(EXIT_ERR_USAGE);
+        usage(EXIT_ERR_USAGE, "Unrecognized option");
     }
     gotargs++;
   }
 
   if ((argc-1-gotargs) < 5 || ((argc-1-gotargs) % 5) != 0) {
-    usage(EXIT_ERR_USAGE);
+    usage(EXIT_ERR_USAGE,
+          "Invalid kite specification (wrong number of arguments)");
   }
 
 #ifndef _MSC_VER
@@ -281,7 +333,7 @@ int main(int argc, char **argv) {
     if ((1 != sscanf(argv[ac+1], "%d", &lport)) ||
         (1 != sscanf(argv[ac+4], "%d", &pport))) {
       pagekite_free(m);
-      usage(EXIT_ERR_USAGE);
+      usage(EXIT_ERR_USAGE, "Failed to parse kite specification port numbers");
     }
     proto = argv[ac+2];
     kitename = argv[ac+3];
@@ -327,6 +379,7 @@ int main(int argc, char **argv) {
     pagekite_free(m);
     safe_exit(EXIT_ERR_START_THREAD);
   }
+  summarize_status(status_summary_fd, "unknown");
 
   unsigned int eid;
   while (PK_EV_SHUTDOWN != (
@@ -340,6 +393,7 @@ int main(int argc, char **argv) {
         if (verbosity > 2) fprintf(stderr, "[Got event 0x%8.8x]\n", eid);
     }
     pagekite_event_respond(m, eid, PK_EV_RESPOND_DEFAULT);
+    summarize_status(status_summary_fd, "unknown");
   }
   pagekite_thread_wait(m);
   pagekite_free(m);
