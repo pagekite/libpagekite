@@ -125,12 +125,11 @@ void safe_exit(int code) {
   exit(code);
 }
 
-void summarize_status(FILE* fd, char* format, char *status_msg) {
+void summarize_status(FILE* fd, char* format, char *status_msg, int status) {
   static time_t last_update = 0;
   static int last_status = 0;
   if (fd) {
     time_t now = time(0);
-    int status = pagekite_get_status(m);
     if ((now - last_update > STATUS_MIN_INTERVAL) || (last_status != status)) {
       fseek(fd, 0, SEEK_SET);
       switch (status) {
@@ -227,7 +226,7 @@ int main(int argc, char **argv) {
         }
         status_summary_fd = fopen(status_summary_path, "w+");
         if (!status_summary_fd) usage(EXIT_ERR_STATUS_FILE, strerror(errno));
-        summarize_status(status_summary_fd, status_summary_fmt, "startup");
+        summarize_status(status_summary_fd, status_summary_fmt, "startup", 0);
         break;
       case 'N':
         flags &= ~PK_WITH_DYNAMIC_FE_LIST;
@@ -407,7 +406,8 @@ int main(int argc, char **argv) {
     pagekite_free(m);
     safe_exit(EXIT_ERR_START_THREAD);
   }
-  summarize_status(status_summary_fd, status_summary_fmt, "unknown");
+  summarize_status(
+    status_summary_fd, status_summary_fmt, "unknown", pagekite_get_status(m));
 
   unsigned int eid;
   while (PK_EV_SHUTDOWN != (
@@ -421,10 +421,12 @@ int main(int argc, char **argv) {
         if (verbosity > 2) fprintf(stderr, "[Got event 0x%8.8x]\n", eid);
     }
     pagekite_event_respond(m, eid, PK_EV_RESPOND_DEFAULT);
-    summarize_status(status_summary_fd, status_summary_fmt, "unknown");
+    summarize_status(
+      status_summary_fd, status_summary_fmt, "unknown", pagekite_get_status(m));
   }
   pagekite_thread_wait(m);
   pagekite_free(m);
 
+  summarize_status(status_summary_fd, status_summary_fmt, "shutdown", 0);
   return 0;
 }
