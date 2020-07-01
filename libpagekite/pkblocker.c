@@ -309,7 +309,7 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
   }
 
   PK_CHECK_MEMORY_CANARIES;
-  return 0;
+  return (in_dns < 1);  /* A problem if nothing is in DNS! */
 }
 
 int pkb_check_frontend_dns(struct pk_manager* pkm)
@@ -683,10 +683,14 @@ void pkb_update_state(struct pk_manager* pkm, int dns_is_down, int problems)
     PKS_STATE(pkm->status = PK_STATUS_FLYING);
   }
   else if (pkm->status != PK_STATUS_REJECTED) {
-    if (dns_is_down)
+    if (dns_is_down) {
       pk_log(PK_LOG_MANAGER_INFO, "Network appears to be down.");
-    PKS_STATE(pkm->status = (dns_is_down ? PK_STATUS_NO_NETWORK
-                                         : PK_STATUS_PROBLEMS));
+      PKS_STATE(pkm->status = PK_STATUS_NO_NETWORK);
+    }
+    else {
+      pk_log(PK_LOG_MANAGER_INFO, "Network is up but kites are not ready.");
+      PKS_STATE(pkm->status = PK_STATUS_PROBLEMS);
+    }
   }
 }
 
@@ -699,21 +703,31 @@ void pkb_check_tunnels(struct pk_manager* pkm)
   pk_log(PK_LOG_MANAGER_DEBUG,
          "Checking network & tunnels... (v%s)", PK_VERSION);
 
-  dns_is_down = (0 != pkb_check_kites_dns(pkm));
-
-  if (!dns_is_down && (pkb_check_frontend_dns(pkm) > 0)) {
-    pkb_update_state(pkm, dns_is_down, problems);
-    pkb_check_world(pkm);
+  problems += dns_is_down = (0 != pkb_check_kites_dns(pkm));
+  if (dns_is_down) {
+    /* Is it completely down? We might be requesting a name that does not
+     * exist, or there might be an issue just with the PageKite DNS. */
+    dns_is_down = (NULL == gethostbyname(pk_state.dns_check_name));
+    pk_log(PK_LOG_MANAGER_INFO,
+           "Network DNS check (%s): %s.",
+           pk_state.dns_check_name,
+           (dns_is_down) ? "no response, network down?" : "DNS responds OK");
   }
 
-  pkb_choose_tunnels(pkm);
-  pkb_log_fe_status(pkm);
-  problems += pkm_reconnect_all(pkm, dns_is_down);
+  if (!dns_is_down) {
+    if (pkb_check_frontend_dns(pkm) > 0) {
+      pkb_update_state(pkm, dns_is_down, problems);
+      pkb_check_world(pkm);
+    }
+    pkb_choose_tunnels(pkm);
+    pkb_log_fe_status(pkm);
+    problems += pkm_reconnect_all(pkm, dns_is_down);
 
-  if (!problems) pkm_disconnect_unused(pkm);
+    if (!problems) pkm_disconnect_unused(pkm);
 
-  if (pkm->dynamic_dns_url && (pkm->status != PK_STATUS_REJECTED)) {
-    problems += pkb_update_dns(pkm);
+    if (pkm->dynamic_dns_url && (pkm->status != PK_STATUS_REJECTED)) {
+      problems += pkb_update_dns(pkm);
+    }
   }
 
   pkb_update_state(pkm, dns_is_down, problems);

@@ -55,6 +55,7 @@ struct pk_global_state {
 #endif
   unsigned int    ddns_request_public_ipv4:1;
   unsigned int    ddns_request_public_ipv6:1;
+  char*           dns_check_name;
 
   /* Global program state */
   unsigned int    live_streams;

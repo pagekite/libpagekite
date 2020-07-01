@@ -34,6 +34,7 @@ void pks_global_init(unsigned int log_mask) {
   pk_state.log_file = stderr;
   pk_state.log_mask = log_mask;
 
+  pk_state.dns_check_name = "google.com";  /* A safe default with a low TTL */
   pk_state.bail_on_errors = 0;
   pk_state.conn_eviction_idle_s = 0;
   pk_state.socket_timeout_s = PK_DEFAULT_SOCKET_TIMEOUT;
