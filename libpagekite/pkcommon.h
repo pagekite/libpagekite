@@ -177,8 +177,8 @@ typedef struct {
 } pk_rlock_t;
 
 #define PARSER_BYTES_MIN   1 * 1024
-#define PARSER_BYTES_AVG   2 * 1024
-#define PARSER_BYTES_MAX   4 * 1024  /* <= CONN_IO_BUFFER_SIZE */
+#define PARSER_BYTES_AVG   4 * 1024
+#define PARSER_BYTES_MAX  16 * 1024  /* <= CONN_IO_BUFFER_SIZE */
 
 #ifndef HAVE_RELAY
 #define HAVE_RELAY 0
