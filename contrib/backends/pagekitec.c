@@ -53,6 +53,7 @@ Note: For alternate license terms, see the file COPYING.md.
         "  \"pagekitec_status\": \"%s\",\n"  \
         "  \"pagekitec_status_code\": %d,\n" \
         "  \"pagekitec_pid\": %d,\n"         \
+        "  \"pagekitec_update_min_interval\": %d,\n" \
         "  \"pagekitec_update_ts\": %ld\n"   \
         "}\n")
 
@@ -62,6 +63,7 @@ Note: For alternate license terms, see the file COPYING.md.
         "pagekitec_status: %s\n"  \
         "pagekitec_status_code: %d\n" \
         "pagekitec_pid: %d\n"         \
+        "pagekitec_update_min_interval: %d\n" \
         "pagekitec_update_ts: %ld\n")
 
 
@@ -142,7 +144,9 @@ void summarize_status(FILE* fd, char* format, char *status_msg, int status) {
         case PK_STATUS_NO_NETWORK:   status_msg = "no_network"; break;
       }
 
-      fprintf(fd, format, PK_VERSION, status_msg, status, getpid(), now);
+      fprintf(fd, format,
+        PK_VERSION, status_msg, status, getpid(), STATUS_MIN_INTERVAL, now);
+
       if (0 == ftruncate(fileno(fd), ftell(fd))) fflush(fd);
 
       last_update = now;
