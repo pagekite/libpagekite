@@ -40,33 +40,42 @@ In `contrib/backends/` you'll find:
 
 ## Getting started ##
 
+Be sure you have the following packages (list assumes Debian/Ubuntu, your
+distro will offer something equivalent):
+
+    $ apt install build-essential pkg-config libtool automake
+    $ apt install libev-dev libssl-dev
+
 To build for development on Linux, use:
 
     $ ./autogen.sh
-    $ ./configure --prefix=$(pwd)
+    $ ./configure --prefix=$(pwd) --without-java
     $ make install
 
-This will build the library, placing binaries in the `bin/` and `lib/`
-subdirectories. You can then run the test connector like so:
+This will build the library (without Java bindings), placing binaries in
+the `bin/` and `lib/` subdirectories. You can then run the test connector
+like so:
 
     $ export LD_LIBRARY_PATH=$(pwd)/lib
     $ ./bin/pagekitec 80 http yourkite.pagekite.me 0 kitesecret
 
-Or to run the Java test:
+To run the Python test:
 
+    $ export LD_LIBRARY_PATH=$(pwd)/lib
+    $ cd bindings/python
+    $ export PYTHONPATH="$(pwd):$PYTHONPATH"
+    $ python ./cython_demo.py 80 http yourkite.pagekite.me secret
+
+To run the Java test:
+
+    $ ./configure --prefix=$(pwd)
+    $ make install
     $ export LD_LIBRARY_PATH=$(pwd)/lib
     $ cd java-classes
     $ java PageKiteTest
 
 *(Note: The Java test is expected to fail because of hard-coded invalid
 credentials. You'll need to edit the source for it to actually work.)*
-
-Or to run the Python test:
-
-    $ export LD_LIBRARY_PATH=$(pwd)/lib
-    $ cd bindings/python
-    $ export PYTHONPATH="$(pwd):$PYTHONPATH"
-    $ python ./cython_demo.py 80 http yourkite.pagekite.me secret
 
 Press `CTRL+C` to exit any of the test apps.
 
