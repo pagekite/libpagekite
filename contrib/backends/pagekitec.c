@@ -127,32 +127,38 @@ void safe_exit(int code) {
   exit(code);
 }
 
-void summarize_status(FILE* fd, char* format, char *status_msg, int status) {
+int summarize_status(const char* fpath, const char* format, const char *status_msg, int status) {
   static time_t last_update = 0;
   static int last_status = 0;
-  if (fd) {
-    time_t now = time(0);
-    if ((now - last_update > STATUS_MIN_INTERVAL) || (last_status != status)) {
-      fseek(fd, 0, SEEK_SET);
-      switch (status) {
-        case PK_STATUS_STARTUP:      status_msg = "startup"; break;
-        case PK_STATUS_CONNECTING:   status_msg = "connecting"; break;
-        case PK_STATUS_UPDATING_DNS: status_msg = "updating_dns"; break;
-        case PK_STATUS_FLYING:       status_msg = "flying"; break;
-        case PK_STATUS_PROBLEMS:     status_msg = "problems"; break;
-        case PK_STATUS_REJECTED:     status_msg = "rejected"; break;
-        case PK_STATUS_NO_NETWORK:   status_msg = "no_network"; break;
-      }
 
-      fprintf(fd, format,
-        PK_VERSION, status_msg, status, getpid(), STATUS_MIN_INTERVAL, now);
-
-      if (0 == ftruncate(fileno(fd), ftell(fd))) fflush(fd);
-
-      last_update = now;
-      last_status = status;
+  time_t now = time(0);
+  if ((now - last_update > STATUS_MIN_INTERVAL) || (last_status != status)) {
+    FILE *fd = fopen(fpath, "w+");
+    if (!fd) {
+      fprintf(stderr, "Failed to open %s for writing: %s\n", fpath, strerror(errno));
+      return 0;
     }
+
+    fseek(fd, 0, SEEK_SET);
+    switch (status) {
+      case PK_STATUS_STARTUP:      status_msg = "startup"; break;
+      case PK_STATUS_CONNECTING:   status_msg = "connecting"; break;
+      case PK_STATUS_UPDATING_DNS: status_msg = "updating_dns"; break;
+      case PK_STATUS_FLYING:       status_msg = "flying"; break;
+      case PK_STATUS_PROBLEMS:     status_msg = "problems"; break;
+      case PK_STATUS_REJECTED:     status_msg = "rejected"; break;
+      case PK_STATUS_NO_NETWORK:   status_msg = "no_network"; break;
+    }
+
+    fprintf(fd, format,
+      PK_VERSION, status_msg, status, getpid(), STATUS_MIN_INTERVAL, now);
+
+    if (0 == ftruncate(fileno(fd), ftell(fd))) fflush(fd);
+
+    last_update = now;
+    last_status = status;
   }
+  return 1;
 }
 
 int main(int argc, char **argv) {
@@ -167,7 +173,6 @@ int main(int argc, char **argv) {
   char* rejection_url = NULL;
   char* status_summary_path = NULL;
   char* status_summary_fmt = NULL;
-  FILE* status_summary_fd = NULL;
   int gotargs = 0;
   int verbosity = 0;
   int use_current = 1;
@@ -228,9 +233,9 @@ int main(int argc, char **argv) {
         else {
           status_summary_fmt = STATUS_FORMAT_JSON;
         }
-        status_summary_fd = fopen(status_summary_path, "w+");
-        if (!status_summary_fd) usage(EXIT_ERR_STATUS_FILE, strerror(errno));
-        summarize_status(status_summary_fd, status_summary_fmt, "startup", 0);
+        if (!summarize_status(status_summary_path, status_summary_fmt, "startup", 0)) {
+          usage(EXIT_ERR_STATUS_FILE, strerror(errno));
+        }
         break;
       case 'N':
         flags &= ~PK_WITH_DYNAMIC_FE_LIST;
@@ -411,7 +416,7 @@ int main(int argc, char **argv) {
     safe_exit(EXIT_ERR_START_THREAD);
   }
   summarize_status(
-    status_summary_fd, status_summary_fmt, "unknown", pagekite_get_status(m));
+    status_summary_path, status_summary_fmt, "unknown", pagekite_get_status(m));
 
   unsigned int eid;
   while (PK_EV_SHUTDOWN != (
@@ -426,11 +431,11 @@ int main(int argc, char **argv) {
     }
     pagekite_event_respond(m, eid, PK_EV_RESPOND_DEFAULT);
     summarize_status(
-      status_summary_fd, status_summary_fmt, "unknown", pagekite_get_status(m));
+      status_summary_path, status_summary_fmt, "unknown", pagekite_get_status(m));
   }
   pagekite_thread_wait(m);
   pagekite_free(m);
 
-  summarize_status(status_summary_fd, status_summary_fmt, "shutdown", 0);
+  summarize_status(status_summary_path, status_summary_fmt, "shutdown", 0);
   return 0;
 }
