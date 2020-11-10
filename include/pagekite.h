@@ -31,12 +31,12 @@ WARNING: This file is processed automatically to generate the JNI and API
 
 /* Constants: Libpagekite version */
 #ifdef ANDROID
-#define PK_VERSION "0.91.200718A" /* Note: Update frontend DNS on changes! */
+#define PK_VERSION "0.91.201110A" /* Note: Update frontend DNS on changes! */
 #else
 #ifdef _MSC_VER
-#define PK_VERSION "0.91.200718W"
+#define PK_VERSION "0.91.201110W"
 #else
-#define PK_VERSION "0.91.200718C"
+#define PK_VERSION "0.91.201110C"
 #endif
 #endif
 
