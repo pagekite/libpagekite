@@ -156,6 +156,7 @@ int summarize_status(const char* fpath, const char* format, const char *status_m
       PK_VERSION, status_msg, status, getpid(), STATUS_MIN_INTERVAL, now);
 
     if (0 == ftruncate(fileno(fd), ftell(fd))) fflush(fd);
+    fclose(fd);
 
     last_update = now;
     last_status = status;
