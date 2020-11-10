@@ -131,6 +131,8 @@ int summarize_status(const char* fpath, const char* format, const char *status_m
   static time_t last_update = 0;
   static int last_status = 0;
 
+  if (!fpath) return 0;
+
   time_t now = time(0);
   if ((now - last_update > STATUS_MIN_INTERVAL) || (last_status != status)) {
     FILE *fd = fopen(fpath, "w+");
