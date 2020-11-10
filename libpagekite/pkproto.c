@@ -436,7 +436,7 @@ ssize_t pk_format_chunk(char* buf, size_t maxbytes, struct pk_chunk* chunk)
                   } else free_and_return(pk_error = ERR_PARSE_NO_MEMORY); }
   #define _add_sst(h, v) if (v >= 0) { \
                   if (hlen + bytes + strlen(h) + 10 + 5 <= maxbytes) { \
-                    bytes += sprintf(tbuf + bytes, "%s: %ld\r\n", h, v); \
+                    bytes += sprintf(tbuf + bytes, "%s: %zd\r\n", h, v); \
                   } else free_and_return(pk_error = ERR_PARSE_NO_MEMORY); }
 
   _add_str("EOF",    chunk->eof);
