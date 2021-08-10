@@ -45,7 +45,7 @@ void usage(int ecode) {
                   "Options:\n"
                   "\t-q\tDecrease verbosity (less log output)\n"
                   "\t-v\tIncrease verbosity (more log output)\n"
-                  "\t-p N\tListen on for traffic on port N (default=9443)\n"
+                  "\t-p N\tListen for traffic on port N (default=9443)\n"
                   "\t-k N\tAllocate buffers for up to N kites\n"
                   "\t-c N\tAllocate buffers for up to N connections\n");
 #ifdef HAVE_OPENSSL
@@ -56,10 +56,6 @@ void usage(int ecode) {
   fprintf(stderr, "\t-6\tDisable IPv6\n");
 #endif
   fprintf(stderr, "\t-W\tEnable watchdog thread (dumps core if we lock up)\n");
-#ifdef HAVE_LUA
-  fprintf(stderr, "\t-o S=N\tEnable Lua plugin S with argument N\n"
-                  "\t-L\tDisable by default all Lua plugins\n");
-#endif
   fprintf(stderr, "\n");
   exit(ecode);
 }
