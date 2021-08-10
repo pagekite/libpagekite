@@ -1,7 +1,7 @@
 /******************************************************************************
 pkutils.h - Utility functions for pagekite.
 
-This file is Copyright 2011-2020, The Beanstalks Project ehf.
+This file is Copyright 2011-2021, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software
@@ -27,6 +27,23 @@ Note: For alternate license terms, see the file COPYING.md.
 #define PK_RANDOM_DEFAULT      -1
 #define PK_RANDOM_FIXED_SRAND   0
 #define PK_RANDOM_RESEED_SRAND  1
+
+typedef struct {
+  char* key;
+  void* val;
+  uint32_t m3;
+} pk_dict_ent_t;
+
+typedef struct {
+  pthread_mutex_t lock;
+  int maxbits;
+  int maxbucket;
+  int bits;
+  size_t count;
+  size_t shrink_at;
+  int32_t seed;
+  pk_dict_ent_t* entries;
+} pk_dict_t;
 
 extern char random_junk[];
 
@@ -56,9 +73,29 @@ int addrcmp(const struct sockaddr *, const struct sockaddr *);
 int http_get(const char*, char*, size_t);
 void digest_to_hex(const unsigned char* digest, char *output);
 int printable_binary(char*, size_t, const char*, size_t);
+
 void pk_rlock_init(pk_rlock_t*);
 void pk_rlock_lock(pk_rlock_t*);
 void pk_rlock_unlock(pk_rlock_t*);
+
+/* These implement a simple hashing dictionary of keys to values
+ *   - These methods are thread-safe
+ *   - A simple open-hashing method is used, attempting to be
+ *     CPU-cache friendly by preferring sequential memory access.
+ *   - Keys are strdup()'d on pk_dict_add and freed by pk_dict_rm
+ *   - Key/value pairs can be added multiple times
+ *   - The dict auto-grows up to (1 << maxbits) entries
+ *   - The dict auto-shrinks back down to 64k entries
+ *   - The hashing assumes keys end in an Internet domain name, and most
+ *     of the domain is ignored: foo123.domain.com hashes as foo123.d
+ */
+int pk_dict_init(pk_dict_t*, int maxbits, int maxbucket);
+void pk_dict_free(pk_dict_t*);
+void pk_dict_compact(pk_dict_t*);
+void* pk_dict_find(pk_dict_t*, char* key);
+void* pk_dict_add(pk_dict_t*, char* key, void* val);
+void* pk_dict_rm(pk_dict_t*, char* key);
+int pk_dict_rm_val(pk_dict_t*, void* val);
 
 #if PK_MEMORY_CANARIES
 # define PK_MEMORY_CANARY           void* canary;

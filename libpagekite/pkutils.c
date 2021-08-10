@@ -1,7 +1,7 @@
 /******************************************************************************
 pkutils.c - Utility functions for pagekite.
 
-This file is Copyright 2011-2020, The Beanstalks Project ehf.
+This file is Copyright 2011-2021, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software
@@ -738,7 +738,247 @@ void init_memory_canaries() {
 }
 
 
+/* *** pk_dict ************************************************************** */
+
+#define _PK_DICT_MINBITS   10  /* Default start: 1024 entries */
+#define _PK_DICT_MAXBITS   27  /* Default max size: 134 million entries */
+#define _PK_DICT_MAXBUCKET 40  /* How many entries can ever be the same */
+#define _PK_DICT_HASH(d, m3)  ((d->seed ^ m3 ^ (m3 >> d->bits)) & ((1 << d->bits) - 1))
+#define _PK_DICT_MAXP(d)      (d->entries + (1 << d->bits))
+#define _PK_DICT_TOOBIG(d, b) ((b > 23) && ((1 << b) > (3 * d->count)))
+#define _PK_DICT_SHRINK(d)    ((d->bits > 16) && (d->shrink_at > d->count))
+
+int _pk_dict_set_size(pk_dict_t* dict, size_t bits) {
+  assert(bits <= 31);
+  assert(bits >= _PK_DICT_MINBITS);
+  dict->bits = min(bits, dict->maxbits);
+  dict->count = 0;
+  dict->shrink_at = (1 << bits) / 5;
+  dict->entries = calloc(1 << bits, sizeof(pk_dict_ent_t));
+  return (dict->entries != NULL);
+}
+
+int pk_dict_init(pk_dict_t* dict, int maxbits, int maxbucket) {
+  dict->maxbits = maxbits;
+  dict->maxbucket = maxbucket;
+  dict->seed = rand();
+  if (dict->maxbits < 1) dict->maxbits = _PK_DICT_MAXBITS;
+  if (dict->maxbucket < 1) dict->maxbucket = _PK_DICT_MAXBUCKET;
+  _pk_dict_set_size(dict, _PK_DICT_MINBITS);
+  pthread_mutex_init(&(dict->lock), NULL);
+  return (dict->entries != NULL);
+}
+
+void pk_dict_free(pk_dict_t* dict) {
+  pthread_mutex_lock(&(dict->lock));
+  if (dict->entries) {
+    pk_dict_ent_t* p;
+    pk_dict_ent_t* max_p = _PK_DICT_MAXP(dict);
+    for (p = dict->entries; p < max_p; p++) {
+      if (p->key) free(p->key);
+    }
+    free(dict->entries);
+  }
+  dict->entries = NULL;
+  dict->bits = 0;
+  dict->count = 0;
+  pthread_mutex_unlock(&(dict->lock));
+}
+
+#if PK_TESTS
+void _pk_dump_dict(pk_dict_t* dict) {
+  pk_dict_ent_t* p;
+  pk_dict_ent_t* max_p = _PK_DICT_MAXP(dict);
+  for (p = dict->entries; p < max_p; p++) {
+    fprintf(stderr, "%c", p->key ? '#' : '.');
+  }
+  fprintf(stderr, "\n");
+}
+#endif
+
+void* _pk_dict_add(pk_dict_t*, int32_t, char*, void*);
+int _pk_dict_resize(pk_dict_t* dict, int bits) {
+
+  /* Refuse to resize if we are at our max size or wasting lots of RAM. */
+  if (bits > dict->maxbits) return 0;
+  if (_PK_DICT_TOOBIG(dict, bits)) return 0;
+
+#if PK_TESTS
+  fprintf(stderr, "pk_dict resize: from %d to %d\n", dict->bits, bits);
+#endif
+
+  pk_dict_ent_t* p;
+  pk_dict_ent_t* max_p = _PK_DICT_MAXP(dict);
+  void* old_entries = dict->entries;
+  size_t old_count = dict->count;
+  size_t old_shrink_at = dict->shrink_at;
+  int old_bits = dict->bits;
+  int failed = 0;
+  if (_pk_dict_set_size(dict, bits)) {
+    for (p = old_entries; p < max_p; p++) {
+      if (p->val && p->key) {
+        if (p->val != _pk_dict_add(dict, p->m3, p->key, p->val)) {
+          failed++;
+          break;
+        }
+      }
+    }
+  }
+  else {
+    failed++;
+  }
+  if (failed) {
+#if PK_TESTS
+    //_pk_dump_dict(dict);
+    fprintf(stderr, "pk_dict resize: failed, rolling back\n");
+#endif
+    if (dict->entries) free(dict->entries);
+    dict->bits = old_bits;
+    dict->count = old_count;
+    dict->shrink_at = old_shrink_at;
+    dict->entries = old_entries;
+  }
+  else {
+    dict->shrink_at = min(dict->shrink_at, dict->count - (dict->count/3));
+#if PK_TESTS
+    fprintf(stderr,
+      "pk_dict resize: space=%d old_count=%zd new=%zd shrink_at=%zd\n",
+      (1 << dict->bits), old_count, dict->count, dict->shrink_at);
+    assert(old_count == dict->count);
+#endif
+    free(old_entries);
+  }
+  return (!failed);
+}
+
+int _pk_dict_key_hashlen(const char* key) {
+  int len = strlen(key);
+
+  // Hash xyz.foo.bar as xyz.f
+  int ep = len-1;
+  while ((key[ep] != '.') && (ep > 4)) ep--;
+  if (key[ep] == '.') {
+    ep--;
+    while ((key[ep] != '.') && (ep > 4)) ep--;
+    if (key[ep] == '.') len = ep+2;
+  }
+  return len;
+}
+
+void* pk_dict_find(pk_dict_t* dict, char* key) {
+  if (!dict->entries || !dict->count) return NULL;
+  int32_t m3 = murmur3_32(key, _pk_dict_key_hashlen(key));
+  pthread_mutex_lock(&(dict->lock));
+  pk_dict_ent_t* p = dict->entries + _PK_DICT_HASH(dict, m3);
+  pk_dict_ent_t* max_p = _PK_DICT_MAXP(dict);
+  for (int i = 0; i < dict->maxbucket; i++, p++) {
+    if (p >= max_p) p = dict->entries;
+    if ((p->m3 == m3) && (p->key) && (0 == strcmp(key, p->key))) {
+      void* v = p->val;
+      pthread_mutex_unlock(&(dict->lock));
+      return v;
+    }
+  }
+  pthread_mutex_unlock(&(dict->lock));
+  return NULL;
+}
+
+void* _pk_dict_add(pk_dict_t* dict, int32_t m3, char* key, void* val) {
+  pk_dict_ent_t* p = dict->entries + _PK_DICT_HASH(dict, m3);
+  pk_dict_ent_t* max_p = _PK_DICT_MAXP(dict);
+  for (int i = 0; i < dict->maxbucket; i++, p++) {
+    if (p >= max_p) p = dict->entries;
+    if (NULL == p->key) {
+      p->m3 = m3;
+      p->key = key;
+      p->val = val;
+      dict->count++;
+      return val;
+    }
+  }
+  return NULL;
+}
+
+void* pk_dict_add(pk_dict_t* dict, char* key, void* val) {
+  void* rv;
+  assert(NULL != dict->entries);
+  assert(NULL != val);
+  assert(NULL != key);
+
+  key = strdup(key);
+  if (key == NULL) return NULL;
+  int32_t m3 = murmur3_32(key, _pk_dict_key_hashlen(key));
+
+  pthread_mutex_lock(&(dict->lock));
+  for (int tries = 0; tries < 2; tries++) {
+    rv = _pk_dict_add(dict, m3, key, val);
+    if (rv != NULL) break;
+    if (!_pk_dict_resize(dict, dict->bits + 1)) break;
+  }
+  pthread_mutex_unlock(&(dict->lock));
+
+  if (rv == NULL) free(key);
+  return rv;
+}
+
+void* pk_dict_rm(pk_dict_t* dict, char* key) {
+  if (!dict->entries || !dict->count) return NULL;
+  int32_t m3 = murmur3_32(key, _pk_dict_key_hashlen(key));
+  pthread_mutex_lock(&(dict->lock));
+  pk_dict_ent_t* p = dict->entries + _PK_DICT_HASH(dict, m3);
+  pk_dict_ent_t* max_p = _PK_DICT_MAXP(dict);
+  for (int i = 0; i < dict->maxbucket; i++, p++) {
+    if (p >= max_p) p = dict->entries;
+    if ((p->m3 == m3) && (p->key) && (0 == strcmp(key, p->key))) {
+      void* v = p->val;
+      free(p->key);
+      p->m3 = 0;
+      p->key = NULL;
+      p->val = NULL;
+      dict->count--;
+      if (_PK_DICT_SHRINK(dict)) {
+        if (!_pk_dict_resize(dict, dict->bits - 1)) {
+          dict->shrink_at -= (dict->shrink_at / 5);
+        }
+      }
+      pthread_mutex_unlock(&(dict->lock));
+      return v;
+    }
+  }
+  pthread_mutex_unlock(&(dict->lock));
+  return NULL;
+}
+
+int pk_dict_rm_val(pk_dict_t* dict, void* val) {
+  if (!dict->entries || !dict->count) return 0;
+  int removed = 0;
+  pthread_mutex_lock(&(dict->lock));
+  pk_dict_ent_t* max_p = _PK_DICT_MAXP(dict);
+  for (pk_dict_ent_t* p = dict->entries; p < max_p; p++) {
+    if (p->key && (p->val == val)) {
+      free(p->key);
+      p->m3 = 0;
+      p->key = NULL;
+      p->val = NULL;
+      dict->count--;
+      removed++;
+      if (_PK_DICT_SHRINK(dict)) {
+        if (!_pk_dict_resize(dict, dict->bits - 1)) {
+          dict->shrink_at -= (dict->shrink_at / 5);
+        }
+      }
+    }
+  }
+  pthread_mutex_unlock(&(dict->lock));
+  return removed;
+}
+
+
 /* *** Tests *************************************************************** */
+
+#if PK_TESTS
+#include <time.h>
+#endif
 
 int utils_test(void)
 {
@@ -778,6 +1018,78 @@ int utils_test(void)
   assert(strcasecmp(buffer1, "bin\\x0d") == 0);
   assert(printable_binary(buffer1, 60, binary, 6) == 6);
   assert(strcasecmp(buffer1, "bin\\x0d\\x0a\\0") == 0);
+
+  char* world = "world";
+  pk_dict_t pkd;
+  pk_dict_init(&pkd, 0, 0);
+  assert(_pk_dict_key_hashlen("12345678.pagekite.me") == 10);
+  assert(_pk_dict_key_hashlen("1234.302.is") == 6);
+  assert(_pk_dict_key_hashlen("1.pagekite.me") == 13);
+  assert(_pk_dict_key_hashlen("123456789012345") == 15);
+  fprintf(stderr,
+    "pk_dict: bits=%d count=%zd entries=%d@%p\n",
+    pkd.bits, pkd.count, 1 << pkd.bits, pkd.entries);
+  for (int i = 0; i < (_PK_DICT_MAXBUCKET / 2); i++) {
+    assert(world == pk_dict_add(&pkd, "hello", world));
+    assert(world == pk_dict_add(&pkd, "ohai", world));
+  }
+  fprintf(stderr,
+    "pk_dict: bits=%d count=%zd entries=%d@%p\n",
+    pkd.bits, pkd.count, 1 << pkd.bits, pkd.entries);
+  for (int i = 0; i < (_PK_DICT_MAXBUCKET / 2); i++) {
+    assert(world == pk_dict_rm(&pkd, "hello"));
+  }
+  assert(NULL == pk_dict_rm(&pkd, "hello"));
+  assert(NULL == pk_dict_find(&pkd, "hello"));
+  assert(world == pk_dict_find(&pkd, "ohai"));
+  for (int i = 0; i < 102400; i++) {
+    char hello[30];
+    sprintf(hello, "%d.pagekite.me", i);
+    assert(world == pk_dict_add(&pkd, hello, world));
+  }
+  for (int i = 0; i < 102400; i++) {
+    char hello[30];
+    sprintf(hello, "%d.pagekite.me", i);
+    assert(world == pk_dict_rm(&pkd, hello));
+  }
+  fprintf(stderr,
+    "pk_dict: bits=%d count=%zd entries=%d@%p\n",
+    pkd.bits, pkd.count, 1 << pkd.bits, pkd.entries);
+  assert(pkd.count == pk_dict_rm_val(&pkd, world));
+  fprintf(stderr,
+    "pk_dict: bits=%d count=%zd entries=%d@%p (after pk_dict_rm_val())\n",
+    pkd.bits, pkd.count, 1 << pkd.bits, pkd.entries);
+
+  char key[16];
+  struct timespec t0, t1, t2;
+  for (int l = 0; l < 10; l++) {
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t0);
+    for (int i = 0; i < 1e6; i++) {
+      sprintf(key, "%x", i);
+    }
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t1);
+    for (int i = 0; i < 1e6; i++) {
+      sprintf(key, "%x", i);
+      pk_dict_rm(&pkd, key);
+      pk_dict_add(&pkd, key, (i+1));
+    }
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t2);
+    long ns0 = (t0.tv_sec * (long)1e9) + t0.tv_nsec;
+    long ns1 = (t1.tv_sec * (long)1e9) + t1.tv_nsec;
+    long ns2 = (t2.tv_sec * (long)1e9) + t2.tv_nsec;
+    float timed_ns = (ns2 - ns1) - (ns1 - ns0);
+    fprintf(stderr,
+      "pk_dict: TIMING DATA  %ld - %ld = %.3fs Mops/s=%.3f\n",
+      ns2-ns1, ns1-ns0, timed_ns / ((float) 1e9), 2 * (float)1e9 / timed_ns);
+  }
+  fprintf(stderr,
+    "pk_dict: bits=%d count=%zd entries=%d@%p MB=%zd\n",
+    pkd.bits, pkd.count, 1 << pkd.bits, pkd.entries, (1<<(pkd.bits-20)) * sizeof(*pkd.entries));
+  pk_dict_free(&pkd);
+  fprintf(stderr,
+    "pk_dict: bits=%d count=%zd entries=%d@%p\n",
+    pkd.bits, pkd.count, 1 << pkd.bits, pkd.entries);
+
 
 #if PK_MEMORY_CANARIES
   add_memory_canary(&canary);
