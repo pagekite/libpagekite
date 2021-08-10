@@ -72,7 +72,6 @@ outward facing public API methods described above are defined in pagekite.c.
 #include "pkconn.h"
 #include "pkstate.h"
 #include "pkhooks.h"
-#include "pkutils.h"
 #include "pkproto.h"
 #include "pkblocker.h"
 #include "pkmanager.h"
