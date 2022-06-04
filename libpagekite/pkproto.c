@@ -577,7 +577,7 @@ int pk_make_salt(char* salt) {
 char* pk_sign(const char* token, const char* secret, time_t ts,
               const char* payload, int length, char *buffer)
 {
-  char tbuffer[128], tsbuf[16], scratch[10240];
+  char tbuffer[128], tsbuf[32], scratch[10240];
 
   PK_TRACE_FUNCTION;
 
@@ -606,7 +606,7 @@ char* pk_sign(const char* token, const char* secret, time_t ts,
 
   /* Optionally embed a timestamp to the resolution of 10 minutes */
   if (ts > 0) {
-    sprintf(tsbuf, "%lx", ts / 600);
+    sprintf(tsbuf, "%llx", (long long)(ts / 600));
     buffer[0] = 't';
   }
   else tsbuf[0] = '\0';
