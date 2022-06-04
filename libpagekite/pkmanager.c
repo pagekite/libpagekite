@@ -1070,8 +1070,8 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
     pkm->timer.repeat = pkm->next_tick;
     ev_timer_again(pkm->loop, &(pkm->timer));
     pk_log(PK_LOG_MANAGER_INFO,
-           "Tick!  [repeating=%s, next=%d, status=%d, tunnels=%d, v=%s]",
-           pkm->enable_timer ? "yes" : "no", pkm->next_tick,
+           "Tick!  [repeating=%s, next=%lld, status=%d, tunnels=%d, v=%s]",
+           pkm->enable_timer ? "yes" : "no", (long long)pkm->next_tick,
            pkm->status, pk_state.live_tunnels, PK_VERSION);
 
     /* We slow down exponentially by default... */
@@ -1122,8 +1122,8 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
           fe->last_ping = now;
           pkc_write(&(fe->conn), ping, pingsize);
           pk_log(PK_LOG_TUNNEL_DATA,
-              "%d: Sent PING (idle=%ds>%ds)",
-              fe->conn.sockfd, now - fe->conn.activity, now - inactive);
+              "%d: Sent PING (idle=%llds>%llds)",
+              fe->conn.sockfd, (long long)(now - fe->conn.activity), (long long)(now - inactive));
           next_tick = 1 + pkm->housekeeping_interval_min;
         }
       }
