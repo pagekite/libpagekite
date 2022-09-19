@@ -54,7 +54,7 @@ Note: For alternate license terms, see the file COPYING.md.
         "  \"pagekitec_status_code\": %d,\n" \
         "  \"pagekitec_pid\": %d,\n"         \
         "  \"pagekitec_update_min_interval\": %d,\n" \
-        "  \"pagekitec_update_ts\": %ld\n"   \
+        "  \"pagekitec_update_ts\": %lld\n"   \
         "}\n")
 
 /* Enable this format using -Y text:/path/to/file/ */
@@ -64,7 +64,7 @@ Note: For alternate license terms, see the file COPYING.md.
         "pagekitec_status_code: %d\n" \
         "pagekitec_pid: %d\n"         \
         "pagekitec_update_min_interval: %d\n" \
-        "pagekitec_update_ts: %ld\n")
+        "pagekitec_update_ts: %lld\n")
 
 
 pagekite_mgr m;
@@ -153,7 +153,7 @@ int summarize_status(const char* fpath, const char* format, const char *status_m
     }
 
     fprintf(fd, format,
-      PK_VERSION, status_msg, status, getpid(), STATUS_MIN_INTERVAL, now);
+      PK_VERSION, status_msg, status, getpid(), STATUS_MIN_INTERVAL, (long long)now);
 
     if (0 == ftruncate(fileno(fd), ftell(fd))) fflush(fd);
     fclose(fd);
