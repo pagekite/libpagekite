@@ -1050,11 +1050,11 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
   int i, pingsize;
   char ping[PK_REJECT_MAXSIZE];
   struct pk_manager* pkm = (struct pk_manager*) w->data;
-  time_t next_tick = pkm->next_tick;
-  time_t max_tick;
-  time_t now = pk_time();
-  time_t increment = (next_tick / 3);
-  time_t inactive = now - PK_HOUSEKEEPING_INTERVAL_MAX_MIN;
+  time_t64 next_tick = pkm->next_tick;
+  time_t64 max_tick;
+  time_t64 now = pk_time();
+  time_t64 increment = (next_tick / 3);
+  time_t64 inactive = now - PK_HOUSEKEEPING_INTERVAL_MAX_MIN;
 
   PK_TRACE_FUNCTION;
   pkw_pet_watchdog();
@@ -1071,7 +1071,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
     ev_timer_again(pkm->loop, &(pkm->timer));
     pk_log(PK_LOG_MANAGER_INFO,
            "Tick!  [repeating=%s, next=%lld, status=%d, tunnels=%d, v=%s]",
-           pkm->enable_timer ? "yes" : "no", (long long)pkm->next_tick,
+           pkm->enable_timer ? "yes" : "no", pkm->next_tick,
            pkm->status, pk_state.live_tunnels, PK_VERSION);
 
     /* We slow down exponentially by default... */
@@ -1123,7 +1123,7 @@ static void pkm_tick_cb(EV_P_ ev_async* w, int revents)
           pkc_write(&(fe->conn), ping, pingsize);
           pk_log(PK_LOG_TUNNEL_DATA,
               "%d: Sent PING (idle=%llds>%llds)",
-              fe->conn.sockfd, (long long)(now - fe->conn.activity), (long long)(now - inactive));
+              fe->conn.sockfd, (now - fe->conn.activity), (now - inactive));
           next_tick = 1 + pkm->housekeeping_interval_min;
         }
       }
@@ -1461,7 +1461,7 @@ struct pk_backend_conn* pkm_alloc_be_conn(struct pk_manager* pkm,
                                           struct pk_tunnel* fe, char *sid)
 {
   int i, evicting;
-  time_t max_age;
+  time_t64 max_age;
   unsigned int shift;
   struct pk_backend_conn* pkb;
   struct pk_backend_conn* pkb_oldest;
@@ -1709,8 +1709,8 @@ struct pk_manager* pkm_manager_init(struct ev_loop* loop,
   pkm->check_world_interval = PK_CHECK_WORLD_INTERVAL;
   pkm->interval_fudge_factor = 2 * (rand() % PK_HOUSEKEEPING_INTERVAL_MIN);
 
-  pkm->last_world_update = (time_t) 0;
-  pkm->last_dns_update = (time_t) 0;
+  pkm->last_world_update = (time_t64) 0;
+  pkm->last_dns_update = (time_t64) 0;
   pkm->dynamic_dns_url = dynamic_dns_url ? strdup(dynamic_dns_url) : NULL;
   pkm->ssl_ctx = ctx;
   PKS_STATE(pk_state.have_ssl = (ctx != NULL);

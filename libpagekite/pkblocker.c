@@ -219,7 +219,7 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
   int rv;
   int in_dns = 0;
   int recently_in_dns = 0;
-  time_t ddns_window;
+  time_t64 ddns_window;
   struct pk_tunnel* fe;
   struct pk_tunnel* dns_fe;
   struct addrinfo hints;
@@ -315,7 +315,7 @@ int pkb_check_kites_dns(struct pk_manager* pkm)
 int pkb_check_frontend_dns(struct pk_manager* pkm)
 {
   int i, changes, have_nulls;
-  time_t obsolete;
+  time_t64 obsolete;
   char* last_fe_hostname;
 
   PK_TRACE_FUNCTION;
@@ -735,8 +735,8 @@ void pkb_check_tunnels(struct pk_manager* pkm)
 
 void* pkb_run_blocker(void *void_pkblocker)
 {
-  static time_t last_check_world = 0;
-  static time_t last_check_tunnels = 0;
+  static time_t64 last_check_world = 0;
+  static time_t64 last_check_tunnels = 0;
   struct pk_job job;
   struct pk_blocker* this = (struct pk_blocker*) void_pkblocker;
   struct pk_manager* pkm = this->manager;
@@ -747,7 +747,7 @@ void* pkb_run_blocker(void *void_pkblocker)
   while (1) {
     pkb_get_job(&(pkm->blocking_jobs), &job);
 
-    time_t now = pk_time();
+    time_t64 now = pk_time();
     switch (job.job) {
       case PK_NO_JOB:
         break;

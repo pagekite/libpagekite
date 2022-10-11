@@ -133,7 +133,7 @@ int summarize_status(const char* fpath, const char* format, const char *status_m
 
   if (!fpath) return 0;
 
-  time_t now = time(0);
+  time_t64 now = time(0);
   if ((now - last_update > STATUS_MIN_INTERVAL) || (last_status != status)) {
     FILE *fd = fopen(fpath, "w+");
     if (!fd) {
@@ -153,7 +153,7 @@ int summarize_status(const char* fpath, const char* format, const char *status_m
     }
 
     fprintf(fd, format,
-      PK_VERSION, status_msg, status, getpid(), STATUS_MIN_INTERVAL, (long long)now);
+      PK_VERSION, status_msg, status, getpid(), STATUS_MIN_INTERVAL, now);
 
     if (0 == ftruncate(fileno(fd), ftell(fd))) fflush(fd);
     fclose(fd);

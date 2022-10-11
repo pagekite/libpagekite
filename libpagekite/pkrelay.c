@@ -94,7 +94,7 @@ struct incoming_conn_state {
   unsigned char* unparsed_data;
   int parsed_as;
   int parse_state;
-  time_t created;
+  time_t64 created;
 };
 
 

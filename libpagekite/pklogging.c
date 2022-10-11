@@ -209,8 +209,8 @@ void pk_dump_conn(char* prefix, struct pk_conn* conn)
 
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/sockfd: %d", prefix, conn->sockfd);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/activity: %llx (%llds ago)", prefix,
-                               (long long)conn->activity,
-                               (long long)(pk_time(0) - conn->activity));
+                               conn->activity,
+                               (pk_time(0) - conn->activity));
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_bytes: %d", prefix, conn->read_bytes);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/read_kb: %d", prefix, conn->read_kb);
   pk_log(PK_LOG_MANAGER_DEBUG, "%s/sent_kb: %d", prefix, conn->sent_kb);
@@ -281,8 +281,8 @@ void pk_dump_state(struct pk_manager* pkm)
   pk_log(LL, "pk_manager/kite_max: %d", pkm->kite_max);
   pk_log(LL, "pk_manager/tunnel_max: %d", pkm->tunnel_max);
   pk_log(LL, "pk_manager/be_conn_max: %d", pkm->be_conn_max);
-  pk_log(LL, "pk_manager/last_world_update: %llx", (long long)pkm->last_world_update);
-  pk_log(LL, "pk_manager/next_tick: %lld", (long long)pkm->next_tick);
+  pk_log(LL, "pk_manager/last_world_update: %llx", pkm->last_world_update);
+  pk_log(LL, "pk_manager/next_tick: %lld", pkm->next_tick);
   pk_log(LL, "pk_manager/enable_timer: %d", 0 < pkm->enable_timer);
   pk_log(LL, "pk_manager/fancy_pagekite_net_rejection_url: %s", pkm->fancy_pagekite_net_rejection_url);
   pk_log(LL, "pk_manager/want_spare_frontends: %d", pkm->want_spare_frontends);

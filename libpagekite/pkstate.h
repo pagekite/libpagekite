@@ -44,8 +44,8 @@ struct pk_global_state {
 
   /* Settings */
   unsigned int    bail_on_errors;
-  time_t          conn_eviction_idle_s;
-  time_t          socket_timeout_s;
+  time_t64        conn_eviction_idle_s;
+  time_t64        socket_timeout_s;
   unsigned int    fake_ping:1;
   char*           ssl_ciphers;
   char**          ssl_cert_names;

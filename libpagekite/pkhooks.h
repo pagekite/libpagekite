@@ -64,7 +64,7 @@ pagekite_callback2_t* pk_hooks[PK_HOOK_MAX] = {
 
 
 struct pke_event {
-  time_t          posted;
+  time_t64        posted;
   unsigned int    event_code;
   int             event_int;
   char*           event_str;

@@ -1,5 +1,8 @@
 #include "config.h"
 
+/* Just use 64bit time everywhere! */
+typedef long long time_t64;
+
 #ifndef _GNU_SOURCE
 #  define _GNU_SOURCE 1
 #endif

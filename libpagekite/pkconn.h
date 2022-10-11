@@ -70,7 +70,7 @@ struct pk_conn {
   PK_MEMORY_CANARY
   int        status;
   int        sockfd;
-  time_t     activity;
+  time_t64   activity;
   /* Data we have read, vs. what has been sent to remote end. */
   size_t     read_bytes;
   size_t     read_kb;

@@ -181,8 +181,8 @@ size_t            pk_format_http_rejection(char*, int, const char*,
                                            const char*, const char*);
 
 int               pk_make_salt(char*);
-char*             pk_sign(const char*, const char*, time_t, const char*, int, char *);
-char*             pk_prepare_kite_challenge(char *, struct pk_kite_request*, char*, time_t);
+char*             pk_sign(const char*, const char*, time_t64, const char*, int, char *);
+char*             pk_prepare_kite_challenge(char *, struct pk_kite_request*, char*, time_t64);
 int               pk_sign_kite_request(char *, struct pk_kite_request*, int);
 char*             pk_parse_kite_request(struct pk_kite_request*, char**, const char*);
 struct pk_kite_request* pk_parse_pagekite_response(char*, size_t, char*, char*);

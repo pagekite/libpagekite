@@ -45,7 +45,7 @@ struct pk_tunnel {
   /* These apply to frontend connections only (on the backend) */
   char*                   fe_hostname;
   int                     fe_port;
-  time_t                  last_ddnsup;
+  time_t64                last_ddnsup;
   int                     priority;
   char*                   fe_uuid;
   /* These apply to all tunnels (frontend or backend) */
@@ -53,8 +53,8 @@ struct pk_tunnel {
   struct pk_conn          conn;
   int                     error_count;
   char                    fe_session[PK_HANDSHAKE_SESSIONID_MAX+1];
-  time_t                  last_ping;
-  time_t                  last_configured;
+  time_t64                last_ping;
+  time_t64                last_configured;
   struct pk_manager*      manager;
   struct pk_parser*       parser;
   int                     request_count;
@@ -118,10 +118,10 @@ struct pk_manager {
   ev_async                 tick;
   ev_timer                 timer;
 
-  time_t                   last_world_update;
-  time_t                   next_tick;
+  time_t64                 last_world_update;
+  time_t64                 next_tick;
   unsigned int             enable_timer:1;
-  time_t                   last_dns_update;
+  time_t64                 last_dns_update;
 
   SSL_CTX*                 ssl_ctx;
   pthread_t                watchdog_thread;
@@ -140,10 +140,10 @@ struct pk_manager {
   int                      want_spare_frontends;
   char*                    fancy_pagekite_net_rejection_url;
   char*                    dynamic_dns_url;
-  time_t                   interval_fudge_factor;
-  time_t                   housekeeping_interval_min;
-  time_t                   housekeeping_interval_max;
-  time_t                   check_world_interval;
+  time_t64                 interval_fudge_factor;
+  time_t64                 housekeeping_interval_min;
+  time_t64                 housekeeping_interval_max;
+  time_t64                 check_world_interval;
 };
 
 

@@ -33,7 +33,7 @@ Note: For alternate license terms, see the file COPYING.md.
 #include "pklogging.h"
 
 
-time_t pk_global_watchdog_ticker = 0;
+time_t64 pk_global_watchdog_ticker = 0;
 
 
 void pkw_pet_watchdog()
@@ -46,7 +46,7 @@ void* pkw_run_watchdog(void *void_pkm)
 {
   int i;
   int *segfaulter;
-  time_t last_ticker = 0xDEADBEEF;
+  time_t64 last_ticker = 0xDEADBEEF;
   struct pk_manager* pkm = (struct pk_manager*) void_pkm;
   pk_log(PK_LOG_MANAGER_DEBUG, "Started watchdog thread.");
 

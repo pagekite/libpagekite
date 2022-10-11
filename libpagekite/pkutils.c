@@ -343,7 +343,7 @@ void pk_pthread_condattr_setclock(pthread_condattr_t* cond_attr) {
 #endif
 }
 
-time_t pk_time()
+time_t64 pk_time()
 {
 #if defined(HAVE_CLOCK_MONOTONIC) && defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
   struct timespec tp;

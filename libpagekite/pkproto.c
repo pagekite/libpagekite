@@ -574,10 +574,10 @@ int pk_make_salt(char* salt) {
   return 1;
 }
 
-char* pk_sign(const char* token, const char* secret, time_t ts,
+char* pk_sign(const char* token, const char* secret, time_t64 ts,
               const char* payload, int length, char *buffer)
 {
-  char tbuffer[128], tsbuf[32], scratch[10240];
+  char tbuffer[128], tsbuf[sizeof(time_t64) * 2 + 1], scratch[10240];
 
   PK_TRACE_FUNCTION;
 
@@ -606,7 +606,7 @@ char* pk_sign(const char* token, const char* secret, time_t ts,
 
   /* Optionally embed a timestamp to the resolution of 10 minutes */
   if (ts > 0) {
-    sprintf(tsbuf, "%llx", (long long)(ts / 600));
+    sprintf(tsbuf, "%llx", (ts / 600));
     buffer[0] = 't';
   }
   else tsbuf[0] = '\0';
@@ -636,7 +636,7 @@ char* pk_sign(const char* token, const char* secret, time_t ts,
 }
 
 char *pk_prepare_kite_challenge(char* buffer, struct pk_kite_request* kite_r,
-                                char* secret, time_t ts) {
+                                char* secret, time_t64 ts) {
   char proto[64];
   struct pk_pagekite* kite;
 

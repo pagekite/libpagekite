@@ -60,7 +60,7 @@ int dbg_write(int, char *, int);
 int set_non_blocking(int);
 int set_blocking(int);
 void sleep_ms(int);
-time_t pk_time();
+time_t64 pk_time();
 void pk_gettime(struct timespec*);
 void pk_pthread_condattr_setclock(pthread_condattr_t*);
 int wait_fd(int, int);
