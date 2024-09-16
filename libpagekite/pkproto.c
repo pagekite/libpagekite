@@ -766,9 +766,9 @@ char *pk_parse_kite_request(
   free(copy);
 
   /* Pass judgement */
-  if ('\0' == *public_domain) return pk_err_null(ERR_PARSE_NO_KITENAME);
-  if ('\0' == *bsalt) return pk_err_null(ERR_PARSE_NO_BSALT);
-  if ('\0' == *fsalt) return pk_err_null(ERR_PARSE_NO_FSALT);
+  if ('\0' == *(kite->public_domain)) return pk_err_null(ERR_PARSE_NO_KITENAME);
+  if ('\0' == *(kite_r->bsalt)) return pk_err_null(ERR_PARSE_NO_BSALT);
+  if ('\0' == *(kite_r->fsalt)) return pk_err_null(ERR_PARSE_NO_FSALT);
   return kite->public_domain;
 }
 
