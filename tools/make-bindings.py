@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# This file is Copyright 2016, The Beanstalks Project ehf.
+# This file is Copyright 2011-2025, The Beanstalks Project ehf.
 #
 # This tool automatically creates language bindings and documentation, based
 # on the contents of pagekite.h.
@@ -14,7 +14,7 @@ BOILERPLATE = """\
       * * *   WARNING: This file is auto-generated, do not edit!  * * *
 
 *******************************************************************************
-This file is Copyright 2012-%(year)s, The Beanstalks Project ehf.
+This file is Copyright 2011-2025%(year)s, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software

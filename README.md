@@ -113,7 +113,7 @@ and [the commit log for recent fixes](https://github.com/pagekite/libpagekite/co
 
 ## License and Copyright ##
 
-libpagekite is Copyright 2011-2020, The Beanstalks Project ehf.
+libpagekite is Copyright 2011-2025, The Beanstalks Project ehf.
 
 This code is released under the Apache License 2.0, but may also be used
 according to the terms of the GNU Affero General Public License.  Please

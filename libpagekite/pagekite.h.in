@@ -3,7 +3,7 @@ pagekite.h - The public library interface of libpagekite
 
 *******************************************************************************
 
-This file is Copyright 2012-2020, The Beanstalks Project ehf.
+This file is Copyright 2011-2025, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software

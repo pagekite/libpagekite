@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.68])
 
-# libpagekite is Copyright 2011-2016, The Beanstalks Project ehf.
+# libpagekite is Copyright 2011-2025, The Beanstalks Project ehf.
 
 AC_INIT([libpagekite], [0.90.150224], [info@pagekite.net])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
