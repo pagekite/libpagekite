@@ -826,7 +826,7 @@ Log an error and reset the internal error state.
 
 ## Constants
 
-PK_VERSION = "0.91.201110C"  
+PK_VERSION = "0.91.251215C"  
 PK_STATUS_STARTUP = 10  
 PK_STATUS_CONNECTING = 20  
 PK_STATUS_UPDATING_DNS = 30  

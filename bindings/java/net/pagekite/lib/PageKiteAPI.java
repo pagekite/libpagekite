@@ -4,7 +4,7 @@
       * * *   WARNING: This file is auto-generated, do not edit!  * * *
 
 *******************************************************************************
-This file is Copyright 2012-2020, The Beanstalks Project ehf.
+This file is Copyright 2012-2025, The Beanstalks Project ehf.
 
 This program is free software: you can redistribute it and/or modify it under
 the terms  of the  Apache  License 2.0  as published by the  Apache  Software
@@ -24,7 +24,7 @@ package net.pagekite.lib;
 
 public class PageKiteAPI extends Object
 {
-    public static final String PK_VERSION = "0.91.201110C";
+    public static final String PK_VERSION = "0.91.251215C";
     public static final int PK_STATUS_STARTUP = 10;
     public static final int PK_STATUS_CONNECTING = 20;
     public static final int PK_STATUS_UPDATING_DNS = 30;
